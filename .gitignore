@@ -1,0 +1,20 @@
+.DS_Store
+
+# Derived / regenerated artifacts — not tracked (see REPRODUCE.md).
+# The sample corpus and any binaries are obtained/generated locally, never committed.
+corpus/
+artifacts/
+generated/
+environments/
+workspace/
+*.apk
+*.jar
+*.class
+*.dex
+*.so
+*.bqrs
+cpg.bin*
+analysis/joern/projects/
+analysis/codeql/databases/
+analysis/codeql/src-scoped/
+**/workspace/

@@ -1,0 +1,4 @@
+name: goldoson/edge-queries
+version: 0.0.1
+dependencies:
+  codeql/java-all: "*"
