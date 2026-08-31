@@ -79,6 +79,7 @@ analysis/reports/               the deliverables:
   TRACK1_CPG.md                 scoped jimple2cpg CPG + reachability
   TRACK2_CODEQL.md              scoped CodeQL build-mode=none + query
   SCOPE_VERIFICATION.md         reverse-trace proof the 59-file scope is complete
+  TRACK_NATIVE.md               native track (ghidra2cpg) — method extension demo
   SUMMARY.md                    one-page summary
 analysis/joern/scripts/         edge-taint.sc, scope-check.sc, scope-detail.sc
 analysis/codeql/queries/        edge_flows.ql (+ qlpack.yml)
@@ -101,9 +102,12 @@ Works well for: embedded SDKs/libraries inside big apps, a small target inside a
 codebase, decompiled/obfuscated JVM bytecode, and source→sink / reachability /
 capability questions.
 
-Needs adaptation or breaks for: **native code** (`.so`; `jimple2cpg` is JVM-only — swap
-in a binary/IR frontend), **reflection / dynamic loading** (defeats static closure — the
-completeness proof must be re-checked per target), targets with **no clean package
+Extends to **native code** (`.so`/`.dll`/`.exe`) via the ghidra2cpg native track — same
+shape (scope → lift → inventory → verify), different frontend; see
+[`analysis/reports/TRACK_NATIVE.md`](analysis/reports/TRACK_NATIVE.md).
+
+Needs adaptation or breaks for: **reflection / dynamic loading** (defeats static closure —
+the completeness proof must be re-checked per target), targets with **no clean package
 boundary**, **framework-mediated dataflow** (always needs models), and anything that is
 truly a **runtime** question.
 

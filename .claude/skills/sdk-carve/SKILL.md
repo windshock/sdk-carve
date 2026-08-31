@@ -3,8 +3,9 @@ name: sdk-carve
 description: >-
   Carve one embedded SDK/library out of a huge, decompiler-damaged Android/JVM app and
   analyze it with scoped, tool-verified static analysis — a scoped Joern CPG
-  (jimple2cpg over bytecode) plus a scoped CodeQL database (build-mode=none) — when
-  whole-app CPG/CodeQL fails on scale or on decompiled/obfuscated syntax. Use for:
+  (jimple2cpg over bytecode) plus a scoped CodeQL database (build-mode=none), and a
+  native track via ghidra2cpg for `.so`/`.dll`/`.exe` — when whole-app CPG/CodeQL
+  fails on scale or on decompiled/obfuscated syntax. Use for:
   embedded third-party SDK/adware/spyware analysis, isolating a small target inside a
   huge codebase, decompiled or obfuscated JVM bytecode, and source→sink / reachability
   / capability questions. Triggers — "analyze this SDK embedded in the app", "scope a
@@ -28,7 +29,8 @@ boundary, and cross-verify** — then prove the scope was complete.
 
 ## Do NOT assume this works for
 
-- **Native code** (`.so`, C/C++): `jimple2cpg` is JVM-only — swap in a binary/IR frontend.
+- **Native code** (`.so`/`.dll`/`.exe`): the JVM frontend does not apply — use the
+  **native track (ghidra2cpg)** below.
 - **Heavy reflection / dynamic class loading**: static call edges are missing, so the
   scope-closure proof (step 5) can silently under-scope. Re-check per target.
 - Targets with **no clean package boundary**.
@@ -94,12 +96,34 @@ add it to the scope (step 1) and repeat.
   models/semantics. Reachability + source/sink inventory already establish the capability.
 - Static ≠ runtime. Label findings `binary-confirmed` vs `runtime-confirmed`.
 
+## Native track (ghidra2cpg)
+
+For native libraries (`.so`/`.dll`/`.dylib`/`.exe`) the JVM frontend does not apply;
+use Ghidra via `ghidra2cpg`. Same shape — scope, lift, inventory, verify — with these
+differences:
+
+- **Scope**: one library is already a scoped unit. For a huge binary, scope by exported
+  functions and their reachable subgraph (`ghidra2cpg --exclude-regex`, or post-filter).
+- **Lift**: `scripts/native-cpg.sh <binary> <out.cpg>` (wraps `ghidra2cpg`). Works on
+  stripped binaries (functions become `FUN_xxxx`).
+- **JDK inversion**: Ghidra needs a *recent* JDK (21+). Do **not** pin JDK 17 here — that
+  pin is only for jimple2cpg/Soot. Leave `JAVA_HOME` at the default.
+- **Inventory**: `CPG=out.cpg joern --script scripts/native-inventory.sc 2>&1 | grep -a '^MARK'`.
+  The imported-symbol surface *is* the source/sink surface (libc, `__android_log_print`,
+  `socket`/`open`, crypto, JNI env calls); `Java_*` / `JNI_OnLoad` are entry points.
+- **Output plumbing**: joern logs to stdout and Ghidra literals contain NUL bytes — hence
+  the `MARK` prefix + `grep -a`.
+- **Limits**: stripped → no symbol names; no source-level types; strings need a dedicated
+  pass. Confirm against the disassembly and cross-verify, like the JVM track.
+
 ## Files
 
 - `scripts/carve.sh` — mini-JAR + `jimple2cpg` (parameterized by package globs)
 - `scripts/source-sink.sc` — Joern source/sink inventory + entry→sink reachability
 - `scripts/scope-closure.sc` — reverse dependency trace / scope-completeness proof
 - `queries/flows.ql` — CodeQL source/sink template (name-matched, `build-mode=none`-friendly)
+- `scripts/native-cpg.sh` — native binary → CPG via `ghidra2cpg` (native track)
+- `scripts/native-inventory.sc` — imported-API surface + native sinks + JNI entry points
 
 Edit the `EDIT:`-marked lines (package prefixes, source/sink method names, entry points)
 for your target. The Goldoson/SMARTLB defaults are left in as a worked example.
