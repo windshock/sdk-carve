@@ -34,6 +34,9 @@ boundary, and cross-verify** — then prove the scope was complete.
 - **Heavy reflection / dynamic class loading**: static call edges are missing, so the
   scope-closure proof (step 5) can silently under-scope. Re-check per target.
 - Targets with **no clean package boundary**.
+- Targets that share framework signatures with **shaded libraries** in the same app
+  (WiFi/BT scanning, HTTP, crypto): anchor-based root detection can *over*-scope — always
+  size/depth-guard the detection (step 0) and re-check the closure (step 5).
 
 ## Method
 
@@ -41,6 +44,33 @@ boundary, and cross-verify** — then prove the scope was complete.
 Identify the SDK's own package(s) and any obfuscated helper packages it references
 (single/two-letter packages are common after R8). Seed from docs/known research, then
 confirm by reading imports/usages. You will *prove* completeness in step 5.
+
+**When the package name is itself R8-renamed** (the common case — the same SDK ships as
+`com/smart/sklb/edge` in one app but `com/enoi/yweoi/nwef`, `com/gwox/pzkvn/riosk`, … in
+others), you cannot seed from docs. Auto-locate the renamed root by anchoring on the
+SDK's *own* surviving method names:
+
+```bash
+scripts/detect.py app-dex2jar.jar        # prints carve globs, e.g. com/enoi/yweoi/nwef/*
+```
+
+`detect.py` greps for the SDK-unique method names (the same names you put in
+`source-sink.sc`), maps each hit to its package root, and applies three guards so it
+cannot drag in a shaded library that merely shares a signature:
+
+- **size guard** — framework scan APIs (`getScanResults`/`getBondedDevices`) also live in
+  unrelated shaded libs (e.g. an 8k-class package); a real SDK cluster is ~100–300
+  classes, so roots larger than `GUARD` (400) are rejected. *Without this the carve
+  balloons to a mini-whole-app — the #1 way to under-scope by over-scoping.*
+- **depth guard** — a genuine short helper is shallow (`f2/x`); a deep hit (`d/e/a/a/c`)
+  is a shaded-library substring FP and is dropped.
+- **lib denylist + a 4-segment `com/<a>/<b>/<c>` rule** — across the Goldoson family the
+  root is consistently four segments; jackson/glide/igaworks/mapps and friends are
+  skipped by name (tune `DENY` / `SEGS` for your SDK).
+
+If the SDK's *method* names are obfuscated too, `detect.py` falls back to a structural
+anchor — classes that call **both** framework `getScanResults` and `getBondedDevices`
+(a WiFi-scan ∩ BT-bonded collector triad no benign single-purpose lib exhibits).
 
 ### 1. Carve a scoped mini-JAR from bytecode
 Extract only the target packages' classes from the app's dex2jar JAR and re-jar them.
@@ -63,6 +93,11 @@ names in the script for your target.
 ```bash
 CPG=out/cpg.bin joern --script scripts/source-sink.sc
 ```
+
+> If the SDK's own method names are R8-renamed (not just its package), name-matching
+> under-reports — the sink inventory collapses to framework names only
+> (`loadUrl`/`loadData`). Recover the real surface with the structural anchors from step 0
+> (framework APIs cannot be renamed), or map the renamed names by call structure.
 
 ### 3. Scoped CodeQL (independent second tool)
 Copy only the target `.java` into a clean source root and build with **no compilation**:
@@ -118,6 +153,8 @@ differences:
 
 ## Files
 
+- `scripts/detect.py` — auto-locate an R8-renamed SDK root (method-name anchors +
+  size/depth/denylist guards + structural fallback); prints carve globs
 - `scripts/carve.sh` — mini-JAR + `jimple2cpg` (parameterized by package globs)
 - `scripts/source-sink.sc` — Joern source/sink inventory + entry→sink reachability
 - `scripts/scope-closure.sc` — reverse dependency trace / scope-completeness proof
