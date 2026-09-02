@@ -32,8 +32,8 @@ mb() {  # malwarebazaar by sha256 (returns password-'infected' zip) -> unzip -> 
   local z="${dst%.apk}.zip"
   curl -fsS -H "Auth-Key: $MB_APIKEY" -d "query=get_file&sha256_hash=$sha" \
     https://mb-api.abuse.ch/api/v1/ -o "$z" \
-    && unzip -P infected -o "$z" -d "$(dirname "$dst")" >/dev/null && rm -f "$z" \
-    && echo "  bazaar OK    $(dirname "$dst")"
+    && 7z x -y -pinfected -o"$(dirname "$dst")" "$z" >/dev/null && rm -f "$z" \
+    && echo "  bazaar OK    $(dirname "$dst")"   # MB zips are AES (PK5.1) -> 7z, not unzip
 }
 
 tail -n +2 "$SEEDS" | while IFS=, read -r family kind ident htype source conf notes; do
