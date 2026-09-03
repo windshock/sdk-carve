@@ -35,6 +35,15 @@ mb() {  # malwarebazaar by sha256 (returns password-'infected' zip) -> unzip -> 
     && 7z x -y -pinfected -o"$(dirname "$dst")" "$z" >/dev/null && rm -f "$z" \
     && echo "  bazaar OK    $(dirname "$dst")"   # MB zips are AES (PK5.1) -> 7z, not unzip
 }
+ha() {  # hybrid-analysis (Falcon Sandbox) by sha256 -> gzip -> apk; needs auth_level>=100
+  local sha="$1" dst="$2"
+  [ -n "${HYBRIDANALYSIS_APIKEY:-}" ] || { echo "  SKIP(no HYBRIDANALYSIS_APIKEY) $sha"; return 1; }
+  local gz="${dst%.apk}.gz"
+  curl -fsS -H "api-key: $HYBRIDANALYSIS_APIKEY" -H "User-Agent: Falcon Sandbox" \
+    "https://hybrid-analysis.com/api/v2/overview/$sha/sample" -o "$gz" \
+    && gunzip -f "$gz" && mv "${gz%.gz}" "$dst" 2>/dev/null \
+    && echo "  HA OK        $dst"
+}
 
 tail -n +2 "$SEEDS" | while IFS=, read -r family kind ident htype source conf notes; do
   [ -z "$family" ] && continue
@@ -44,9 +53,11 @@ tail -n +2 "$SEEDS" | while IFS=, read -r family kind ident htype source conf no
     dst="$d/$ident.apk"
     if [ "$GO" = 0 ]; then echo "WOULD fetch [$family] sha256 $ident ($source)"; continue; fi
     [ -s "$dst" ] && { echo "  have $dst"; continue; }
+    # try the seed's preferred source first, then fall back across all providers
     case "$source" in
-      malwarebazaar) mb "$ident" "$dst" || az "$ident" "$dst" ;;
-      *)             az "$ident" "$dst" || mb "$ident" "$dst" ;;
+      malwarebazaar)  mb "$ident" "$dst" || ha "$ident" "$dst" || az "$ident" "$dst" ;;
+      hybridanalysis) ha "$ident" "$dst" || mb "$ident" "$dst" || az "$ident" "$dst" ;;
+      *)              ha "$ident" "$dst" || mb "$ident" "$dst" || az "$ident" "$dst" ;;
     esac
   elif [ "$kind" = "package" ]; then
     # AndroZoo package -> pick historical versions via the metadata catalogue (manual step);

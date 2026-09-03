@@ -8,11 +8,14 @@ static `sdk-carve` analysis** and are never executed. Downloads land in `corpus/
 
 | Var | Get it | Used for |
 |---|---|---|
-| `ANDROZOO_APIKEY` | https://androzoo.uni.lu/access (research registration) | historical APKs by sha256 / package |
-| `MB_APIKEY` | https://auth.abuse.ch/ (MalwareBazaar Auth-Key) | family-tagged samples by sha256 |
+| `HYBRIDANALYSIS_APIKEY` | https://hybrid-analysis.com (Falcon Sandbox; `auth_level>=100` "default" can download) | samples by sha256 (gzip) |
+| `MB_APIKEY` | https://auth.abuse.ch/ (MalwareBazaar Auth-Key) | family-tagged samples by sha256 (AES zip) |
+| `ANDROZOO_APIKEY` | https://androzoo.uni.lu/access (academic/research only) | historical APKs by sha256 / package |
 
-Verified 2026-08-31: network egress works, but `androzoo.uni.lu` needs `apikey=` and
-`mb-api.abuse.ch` returns HTTP 401 without `Auth-Key`. Nothing downloads until a key is set.
+`fetch.sh` tries HA → MalwareBazaar → AndroZoo. Which repo has which sample varies:
+SpinOk was on MalwareBazaar only; Konfety on Hybrid Analysis only. Availability is a
+per-hash lookup (`search/hash` on HA, `get_info` on MB) — many hashes are on neither, and
+those (MobiDash, Invisible Adware, Necro, Goldoson-historical) need AndroZoo.
 
 ## Usage
 

@@ -30,8 +30,41 @@ Goldoson's installed-packet-capture-app detection remains distinctive and, so fa
 in the compared families — reinforcing it as the strongest candidate for a dedicated
 code-lineage reverse-search (needs AndroZoo, PLAN Phase B/B1).
 
+## Konfety / CaramelAds — a third, packaging-layer branch (5 samples)
+
+Source: Hybrid Analysis (all 5 Zimperium hashes; sha256-verified). Konfety does **not**
+use an in-code environment guard at all — its anti-analysis is at the **APK packaging /
+dynamic-loading layer**, and it defeats static bytecode carving:
+
+- **Corrupted manifest to break static tools:** `AndroidManifest.xml` is **BZip2**-compressed
+  (a method Android tolerates but the APK spec doesn't sanction) → `aapt`/`apktool` report
+  "corrupt" on all 5. Installable, but static-analysis-hostile.
+- **Decoy `classes.dex`** (7–8 KB, 7–14 classes): mostly empty stubs (`class K { void GCw(){} }`).
+  Only `GCw`+`IEk` are real — `IEk` is a char-wise **string-deobfuscator**, `GCw` uses
+  **reflection** (`Class.forName(IEk(...))` → `newInstance`) and a `ContentProvider`
+  auto-start to load the hidden payload.
+- **Packed ~2.2 MB `assets/<numeric>` payload** carrying the real SDK; the ZIP entry is
+  itself tampered (`unzip` size-mismatch; `7z` hangs) — resists extraction.
+
+**Method implication (honest limit):** sdk-carve's JVM track sees only the decoy + loader
+stub. Carving Konfety's real SDK needs a runtime/unpack pre-step (drive the loader or
+decrypt the asset) before the bytecode pipeline applies — a precondition Konfety
+deliberately breaks.
+
+## Anti-analysis technique, by layer
+
+| Family | Anti-analysis layer | Mechanism |
+|---|---|---|
+| **Goldoson** | in-code, runtime | AES/CBC-encrypted **packet-capture-app blocklist** → abort |
+| **SpinOk** | (SDK: none) | sensor/emulator checks live in **co-bundled ad networks**, not the SpinOk SDK |
+| **Konfety** | packaging + loader | **BZip2 manifest** + decoy dex + reflectively-loaded **packed asset** |
+
+Three samples, three different branches → reinforces **technique lineage, not shared code**.
+Goldoson's dedicated analysis-tool blocklist remains unique among the three.
+
 ## Limits
 
-One SpinOk sample/version. Konfety, MobiDash, Invisible Adware, and Necro were **not on
-MalwareBazaar** (`hash_not_found`) and need AndroZoo (pending API key). Ad-network
-attribution above is by package name in this APK, not per-SDK-version audit.
+One SpinOk version; 5 Konfety samples (not yet unpacked). MobiDash, Invisible Adware, and
+Necro are **not on MalwareBazaar or Hybrid Analysis** (`hash_not_found`) → need AndroZoo
+(academic-gated) or another source. Ad-network attribution for SpinOk is by package name,
+not per-SDK-version audit.
