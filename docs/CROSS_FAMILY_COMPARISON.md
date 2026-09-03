@@ -77,10 +77,28 @@ engine itself is in the encrypted DB (Jamf-consistent, so absent from the primar
 | payload container | packed `assets/<numeric>` | `assets/jdhcc.db` (SQLCipher) |
 | key source | `Random(asset_name + 0xFFFF)` | digest of APK signing cert (`signatures[0]`) |
 | decrypt | XOR keystream | SQLCipher `openOrCreateDatabase` |
-| load | reflect into `dexElements` | `InMemoryDexClassLoader → ftV0BV.newInstance(ctx)` |
+| layers | 1 | 3 (SQLCipher → bootstrap → XOR modules) |
+| load | reflect into `dexElements` | `InMemoryDexClassLoader` → `ftV0BV` → modules |
 
-Both keys are **statically derivable** (asset-name / in-APK signing cert) — the pre-carve
-payload stage applies to both; MobiDash's SQLCipher decrypt is a feasible next step.
+**Fully unpacked statically** ([`../.claude/skills/sdk-carve/scripts/mobidash-unpack.py`](../.claude/skills/sdk-carve/scripts/mobidash-unpack.py),
+verified — no runtime): cert-derived passphrase `794143205` opens the DB (SQLCipher 4);
+table `cmnFdTEbL` holds a 7 KB **bootstrap DEX** (`ftV0BV`) + 5 **XOR-encrypted module jars**
+(`ext`/`irs`/`apl`/`uni`/`dat`; XOR key = first 10 bytes of each blob, skip 8, 64 KB-chunked).
+The bootstrap adds **emulator detection** (`Build.MODEL` vs `nexus 5x`/`OnePlus8Pro`) and a
+**hidden-API bypass** (`VMRuntime.setHiddenApiExemptions`).
+
+The recovered **`ext` module (3,496 classes)** is the fraud engine — every Jamf signature,
+now code-confirmed in `com.stwdi.denhonol…`:
+- **phantom viewport** `createVirtualDisplay`/`Presentation` (`HqJz25`/`NkgMB0`/`jvByHu`)
+- **synthetic `MotionEvent` touch** (`uo1vHa`/…)
+- **`Proxy.NO_PROXY`** anti-mitm (`uVm228`/…) + a **2,056-class Netty** residential-proxy stack
+- `irs`=IronSource (1,834), `apl`=AppLovin (2,732) ad modules.
+
+**Convergence:** Konfety and MobiDash independently arrive at the **same phantom-viewport +
+synthetic-touch click-fraud** engine, both reachable only after statically peeling their
+loaders. Different packaging (XOR asset vs SQLCipher+XOR modules), same fraud endgame —
+technique convergence, and both fully recoverable offline because the key material
+(asset-name / in-APK signing cert) never leaves the sample.
 
 ## Anti-analysis technique, by layer
 
@@ -99,6 +117,7 @@ SQLCipher DB), and both payloads reach the same **phantom-viewport click-fraud**
 ## Limits
 
 One SpinOk version; 5 Konfety samples (payload fully carved); 1 MobiDash (Jamf `c64db66f…`
-via Triage — loader carved, SQLCipher payload not yet decrypted). Invisible Adware and Necro
-are on none of MalwareBazaar / Hybrid Analysis / our Triage exports → need AndroZoo
-(academic-gated). Ad-network attribution for SpinOk is by package name, not per-version audit.
+via Triage — **fully unpacked**: SQLCipher DB + XOR modules → fraud engine, statically).
+Invisible Adware and Necro are on none of MalwareBazaar / Hybrid Analysis / our Triage
+exports → need AndroZoo (academic-gated). Ad-network attribution for SpinOk is by package
+name, not per-version audit.
