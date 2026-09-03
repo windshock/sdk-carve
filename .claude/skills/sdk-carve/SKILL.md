@@ -170,6 +170,8 @@ differences:
   bogus method, size lies) so tools parse it; flags decoy dex + packed assets
 - `scripts/konfety-unpack.py` — pre-carve payload stage (Konfety family): inflate + XOR
   (`java.util.Random`, seed = asset-name + 0xFFFF) → inner ZIP → real `classes.dex`
+- `scripts/mobidash-unpack.py` — pre-carve payload stage (MobiDash family): signing-cert →
+  SQLCipher passphrase → bootstrap DEX + XOR-decrypted module jars (multi-layer example)
 - `scripts/detect.py` — auto-locate an R8-renamed SDK root (method-name anchors +
   size/depth/denylist guards + structural fallback); prints carve globs
 - `scripts/carve.sh` — mini-JAR + `jimple2cpg` (parameterized by package globs); builds the

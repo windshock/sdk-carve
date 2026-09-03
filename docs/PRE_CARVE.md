@@ -110,6 +110,22 @@ from entry points** (`onCreate`/`onStartCommand`/…):
 All 5 evil-twins carry the **same** payload (only the decoy wrapper + asset-name/seed differ)
 → a single shared second-stage across the cluster, using MobiDash-class techniques.
 
+## Second example: MobiDash (a deeper Stage-3a chain)
+
+Same staged model, three payload layers instead of one — and still fully static
+(`scripts/mobidash-unpack.py`, verified on Jamf sample `c64db66f…`):
+
+1. primary-dex loader `…jdhcc.mHwymQ`: SQLCipher key = `int32(1682213662 ^ hashCode(signing_cert_DER))`
+   → passphrase `794143205` opens `assets/jdhcc.db`.
+2. table `cmnFdTEbL` → a 7 KB **bootstrap DEX** (`ftV0BV`, which adds emulator detection +
+   `VMRuntime.setHiddenApiExemptions`) + 5 **XOR-encrypted module jars** (key = first 10
+   bytes of each blob, skip 8, 64 KB-chunked).
+3. `ext` module (3,496 classes) = the fraud engine — phantom viewport, synthetic `MotionEvent`,
+   `Proxy.NO_PROXY`, a 2,056-class Netty proxy stack (+ IronSource/AppLovin modules).
+
+The key is again **in the sample** (the APK signing certificate), so no runtime is needed.
+See [`CROSS_FAMILY_COMPARISON.md`](CROSS_FAMILY_COMPARISON.md) for the Konfety↔MobiDash diff.
+
 ## Takeaway
 
 The finding isn't "Konfety broke sdk-carve" — it's that sdk-carve was missing a
