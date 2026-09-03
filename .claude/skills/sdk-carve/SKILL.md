@@ -37,6 +37,19 @@ boundary, and cross-verify** — then prove the scope was complete.
 - Targets that share framework signatures with **shaded libraries** in the same app
   (WiFi/BT scanning, HTTP, crypto): anchor-based root detection can *over*-scope — always
   size/depth-guard the detection (step 0) and re-check the closure (step 5).
+- **Malformed / packed APKs** (Konfety, SoumniBot, DCL packers): the real SDK isn't in the
+  primary `classes.dex` — it's a decoy, and the payload is a tampered/encrypted asset. Run
+  the **pre-carve** stage first (see below); a bytecode carve on the raw APK finds only the
+  decoy.
+
+## Pre-carve (stage 0 — container normalization & payload discovery)
+
+If `aapt`/`apktool` say the manifest is "corrupt", or `classes.dex` is tiny/decoy, the APK
+container is tampered. `scripts/apk-normalize.py` generically repairs the ZIP (fake
+encryption flag, bogus compression method, size lies) so standard tools parse it, and flags
+high-entropy `assets/*` as candidate packed payloads. Then recover the hidden DEX (e.g.
+`scripts/konfety-unpack.py` for the Konfety family) and carve *that*. Full worked example:
+[`docs/PRE_CARVE.md`](../../../docs/PRE_CARVE.md).
 
 ## Method
 
@@ -153,6 +166,10 @@ differences:
 
 ## Files
 
+- `scripts/apk-normalize.py` — pre-carve: repair a tampered/evasive APK ZIP (fake enc flag,
+  bogus method, size lies) so tools parse it; flags decoy dex + packed assets
+- `scripts/konfety-unpack.py` — pre-carve payload stage (Konfety family): inflate + XOR
+  (`java.util.Random`, seed = asset-name + 0xFFFF) → inner ZIP → real `classes.dex`
 - `scripts/detect.py` — auto-locate an R8-renamed SDK root (method-name anchors +
   size/depth/denylist guards + structural fallback); prints carve globs
 - `scripts/carve.sh` — mini-JAR + `jimple2cpg` (parameterized by package globs)
