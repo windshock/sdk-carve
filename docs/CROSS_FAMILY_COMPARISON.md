@@ -58,6 +58,30 @@ viewport renders the ad WebView invisibly (`com.adcommercial.utils.xOnUc`) with 
 entry. No in-code emulator/root/packet-capture guard — Konfety's evasion is the packer, its
 fraud is the click engine. Full map: [`PRE_CARVE.md`](PRE_CARVE.md) §3.
 
+## MobiDash — parasite loader + SQLCipher payload (Jamf sample `c64db66f…`)
+
+Same *architecture* as Konfety, confirming a shared **loader → encrypted-payload → in-memory
+DexClassLoader** pattern (not shared code). Carved the loader from the primary dex; the fraud
+engine itself is in the encrypted DB (Jamf-consistent, so absent from the primary dex — no
+`Proxy.NO_PROXY`/`VirtualDisplay`/C2 there).
+
+- Host parasitized into `com.stwdi.denhonol.vacbe.jdhcc`; ad mediation IronSource / Unity /
+  AppLovin; storage Realm + `net.sqlcipher`.
+- **Loader `…jdhcc.mHwymQ`:** key = `digest(getPackageInfo(pkg, GET_SIGNATURES).signatures[0])`
+  (**APK signing certificate**) → `SQLiteDatabase.openOrCreateDatabase("jdhcc.db", key)`
+  (SQLCipher) → `InMemoryDexClassLoader(...).loadClass("…jdhcc.jdhcc.ftV0BV").newInstance(ctx)`.
+- Payload container: **`assets/jdhcc.db`** (3.7 MB SQLCipher DB) vs Konfety's XOR-packed asset.
+
+| | Konfety (`GCw`/`IEk`) | MobiDash (`mHwymQ`) |
+|---|---|---|
+| payload container | packed `assets/<numeric>` | `assets/jdhcc.db` (SQLCipher) |
+| key source | `Random(asset_name + 0xFFFF)` | digest of APK signing cert (`signatures[0]`) |
+| decrypt | XOR keystream | SQLCipher `openOrCreateDatabase` |
+| load | reflect into `dexElements` | `InMemoryDexClassLoader → ftV0BV.newInstance(ctx)` |
+
+Both keys are **statically derivable** (asset-name / in-APK signing cert) — the pre-carve
+payload stage applies to both; MobiDash's SQLCipher decrypt is a feasible next step.
+
 ## Anti-analysis technique, by layer
 
 | Family | Anti-analysis layer | Mechanism |
@@ -65,13 +89,16 @@ fraud is the click engine. Full map: [`PRE_CARVE.md`](PRE_CARVE.md) §3.
 | **Goldoson** | in-code, runtime | AES/CBC-encrypted **packet-capture-app blocklist** → abort |
 | **SpinOk** | (SDK: none) | sensor/emulator checks live in **co-bundled ad networks**, not the SpinOk SDK |
 | **Konfety** | packaging + loader | fake-method/fake-enc **ZIP tamper** + decoy dex + `java.util.Random`-XOR **packed asset** (install-referrer gating in payload) |
+| **MobiDash** | loader + encrypted DB | primary-dex loader → **SQLCipher `jdhcc.db`** keyed on the **signing cert** → `InMemoryDexClassLoader` fraud engine |
 
-Three samples, three different branches → reinforces **technique lineage, not shared code**.
-Goldoson's dedicated analysis-tool blocklist remains unique among the three.
+Four samples, four branches → reinforces **technique lineage, not shared code**. Goldoson's
+dedicated analysis-tool blocklist stays unique; Konfety and MobiDash independently converge on
+the **loader → encrypted-payload → in-memory-DexClassLoader** shape (XOR-packed asset vs
+SQLCipher DB), and both payloads reach the same **phantom-viewport click-fraud** endgame.
 
 ## Limits
 
-One SpinOk version; 5 Konfety samples (not yet unpacked). MobiDash, Invisible Adware, and
-Necro are **not on MalwareBazaar or Hybrid Analysis** (`hash_not_found`) → need AndroZoo
-(academic-gated) or another source. Ad-network attribution for SpinOk is by package name,
-not per-SDK-version audit.
+One SpinOk version; 5 Konfety samples (payload fully carved); 1 MobiDash (Jamf `c64db66f…`
+via Triage — loader carved, SQLCipher payload not yet decrypted). Invisible Adware and Necro
+are on none of MalwareBazaar / Hybrid Analysis / our Triage exports → need AndroZoo
+(academic-gated). Ad-network attribution for SpinOk is by package name, not per-version audit.
