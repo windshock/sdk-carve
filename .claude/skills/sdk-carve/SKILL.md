@@ -172,7 +172,8 @@ differences:
   (`java.util.Random`, seed = asset-name + 0xFFFF) → inner ZIP → real `classes.dex`
 - `scripts/detect.py` — auto-locate an R8-renamed SDK root (method-name anchors +
   size/depth/denylist guards + structural fallback); prints carve globs
-- `scripts/carve.sh` — mini-JAR + `jimple2cpg` (parameterized by package globs)
+- `scripts/carve.sh` — mini-JAR + `jimple2cpg` (parameterized by package globs); builds the
+  jar in-memory so obfuscated `j.class`/`J.class` siblings survive a case-insensitive FS
 - `scripts/source-sink.sc` — Joern source/sink inventory + entry→sink reachability
 - `scripts/scope-closure.sc` — reverse dependency trace / scope-completeness proof
 - `queries/flows.ql` — CodeQL source/sink template (name-matched, `build-mode=none`-friendly)
