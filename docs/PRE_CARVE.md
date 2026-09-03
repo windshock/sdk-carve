@@ -85,18 +85,30 @@ itself produces:
 Prefer 3b for coverage; use 3a (static) when you want a self-contained, offline, byte-exact
 recovery and the key material is in reach.
 
-## 3. What the hidden payload actually is
+## 3. What the hidden payload actually is (carved)
 
-Carving the recovered DEX (the SDK that was invisible before):
+Feeding the recovered DEX back through the normal pipeline (scoped CPG over the ad-fraud
+packages `system` / `com.adcommercial` / `com.gnet` / `com.nextg` / `sdk` / `svmmk` — a
+case-preserving in-memory carve, since obfuscated names like `j`/`J` collide on a
+case-insensitive FS). CPG: 1,542 methods / 8,219 calls. Both fraud sinks are **reachable
+from entry points** (`onCreate`/`onStartCommand`/…):
 
-- Ad stack: **InMobi** (`in.inmobi`) + `com.adcommercial`, `com.gnet`, `com.nextg`, `sdk.*`.
-- **No** in-code emulator/debugger/root checks and **no** Goldoson-style packet-capture
-  blocklist — Konfety's evasion budget is spent on the packer, not runtime guards.
-- **Install-source gating** (`getInstallerPackageName` — SlopAds-style selective activation).
-- Hidden C2 (only visible post-unpack): `http://api.jetengine.be/`, `http://one.upyourphone.me/`.
+- **Phantom viewport (MobiDash-class):** `com.adcommercial.utils.xOnUc.mWq` does
+  `DisplayManager.createVirtualDisplay(name, 1, 1, dpi, null, 11)` — a **1×1-pixel** virtual
+  display — and renders a `Presentation` (the ad WebView) onto it, invisible to the user.
+- **WebView ad load:** `svmmk.hg.ZM.onCreate → loadUrl`; **synthetic touch / click injection:**
+  `svmmk.hg.ehcG` (`MotionEvent` on the ad view) — "real WebView, fake finger".
+- **Targeting / gating:** `system.PackageManagerExtension` — installed-package enumeration +
+  `getInstallerPackageName` (install-source selective activation).
+- **Ad stack:** InMobi (`in.inmobi`) + the custom `com.adcommercial`/`com.gnet`/`com.nextg`/`sdk`.
+- **Bundled hooking framework:** `org.lsposed.*` (18 classes) shipped inside the payload.
+- **C2 / SSP (only visible post-unpack):** `api.jetengine.be`, `one.upyourphone.me`,
+  `push.razkondronging.com/register`, `ssp.atswe.xyz/namedEvent`.
+- **No** in-code emulator/root check and **no** Goldoson-style packet-capture blocklist —
+  Konfety's evasion budget is the packer, its fraud is the phantom-viewport click engine.
 
 All 5 evil-twins carry the **same** payload (only the decoy wrapper + asset-name/seed differ)
-→ a single shared second-stage across the cluster.
+→ a single shared second-stage across the cluster, using MobiDash-class techniques.
 
 ## Takeaway
 
