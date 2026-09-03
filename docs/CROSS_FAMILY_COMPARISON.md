@@ -49,10 +49,14 @@ dynamic-loading layer**, and it defeats static bytecode carving:
 **Resolved (not a dead end):** the [`pre-carve`](PRE_CARVE.md) stage recovers it fully and
 statically — `apk-normalize.py` repairs the ZIP (→ evil-twin identity
 `com.herocraft…catchthecandy`, AppLovin manifest) and `konfety-unpack.py` decrypts the asset.
-Real payload (all 5, identical): **6,777-class second stage** — InMobi + `com.adcommercial`/
-`com.gnet`/`com.nextg`; **install-referrer gating** (selective activation); hidden C2
-`api.jetengine.be`, `one.upyourphone.me`. No in-code emulator/root/packet-capture guard —
-Konfety's evasion is the packer, not runtime checks.
+Real payload (all 5, identical): **6,777-class second stage**, carved via a scoped CPG.
+Ad stack InMobi + `com.adcommercial`/`com.gnet`/`com.nextg`; **install-referrer gating**;
+bundled **LSPosed**; C2 `api.jetengine.be`, `one.upyourphone.me`, `push.razkondronging.com`,
+`ssp.atswe.xyz`. Fraud engine = **MobiDash-class**: a **1×1-px `VirtualDisplay`** phantom
+viewport renders the ad WebView invisibly (`com.adcommercial.utils.xOnUc`) with synthetic
+`MotionEvent` clicks (`svmmk.hg.ehcG`) — "real WebView, fake finger", both reachable from
+entry. No in-code emulator/root/packet-capture guard — Konfety's evasion is the packer, its
+fraud is the click engine. Full map: [`PRE_CARVE.md`](PRE_CARVE.md) §3.
 
 ## Anti-analysis technique, by layer
 
