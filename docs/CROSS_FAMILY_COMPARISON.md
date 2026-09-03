@@ -36,20 +36,23 @@ Source: Hybrid Analysis (all 5 Zimperium hashes; sha256-verified). Konfety does 
 use an in-code environment guard at all — its anti-analysis is at the **APK packaging /
 dynamic-loading layer**, and it defeats static bytecode carving:
 
-- **Corrupted manifest to break static tools:** `AndroidManifest.xml` is **BZip2**-compressed
-  (a method Android tolerates but the APK spec doesn't sanction) → `aapt`/`apktool` report
-  "corrupt" on all 5. Installable, but static-analysis-hostile.
-- **Decoy `classes.dex`** (7–8 KB, 7–14 classes): mostly empty stubs (`class K { void GCw(){} }`).
-  Only `GCw`+`IEk` are real — `IEk` is a char-wise **string-deobfuscator**, `GCw` uses
-  **reflection** (`Class.forName(IEk(...))` → `newInstance`) and a `ContentProvider`
-  auto-start to load the hidden payload.
-- **Packed ~2.2 MB `assets/<numeric>` payload** carrying the real SDK; the ZIP entry is
-  itself tampered (`unzip` size-mismatch; `7z` hangs) — resists extraction.
+- **ZIP tamper to break static tools (not real compression):** every entry has a **fake
+  "encrypted" flag** (GP bit 0), and `AndroidManifest.xml` **falsely declares method `0x0C`
+  (BZIP2) over data that is actually STORED AXML** (with lying sizes). Android's lenient
+  loader installs it; `aapt`/`apktool` call it "corrupt" (all 5). Same SoumniBot technique.
+- **Decoy `classes.dex`** (7–8 KB): mostly empty stubs. Only `GCw`+`IEk` are real — `IEk` is a
+  `java.util.Random`-XOR **string-deobfuscator**; `GCw` uses **reflection** + a
+  `ContentProvider` to load the hidden payload.
+- **Packed ~2.2 MB `assets/<numeric>` payload:** DEFLATE (behind the fake enc flag) →
+  **XOR with `java.util.Random(asset_name + 0xFFFF)`** → inner ZIP → real `classes.dex`.
 
-**Method implication (honest limit):** sdk-carve's JVM track sees only the decoy + loader
-stub. Carving Konfety's real SDK needs a runtime/unpack pre-step (drive the loader or
-decrypt the asset) before the bytecode pipeline applies — a precondition Konfety
-deliberately breaks.
+**Resolved (not a dead end):** the [`pre-carve`](PRE_CARVE.md) stage recovers it fully and
+statically — `apk-normalize.py` repairs the ZIP (→ evil-twin identity
+`com.herocraft…catchthecandy`, AppLovin manifest) and `konfety-unpack.py` decrypts the asset.
+Real payload (all 5, identical): **6,777-class second stage** — InMobi + `com.adcommercial`/
+`com.gnet`/`com.nextg`; **install-referrer gating** (selective activation); hidden C2
+`api.jetengine.be`, `one.upyourphone.me`. No in-code emulator/root/packet-capture guard —
+Konfety's evasion is the packer, not runtime checks.
 
 ## Anti-analysis technique, by layer
 
@@ -57,7 +60,7 @@ deliberately breaks.
 |---|---|---|
 | **Goldoson** | in-code, runtime | AES/CBC-encrypted **packet-capture-app blocklist** → abort |
 | **SpinOk** | (SDK: none) | sensor/emulator checks live in **co-bundled ad networks**, not the SpinOk SDK |
-| **Konfety** | packaging + loader | **BZip2 manifest** + decoy dex + reflectively-loaded **packed asset** |
+| **Konfety** | packaging + loader | fake-method/fake-enc **ZIP tamper** + decoy dex + `java.util.Random`-XOR **packed asset** (install-referrer gating in payload) |
 
 Three samples, three different branches → reinforces **technique lineage, not shared code**.
 Goldoson's dedicated analysis-tool blocklist remains unique among the three.

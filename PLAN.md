@@ -29,7 +29,10 @@ The single research question (reference docs §20 / "Final research priorities")
 - [x] Native track (`ghidra2cpg`) for `.so`/`.dll`/`.exe`
 - [x] **`detect.py`** — auto-locate R8-renamed SDK roots (anchors + size/depth/denylist
   guards + structural fallback), validated on all 11 samples *(merged, PR #1)*
-- [x] SKILL.md: Step-0 auto-detect, over-scoping gotcha, obfuscated-method-name fallback
+- [x] **Pre-carve stage** — `apk-normalize.py` (generic ZIP-tamper repair + payload flagging)
+  and `konfety-unpack.py` (payload decrypt); handles Konfety/SoumniBot malformed/packed APKs
+  that defeat bytecode discovery → [`docs/PRE_CARVE.md`](docs/PRE_CARVE.md)
+- [x] SKILL.md: Step-0 auto-detect, over-scoping gotcha, obfuscated-method-name fallback, pre-carve stage
 - [ ] Optional: fold the batch drivers (`detect_all.sh`/`carve_all.sh`/`batch.sc`) into the
   skill as a `scripts/batch.sh` once a second corpus (Phase B) exercises them
 
@@ -86,8 +89,11 @@ HA → MalwareBazaar → AndroZoo). Keys loaded: `MB_APIKEY`, `HYBRIDANALYSIS_AP
 - [x] **B2 — SpinOk (P0-B).** `3745e0fb…` (MalwareBazaar) carved: SDK has **no packet-capture
   guard**, AES/GCM (vs Goldoson AES/CBC); sensor/emulator anti-analysis is in co-bundled ad SDKs.
 - [x] **B3 — Konfety (P0-E).** 5 samples via **Hybrid Analysis** (sha256-verified). Distinct
-  branch: **packaging-layer evasion** — BZip2 manifest (breaks apktool/aapt) + decoy dex +
-  reflectively-loaded packed asset; defeats static bytecode carving. → [`docs/CROSS_FAMILY_COMPARISON.md`](docs/CROSS_FAMILY_COMPARISON.md).
+  packaging-layer branch — **fully unpacked statically** via the new pre-carve stage: ZIP
+  tamper (fake enc flag + fake `0x0C` method) repaired, asset XOR-decrypted
+  (`Random(asset+0xFFFF)`) → identical 6,777-class payload (InMobi + com.adcommercial/gnet/
+  nextg, install-referrer gating, C2 api.jetengine.be/one.upyourphone.me). →
+  [`docs/PRE_CARVE.md`](docs/PRE_CARVE.md), [`docs/CROSS_FAMILY_COMPARISON.md`](docs/CROSS_FAMILY_COMPARISON.md).
 - [ ] **B4 — MobiDash (P0-H).** Jamf hashes not on MalwareBazaar/HA → AndroZoo.
 - [ ] **B5 — SlopAds / Trapdoor (P0-G/I).** App-ID → AndroZoo from official HUMAN lists.
 - [ ] **B6 — Invisible Adware / Necro (P0-C/D).** Not on MalwareBazaar/HA → AndroZoo (Necro md5→sha256 first).
