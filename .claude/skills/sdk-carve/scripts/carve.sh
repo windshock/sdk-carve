@@ -4,7 +4,13 @@
 # Usage:  carve.sh <app-dex2jar.jar> <out-dir> <pkg-glob> [pkg-glob ...]
 # Example: carve.sh app.jar out/ 'com/smart/sklb/*' 'bg/*' 'cg/*' 'dg/*'
 #
-# Requires: JDK 17 (Soot's ASM rejects Java 25 = class major version 69), jar, unzip, jimple2cpg.
+# Requires: JDK 17 (Soot's ASM rejects Java 25 = class major version 69), python3, jimple2cpg.
+#
+# The mini-JAR is built jar->jar in memory (python zipfile), NOT by extracting to disk. That
+# preserves class-name *case* — obfuscated siblings like `j.class` and `J.class` collide on a
+# case-insensitive filesystem (macOS/APFS, NTFS) and would silently drop a class or hang
+# unzip's overwrite prompt. jimple2cpg reads the jar in-memory, so case-colliding entries
+# are fine downstream.
 set -euo pipefail
 
 JAR="${1:?usage: carve.sh <app.jar> <out-dir> <pkg-glob> [pkg-glob ...]}"
@@ -15,13 +21,27 @@ shift 2
 
 JAR="$(cd "$(dirname "$JAR")" && pwd)/$(basename "$JAR")"
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
-WORK="$(mktemp -d)"
-( cd "$WORK" && unzip -q "$JAR" "$@" )
-N=$(find "$WORK" -name '*.class' | wc -l | tr -d ' ')
-[ "$N" -gt 0 ] || { echo "no classes matched those globs in $JAR"; rm -rf "$WORK"; exit 1; }
 
-jar cf "$OUT/scoped.jar" -C "$WORK" .
-rm -rf "$WORK"
+N=$(python3 - "$JAR" "$OUT/scoped.jar" "$@" <<'PY'
+import sys, zipfile, fnmatch
+src, dst, globs = sys.argv[1], sys.argv[2], sys.argv[3:]
+def want(name):
+    if not name.endswith(".class"):
+        return False
+    for g in globs:                        # accept 'pkg/*', 'pkg/', 'pkg' and fnmatch patterns
+        pre = g.rstrip("*").rstrip("/")
+        if name.startswith(pre + "/") or fnmatch.fnmatch(name, g):
+            return True
+    return False
+n = 0
+with zipfile.ZipFile(src) as zi, zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as zo:
+    for it in zi.infolist():
+        if want(it.filename):
+            zo.writestr(it, zi.read(it.filename)); n += 1
+print(n)
+PY
+)
+[ "$N" -gt 0 ] || { echo "no classes matched those globs in $JAR"; rm -f "$OUT/scoped.jar"; exit 1; }
 echo "carved $N classes -> $OUT/scoped.jar"
 
 jimple2cpg "$OUT/scoped.jar" --output "$OUT/cpg.bin"
