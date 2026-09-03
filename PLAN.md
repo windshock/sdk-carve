@@ -1,140 +1,137 @@
 # Project Plan & Roadmap
 
-**Living status tracker + next actions for the whole project.** Two tracks: the
-**sdk-carve method/skill** (largely shipped) and the **Goldoson anti-analysis research**
-(the forward frontier). This file records where we are and what to do next; it does not
-restate the reference docs.
+**Living status tracker + next actions.** Three tracks:
+- **Track 0 — Method & skill** (the `sdk-carve` tooling; largely shipped).
+- **Track 1 — Threat-intel: Goldoson-model lineage** (the `research/` study; ad-fraud SDK families 2023–2026).
+- **Track 2 — Method-generalization study** (GitHub **issue #5**: does target-aware carving generalize across *unrelated* SDKs?).
 
 **Inputs**
-- Method (how we carve/verify one SDK): [`.claude/skills/sdk-carve/SKILL.md`](.claude/skills/sdk-carve/SKILL.md)
-- TMAP worked example (n=1 deep-dive): [`analysis/reports/`](analysis/reports/), esp. `TRACK3_DATAFLOW.md` §9
-- Cross-app validation (n=11): [`docs/CROSS_APP_VALIDATION.md`](docs/CROSS_APP_VALIDATION.md)
-- Lineage / corpus recipes: [`research/goldoson-like-android-ad-sdk-malware-lineage.md`](research/goldoson-like-android-ad-sdk-malware-lineage.md)
-- Corpus availability + acquisition roadmap: [`research/goldoson-like-android-ad-sdk-malware-corpus-and-lineage.md`](research/goldoson-like-android-ad-sdk-malware-corpus-and-lineage.md)
+- Method: [`.claude/skills/sdk-carve/SKILL.md`](.claude/skills/sdk-carve/SKILL.md)
+- TMAP deep-dive (n=1): [`analysis/reports/`](analysis/reports/); cross-app (n=11): [`docs/CROSS_APP_VALIDATION.md`](docs/CROSS_APP_VALIDATION.md)
+- Anti-analysis: [`docs/ANTI_ANALYSIS.md`](docs/ANTI_ANALYSIS.md); pre-carve: [`docs/PRE_CARVE.md`](docs/PRE_CARVE.md); cross-family: [`docs/CROSS_FAMILY_COMPARISON.md`](docs/CROSS_FAMILY_COMPARISON.md)
+- Lineage / corpus: [`research/`](research/); acquisition kit: [`research/acquisition/`](research/acquisition/)
+- GitHub issue [#5](https://github.com/windshock/sdk-carve/issues/5)
 
-> **Local workspace note.** The 11-sample Goldoson carve lives in a separate, uncommitted
-> corpus workspace (`goldoson-samples/analysis/` — the McAfee sample set), not in this repo.
-> Artifacts referenced below (`BATCH_REPORT.md`, `batch/<app>/out/`, `detect.py`) are there.
-
-The single research question (reference docs §20 / "Final research priorities"):
-
-> **Was Goldoson's installed packet-capture / traffic-analysis app detection an isolated
-> implementation, or part of a reusable SDK/code lineage traceable before or after 2023?**
+> **Local workspace note.** Sample carves live in an uncommitted workspace
+> (`goldoson-samples/analysis/`, `.../analysis/{konfety,mobidash}`). Samples are never committed.
 
 ---
 
-## Track 0 — sdk-carve method & skill  *(shipped; maintenance only)*
+## Track 0 — Method & skill  *(shipped; maintenance)*
 
-- [x] Scoped bytecode CPG + CodeQL (build-mode=none) method — TMAP deep-dive
-- [x] Native track (`ghidra2cpg`) for `.so`/`.dll`/`.exe`
-- [x] **`detect.py`** — auto-locate R8-renamed SDK roots (anchors + size/depth/denylist
-  guards + structural fallback), validated on all 11 samples *(merged, PR #1)*
-- [x] **Pre-carve stage** — `apk-normalize.py` (generic ZIP-tamper repair + payload flagging)
-  and `konfety-unpack.py` (payload decrypt); handles Konfety/SoumniBot malformed/packed APKs
-  that defeat bytecode discovery → [`docs/PRE_CARVE.md`](docs/PRE_CARVE.md)
-- [x] SKILL.md: Step-0 auto-detect, over-scoping gotcha, obfuscated-method-name fallback, pre-carve stage
-- [ ] Optional: fold the batch drivers (`detect_all.sh`/`carve_all.sh`/`batch.sc`) into the
-  skill as a `scripts/batch.sh` once a second corpus (Phase B) exercises them
-
----
-
-## Current status snapshot (evidence-labeled)
-
-| # | Result | Confidence | Where |
-|---|---|---|---|
-| S1 | sdk-carve works on 1 huge app (TMAP, 50k→117 classes) | binary-confirmed | `analysis/reports/`, `docs/` |
-| S2 | Generalizes to all 11 samples; per-app **R8-renamed 4-seg `com/a/b/c`** root; `detect.py` auto-locates it | binary-confirmed | `docs/CROSS_APP_VALIDATION.md` |
-| S3 | Every app hardcodes ≥1 McAfee C2 domain (17 distinct) | binary-confirmed | `docs/CROSS_APP_VALIDATION.md` |
-| S4 | 5 **new** candidate domains beyond McAfee's 27 (`appservice9.com`, `trs.bestsmartshop.net`, `retoore.com`, `barivemi.net`, `huejura.com`) | binary-derived candidate IOC; **infra correlation pending** | research lineage doc §"Your five candidate indicators" |
-| S5 | Anti-analysis guard = AES-256/CBC (key `aoKoVu…`, zero IV) decrypt of 5 packet-capture app names → abort collection if installed | binary-confirmed (TMAP) | `analysis/reports/TRACK3_DATAFLOW.md` §9 |
-| S6 | **Same hardcoded AES key + guard class in 9/11 apps** (absent in carved scope of `com.appsnine.audiorecorder`, `mafu.driving.free`); blocklist always encrypted | binary-confirmed (this run) | `goldoson-samples/analysis/` guard probe |
-
-**The 5 blocklisted apps (TMAP, decrypted):** `app.greyshirts.sslcapture`,
-`com.ddm.iptools`, `com.myprog.netscan`, `com.myprog.netutils`,
-`jp.co.taosoftware.android.packetcapture`.
+- [x] Scoped bytecode CPG + CodeQL (`build-mode=none`) — TMAP deep-dive; native track (`ghidra2cpg`)
+- [x] `detect.py` — auto-locate R8-renamed SDK roots (anchors + size/depth/denylist + structural fallback)
+- [x] `carve.sh` — in-memory, **case-preserving** mini-JAR (survives `j.class`/`J.class` on case-insensitive FS)
+- [x] **Pre-carve stage** (stage 0): `apk-normalize.py` (generic ZIP-tamper repair + payload flagging),
+  `konfety-unpack.py` (XOR-asset), `mobidash-unpack.py` (SQLCipher + XOR modules) → [`docs/PRE_CARVE.md`](docs/PRE_CARVE.md)
+- [x] SKILL.md: auto-detect, over-scoping gotcha, obfuscated-name fallback, pre-carve stage
+- [ ] **Generalize the pre-carve payload stage** (Track 2 dependency): confirm Konfety seed rule / MobiDash
+  XOR-const across more samples; factor shared bits out of the family-specific unpackers
+- [ ] Machine-readable metrics output from carve + scope-closure (needed by Track 2)
 
 ---
 
-## Phase A — Goldoson anti-analysis deep characterization  ✅ *done → [`docs/ANTI_ANALYSIS.md`](docs/ANTI_ANALYSIS.md)*
+## Track 1 — Threat-intel: Goldoson-model lineage
 
-- [x] **A1 — Decrypt the blocklist across all 11 apps.** **11/11 identical**: same AES-256
-  key, same ciphertext, same 5 packet-capture apps (`app.greyshirts.sslcapture`,
-  `com.ddm.iptools`, `com.myprog.netscan`, `com.myprog.netutils`,
-  `jp.co.taosoftware.android.packetcapture`). Byte-identical → single shared SDK source.
-- [x] **A2 — Guard in the 2 outliers.** Present in `audiorecorder`/`mafu` too, but in the
-  shaded-lib package (`e/…`, `d/e/a/a/…`) the carve's size/depth guard excludes — confirmed
-  from the full app jar. Scope boundary, not absence.
-- [x] **A3 — Guard implementation extracted** (`c/c.l()` Gson-JSON → `e.a()` AES → `f()`
-  isInstalled → short-circuit). Documented.
-- [x] **A4 — Hunt YARA shipped** (AES key + identical ciphertext fragments + JSON marker).
-- [x] **A5 — Candidate domains classified.** 4/5 are backends of **sibling bundled ad
-  modules** (notii push, S_MALL shopping), not Goldoson C2; only `barivemi.net` is Goldoson
-  core (edge endpoint). Corrects "5 new C2" → "1 edge + 4 sibling-module backends."
+### Status snapshot (evidence-labeled)
 
----
+| # | Result | Where |
+|---|---|---|
+| S1–S3 | sdk-carve on 11 Goldoson apps; R8-renamed 4-seg roots; every app ≥1 McAfee C2 | `CROSS_APP_VALIDATION.md` |
+| S4 | 5 candidate domains → 1 Goldoson edge + 4 sibling-module backends | `ANTI_ANALYSIS.md` |
+| S5–S6 | Goldoson guard = AES packet-capture blocklist, **identical 11/11** (same key) | `ANTI_ANALYSIS.md` |
+| S7 | **SpinOk** carved: no packet-capture guard, AES/GCM; anti-analysis in bundled ad SDKs | `CROSS_FAMILY_COMPARISON.md` |
+| S8 | **Konfety** (5): ZIP-tamper + decoy dex + XOR asset → **fully unpacked** → phantom-viewport engine | `PRE_CARVE.md` |
+| S9 | **MobiDash** (Jamf c64db66f): SQLCipher(cert-key)+XOR modules → **fully unpacked** → same phantom-viewport engine | `CROSS_FAMILY_COMPARISON.md` |
 
-## Phase B — Corpus acquisition  *(AUTHORIZATION-GATED — do not auto-run)*
+**Finding:** Goldoson's packet-capture blocklist is unique; Konfety & MobiDash converge on
+phantom-viewport + synthetic-touch click fraud via different packing (both statically recoverable).
 
-Fetching samples/hashes from AndroZoo / MalwareBazaar / Koodous / Triage is outward-facing
-and gated by `AGENTS.md`. **Each fetch needs explicit per-step user OK.** Order by seed
-quality (corpus doc §16–17).
-
-Kit: [`research/acquisition/`](research/acquisition/) (`seeds.csv` + `fetch.sh`, tries
-HA → MalwareBazaar → AndroZoo). Keys loaded: `MB_APIKEY`, `HYBRIDANALYSIS_APIKEY`
-(auth_level 100 = downloadable). AndroZoo still pending (academic-gated).
-
-- [ ] **B1 — Goldoson historical (P0-A, the novel part).** McAfee packages → AndroZoo →
-  **infected→clean version boundary** → when the blocklist and the 5 domains first appear.
-  *(Final priority #1.)* **Blocked on `ANDROZOO_APIKEY`.**
-- [x] **B2 — SpinOk (P0-B).** `3745e0fb…` (MalwareBazaar) carved: SDK has **no packet-capture
-  guard**, AES/GCM (vs Goldoson AES/CBC); sensor/emulator anti-analysis is in co-bundled ad SDKs.
-- [x] **B3 — Konfety (P0-E).** 5 samples via **Hybrid Analysis** (sha256-verified). Distinct
-  packaging-layer branch — **fully unpacked statically** via the new pre-carve stage: ZIP
-  tamper (fake enc flag + fake `0x0C` method) repaired, asset XOR-decrypted
-  (`Random(asset+0xFFFF)`) → identical 6,777-class payload (InMobi + com.adcommercial/gnet/
-  nextg, install-referrer gating, C2 api.jetengine.be/one.upyourphone.me). →
-  [`docs/PRE_CARVE.md`](docs/PRE_CARVE.md), [`docs/CROSS_FAMILY_COMPARISON.md`](docs/CROSS_FAMILY_COMPARISON.md).
-- [ ] **B4 — MobiDash (P0-H).** Jamf hashes not on MalwareBazaar/HA → AndroZoo.
-- [ ] **B5 — SlopAds / Trapdoor (P0-G/I).** App-ID → AndroZoo from official HUMAN lists.
-- [ ] **B6 — Invisible Adware / Necro (P0-C/D).** Not on MalwareBazaar/HA → AndroZoo (Necro md5→sha256 first).
+### Phases
+- [x] **A — Goldoson anti-analysis** (blocklist decrypt 11/11, domain reclassification, YARA)
+- [~] **B — corpus acquisition** *(authorization-gated; kit `research/acquisition/`)*
+  - [x] SpinOk (MalwareBazaar), Konfety ×5 (Hybrid Analysis), MobiDash (Triage)
+  - [ ] SlopAds / Trapdoor (App-ID → AndroZoo), Invisible Adware / Necro (→ AndroZoo) — **need `ANDROZOO_APIKEY`**
+  - [ ] Goldoson historical infected→clean boundary (AndroZoo) — *research Final-priority #1*
+- [x] **C — cross-family comparison** (4 families; anti-analysis + fraud-engine matrix)
+- [ ] **D — infrastructure correlation** (evidence-gated; C2/pDNS/cert — only with cited evidence)
+- [ ] Konfety↔MobiDash **phantom-viewport code diff** (both engines now recovered — direct compare)
+- [ ] Sample-generalize the unpackers across a Konfety/MobiDash version spread
 
 ---
 
-## Phase C — Cross-family sdk-carve + normalized dataset
+## Track 2 — Method-generalization empirical study  *(GitHub issue #5)*
 
-- [ ] **C1** Run sdk-carve (`detect.py`→carve→CPG→source/sink→closure; native track for packed `.so`) per family.
-- [ ] **C2** Populate the normalized schema (corpus doc §18): `family, sha256, host_package,
-  sdk_package, sdk_entrypoint, remote_config, c2, installed_apps, location, wifi, bluetooth,
-  hidden_webview, ad_click, dynamic_loader, proxy, anti_debug, anti_emulator, anti_proxy,
-  anti_root, **anti_analysis_apps**, …`.
-- [ ] **C3** Anti-analysis evolution comparison: Goldoson pkg-detection → SpinOk sensor →
-  Necro isAdb/isProxy → SlopAds debug/emulator/root → MobiDash `Proxy.NO_PROXY`.
+The academic question: does target-aware carving **generalize across unrelated SDKs** and
+materially change deep-analysis feasibility? Distinct from Track 1 (which is one SDK-model family).
+
+### Research questions
+- **RQ1 Feasibility** — does carving let analyzers process targets that time out / OOM whole-app?
+- **RQ2 Reduction** — classes / methods / size / CPG-DB size / time / peak memory (whole-app vs carved).
+- **RQ3 Fidelity** — sources, sinks, entry→sink reachability, endpoints, sensitive APIs preserved?
+- **RQ4 Generalizability** — unrelated families, multiple versions, hosts, R8/ProGuard, renames, damaged decompilation, big apps, lib-dependent SDKs.
+- **RQ5 Boundaries** — reflection, dynamic class loading, JNI/native, framework-mediated flow, no clean boundary, shaded deps.
+
+### Corpus
+- **Phase 1 (diversity):** ~10 **unrelated** SDK families × ~10 apps ≈ 100 APKs — mix of ad / analytics /
+  privacy-sensitive / malicious / heavily-obfuscated / old+modern. Per sample: sha256, package, version,
+  source, date, family, SDK-version evidence, obfuscation traits. *(Do not redistribute APKs.)*
+- **Phase 2 (scale):** 20–30 families, several hundred APKs (AndroZoo useful, not required) — only if Phase 1 pays off.
+
+### Experimental design (per target: baseline whole-app **vs** treatment carved)
+Record: classes, methods, input size, analysis-completed?, runtime, peak memory, CPG/DB size, sources,
+sinks, reachability. **Failures are data** (timeout / OOM / parser / extractor / incomplete graph / excessive runtime).
+
+### Analyzer independence (claim must not depend on one engine)
+- [ ] Joern / bytecode CPG (have) · [ ] CodeQL (have) · [ ] optional FlowDroid/Soot track
+
+### Scope-completeness (per carved target)
+- [ ] external-owner closure · record excluded libs · reverse-trace unresolved · boundary-vs-missed-logic ·
+  manual subset inspection · **report known unsoundness** (reflection/dynamic loading break closure).
+
+### Related-work matrix *(each answers a reviewer question)*
+- [ ] **A. TPL detection** — LibScout (CCS'16), LibPecker (SANER'18), LibID (ISSTA'19), AndroLibZoo (MSR'24) →
+  *"which library is present"* ≠ *"what analyzable subprogram should the analyzer see"*.
+- [ ] **B. Slicing / static analysis** — **R-Droid (AsiaCCS'16, high-priority)**, FlowDroid (PLDI'14), CPG (S&P'14) →
+  point/sink-driven slice vs reusable target-centered closure. *R-Droid is the key comparison — read + diff first.*
+- [ ] **C. Context-aware narrowing** — DamFlow (TOSEM'25), TaskFlow (TOSEM'26), Alecci PhD'26, REPROCESS →
+  pre-analysis universe reduction vs post-analysis result relevance.
+- [ ] **D. Payload localization** — MalLoc (ICSME'25), RAML (ASE'25) → *rank suspicious code* vs *build the analysis universe* (complementary: localize → seed, carve → surround).
+- [ ] **E. Corpus** — AndroZoo (MSR'24).
+
+### Reviewer questions to answer with data
+not-TPL-detector · not-just-slicing (R-Droid) · not-localization · analyzer-agnostic-feasibility · what's-preserved-vs-lost · generalizes-beyond-Goldoson.
+
+### Immediate next steps (from issue #5)
+- [ ] Read + summarize **R-Droid**; document exact overlap/differences
+- [ ] Build the related-work matrix (the 14 refs above)
+- [ ] Select 10 **unrelated** SDK families + define corpus metadata schema
+- [ ] Automate APK → detect → carve → analyze → **metrics** pipeline + whole-app baseline runner
+- [ ] Consistent timeout/OOM/failure recording; machine-readable scope-completeness output
+- [ ] Generalize SDK-root detection beyond Goldoson-specific anchors
+- [ ] Run Phase 1 (~100 APKs); analyze failures; **reassess the novelty claim**; decide on Phase 2
+
+**Target claim (if evidence supports):** *target-aware carving turns large decompiled Android apps
+that are impractical for heavyweight static analysis into substantially smaller, statically
+dependency-closed targets that preserve enough security-relevant behavior for meaningful downstream
+analysis* — scoped to static references (no universal soundness).
 
 ---
 
-## Phase D — Infrastructure correlation  *(evidence-gated)*
-
-- [ ] **D1** Retain only evidence-backed infra artifacts (C2, Firebase IDs, TLS certs, pDNS,
-  ASN, first/last-seen). No shared-operator inference from shared hosting/CDN. Candidate
-  domains stay "correlation pending" until pDNS/cert evidence exists.
-
----
-
-## Authorization gates (explicit)
+## Authorization gates
 
 | Action | Gate |
 |---|---|
-| Phase A (local carved samples we already hold) | ✅ no gate — proceed |
-| Any sample/hash fetch from AndroZoo/MalwareBazaar/Koodous/Triage/VT (Phase B) | ⛔ explicit per-step user OK |
-| Any network call to a candidate/known C2 domain | ⛔ explicit OK + isolated env (`AGENTS.md`) |
-| Committing/pushing research to the public repo | ⛔ explicit OK |
+| Local carves of samples already held | ✅ proceed |
+| Sample/hash fetch (AndroZoo/MalwareBazaar/Hybrid Analysis/Triage/VT) | ⛔ per-step user OK (standing OK for Track 1 Phase B) |
+| Network call to a candidate/known C2 | ⛔ explicit OK + isolated env (`AGENTS.md`) |
+| Commit/push to the public repo | ⛔ explicit OK |
 
 ---
 
-## Immediate next action
+## Immediate next actions (consolidated — pick one)
 
-Phase A is complete ([`docs/ANTI_ANALYSIS.md`](docs/ANTI_ANALYSIS.md)). **Decision point:
-Phase B go/no-go.** Phase B (corpus acquisition) is authorization-gated — it fetches
-malware samples/hashes from AndroZoo/MalwareBazaar/etc. Await explicit user OK before B1.
-Cheapest first novel step once approved: **B1** (Goldoson historical infected→clean
-boundary via AndroZoo) to date when the blocklist + domains first appear.
+1. **Track 1:** Konfety↔MobiDash phantom-viewport **code diff** (both engines recovered) — no new samples.
+2. **Track 2 kickoff:** read/diff **R-Droid** + build the related-work matrix (pure desk work, high leverage for novelty).
+3. **Track 2 pipeline:** automate baseline-vs-carved **metrics** on the samples in hand (Goldoson×11 + SpinOk + Konfety + MobiDash) — first RQ2/RQ3 data.
+4. **Blocked on `ANDROZOO_APIKEY`:** SlopAds/Trapdoor/Invisible/Necro + Goldoson historical + Phase-1 unrelated-family corpus.
