@@ -6,14 +6,18 @@ sdk-carve assumes it can get at an app's bytecode. Some packers break that assum
 loaded at runtime. This adds the missing **stage 0** before bytecode discovery:
 
 ```text
-APK
- └─ [pre-carve] container normalize  (scripts/apk-normalize.py)   ← fixes ZIP tamper, flags payloads
- └─ [pre-carve] payload discover/decrypt (family-specific)        ← recovers hidden DEX
-      ↓
- normalized APK / real classes.dex
-      ↓
- dex2jar → detect.py → carve.sh → CPG/CodeQL   (the normal method)
+Stage 0  APK / container normalization      scripts/apk-normalize.py   (fix ZIP tamper, flag payloads)
+Stage 1  loader / decoy detection           (tiny classes.dex + reflection stubs)
+Stage 2  encrypted-payload discovery        (high-entropy assets/*)
+Stage 3a static key/seed recovery + decrypt scripts/konfety-unpack.py  ← if key material is recoverable
+Stage 3b runtime / public-artifact DEX dump frida-dexdump · BlackDex · Triage  ← if it is not (no key needed)
+Stage 4  SDK carving                        dex2jar → detect.py → carve.sh → CPG/CodeQL
 ```
+
+Two things the ZIP repair (Stage 0) does **not** do: the manifest/asset *headers* are tamper,
+but the asset *contents* are genuinely encrypted (Stage 2). Recovering the second-stage DEX
+is a separate step with two routes (3a/3b) — normalization alone gets you the decoy + the
+loader, not the payload.
 
 Worked example: **Konfety / CaramelAds** (5 samples, Hybrid Analysis; sha256-verified).
 
@@ -61,6 +65,25 @@ deobfuscator that uses the same `Random`-XOR trick.
   **`seed = numeric_asset_name + 0xFFFF`** (verified 5/5) — no per-sample RE needed.
 - `scripts/konfety-unpack.py <apk> <out>` inflates the asset, XOR-decrypts, and extracts the
   inner ZIP. Result on all 5: an identical **6,104 KB / 6,777-class** second-stage DEX.
+
+**Independently validated.** The statically-recovered DEX for `0bc62ee2…` is
+`sha256 f369bbd627202794c96fad6766fe85e0413a30cc9c4c819394057529ae6e6f2e` — **byte-identical
+to the DEX Triage's sandbox drops at runtime** for the same sample. Static key recovery and
+actual runtime execution produce the same payload.
+
+### Stage 3b — when the key isn't recoverable (fallback, no key needed)
+
+The seed here was trivial; other packers use real KDFs or server-delivered keys where static
+recovery is impractical. Then skip key recovery entirely and take the plaintext the malware
+itself produces:
+- **Public sandbox artifact** — Triage runs the sample and exposes the dropped/decrypted DEX
+  under *Downloads* (e.g. this sample → `/files/…dex`, `sha256 f369bbd…`). Cheapest for
+  already-analysed hashes; free cross-check against a static result.
+- **Local runtime dump** — `frida-dexdump` (deep-searches memory, tolerates broken headers)
+  or **BlackDex** (uses ART's DexFile cookie) to dump the DEX after the loader decrypts it.
+
+Prefer 3b for coverage; use 3a (static) when you want a self-contained, offline, byte-exact
+recovery and the key material is in reach.
 
 ## 3. What the hidden payload actually is
 
