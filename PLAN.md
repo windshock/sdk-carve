@@ -76,19 +76,21 @@ Fetching samples/hashes from AndroZoo / MalwareBazaar / Koodous / Triage is outw
 and gated by `AGENTS.md`. **Each fetch needs explicit per-step user OK.** Order by seed
 quality (corpus doc §16–17).
 
-Kit: [`research/acquisition/`](research/acquisition/) (`seeds.csv` + `fetch.sh`). MB key
-loaded; **only SpinOk was on MalwareBazaar** — the rest need AndroZoo.
+Kit: [`research/acquisition/`](research/acquisition/) (`seeds.csv` + `fetch.sh`, tries
+HA → MalwareBazaar → AndroZoo). Keys loaded: `MB_APIKEY`, `HYBRIDANALYSIS_APIKEY`
+(auth_level 100 = downloadable). AndroZoo still pending (academic-gated).
 
 - [ ] **B1 — Goldoson historical (P0-A, the novel part).** McAfee packages → AndroZoo →
-  **infected→clean version boundary** → SDK subtrees → when the blocklist and the 5 domains
-  first appear. *(Final priority #1.)* **Blocked on `ANDROZOO_APIKEY`.**
-- [x] **B2 — SpinOk (P0-B).** Fetched `3745e0fb…402cf17` (MalwareBazaar) + carved. Result:
-  SpinOk SDK has **no packet-capture guard**, uses AES/GCM (vs Goldoson AES/CBC); its
-  sensor/emulator anti-analysis is in co-bundled ad SDKs → [`docs/CROSS_FAMILY_COMPARISON.md`](docs/CROSS_FAMILY_COMPARISON.md).
-- [ ] **B3 — Konfety (P0-E).** Zimperium hashes **not on MalwareBazaar** → AndroZoo.
-- [ ] **B4 — MobiDash (P0-H).** Jamf hashes **not on MalwareBazaar** → AndroZoo.
+  **infected→clean version boundary** → when the blocklist and the 5 domains first appear.
+  *(Final priority #1.)* **Blocked on `ANDROZOO_APIKEY`.**
+- [x] **B2 — SpinOk (P0-B).** `3745e0fb…` (MalwareBazaar) carved: SDK has **no packet-capture
+  guard**, AES/GCM (vs Goldoson AES/CBC); sensor/emulator anti-analysis is in co-bundled ad SDKs.
+- [x] **B3 — Konfety (P0-E).** 5 samples via **Hybrid Analysis** (sha256-verified). Distinct
+  branch: **packaging-layer evasion** — BZip2 manifest (breaks apktool/aapt) + decoy dex +
+  reflectively-loaded packed asset; defeats static bytecode carving. → [`docs/CROSS_FAMILY_COMPARISON.md`](docs/CROSS_FAMILY_COMPARISON.md).
+- [ ] **B4 — MobiDash (P0-H).** Jamf hashes not on MalwareBazaar/HA → AndroZoo.
 - [ ] **B5 — SlopAds / Trapdoor (P0-G/I).** App-ID → AndroZoo from official HUMAN lists.
-- [ ] **B6 — Invisible Adware / Necro (P0-C/D).** **Not on MalwareBazaar** → AndroZoo (Necro md5→sha256 pivot first).
+- [ ] **B6 — Invisible Adware / Necro (P0-C/D).** Not on MalwareBazaar/HA → AndroZoo (Necro md5→sha256 first).
 
 ---
 
