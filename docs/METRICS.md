@@ -41,6 +41,22 @@ Verified end-to-end on TMAP: the whole-app CPG (built at 12 GB) runs the detecti
 60 s and reports **0 sources / 0 sinks / 0 flows**; a direct probe confirms `smart.sklb`,
 `SMARTLB`, `wepkr`, `nepkt_hrn`, `bhuroid` are **all absent** (not renamed — dropped).
 
+### Root cause (confirmed): a silent, order-dependent ~12.8k-class cap in jimple2cpg
+
+Controlled test — the **same 30,117-class jar**, only the entry **order** changed:
+
+| SDK classes written | typeDecls | SDK methods in CPG |
+|---|--:|--:|
+| **first** | 12,761 | **557 (present)** |
+| **last** | 12,778 | **0 (dropped)** |
+
+Identical input, opposite result → jimple2cpg silently retains ~the **first ~12,800 classes** it
+processes and drops the rest, with **no error/warning**. It is **not** memory (12 GB heap, ~3.8 GB
+used; the cap is heap-independent), **not** `--full-resolver`-fixable, **not** obfuscation, **not**
+the carve. SDK-inclusive subsets confirm scale/order dependence: at 5k/15k/30k/40k input with the
+SDK written *first*, all 557 SDK methods survive; the SDK drops only when it falls past the ~12.8k
+processing boundary (as in the real 50k-class app, where its classes sort late).
+
 ## RQ1 — feasibility (heap `-Xmx1g`, timeout 150 s; laptop/CI budget)
 
 Even where the whole-app CPG *would* be complete, it can't be built under a realistic budget:
@@ -68,12 +84,21 @@ boundary (reflection / dynamic loading / native — `docs/PRE_CARVE.md`).
 ## Honest caveats
 
 - **The completeness result is the strongest and the most surprising:** the whole-app CPG
-  *builds* (12 GB, ~30 s, 42 MB) yet silently omits the target on 7/11 apps. The exact
-  class-selection mechanism of jimple2cpg on large jars is not fully characterized here
-  (it retains a bounded typeDecl set dominated by heavily-referenced libraries; the
-  manifest-registered SDK's survival is app-dependent) — but the *effect* (false-negative
-  detection) is reproduced across the corpus.
-- One machine, one analyzer (`jimple2cpg`). **Next:** repeat completeness + RQ1/RQ2 on
-  **CodeQL** (analyzer independence), and on unrelated non-Goldoson SDKs (issue #5 Phase 1).
+  *builds* (12 GB, ~30 s, 42 MB) yet silently omits the target on 7/11 apps. The mechanism
+  is now characterized (above): a silent, **order-dependent ~12.8k-class retention cap in
+  jimple2cpg**, proven by the same-jar order test.
+- **Scoping honesty — this is a jimple2cpg-specific cap.** Because the root cause is one
+  frontend's limit, a skeptic could say "just fix/replace jimple2cpg." Two things hold
+  regardless: (a) carving reduces the input **below any frontend's practical limit** and
+  **deterministically includes the target**, so it helps whatever frontend you use; (b) RQ1's
+  feasibility failures (1 GB timeout/OOM) and RQ2's cost are not caused by this cap. But the
+  *silent-incompleteness* claim, as stated, currently rests on **this one tool** — so the
+  CodeQL cross-check below is now **load-bearing, not optional**: it decides whether silent
+  whole-app incompleteness is general or jimple2cpg-specific.
+- One machine, one analyzer (`jimple2cpg`). **Next (load-bearing):** repeat completeness +
+  RQ1/RQ2 on **CodeQL** (analyzer independence) — if CodeQL also drops/chokes on the full app,
+  the incompleteness is general; if it ingests all classes cleanly, reframe the finding as
+  "jimple2cpg has a silent cap; carving makes *any* frontend cheap+complete." Then unrelated
+  non-Goldoson SDKs (issue #5 Phase 1).
 - Reproduce: `bash research/completeness_run.sh` and `bash research/metrics.sh …`
   (`METRICS_HEAP=-Xmx1g` for the constrained run).
