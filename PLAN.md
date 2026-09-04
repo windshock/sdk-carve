@@ -43,6 +43,7 @@
 | S7 | **SpinOk** carved: no packet-capture guard, AES/GCM; anti-analysis in bundled ad SDKs | `CROSS_FAMILY_COMPARISON.md` |
 | S8 | **Konfety** (5): ZIP-tamper + decoy dex + XOR asset → **fully unpacked** → phantom-viewport engine | `PRE_CARVE.md` |
 | S9 | **MobiDash** (Jamf c64db66f): SQLCipher(cert-key)+XOR modules → **fully unpacked** → same phantom-viewport engine | `CROSS_FAMILY_COMPARISON.md` |
+| S10 | **Necro/Coral** acquired: 8 infected hosts (Wuta 6.3.2/4/5/6, Spotify 18.9.40.5, Max Browser 1.2.2–4; `libcoral.so`/`fkgh` confirmed) + clean Wuta 6.9.8.161 (version spread + infected→clean boundary); carve pending | `analysis/necro/` (local) |
 
 **Finding:** Goldoson's packet-capture blocklist is unique; Konfety & MobiDash converge on
 phantom-viewport + synthetic-touch click fraud via different packing (both statically recoverable).
@@ -51,9 +52,12 @@ phantom-viewport + synthetic-touch click fraud via different packing (both stati
 - [x] **A — Goldoson anti-analysis** (blocklist decrypt 11/11, domain reclassification, YARA)
 - [~] **B — corpus acquisition** *(authorization-gated; kit `research/acquisition/`)*
   - [x] SpinOk (MalwareBazaar), Konfety ×5 (Hybrid Analysis), MobiDash (Triage)
-  - [ ] SlopAds / Trapdoor (App-ID → AndroZoo), Invisible Adware / Necro (→ AndroZoo) — **need `ANDROZOO_APIKEY`**
+  - [x] **Necro/Coral** — 8 infected + 1 clean via APKPure/apkfiles by hash (S10); Coral SDK carve pending
+  - [ ] **Invisible Adware** — DMB TV (`com.project.onair`) sourced but turned out **benign ≠ IOC**; real
+    `com.dmb.media`/`dmb.onair.media`/`band.kr.com`/`easy.kr` need VT/Koodous/AndroZoo (**droppable** — 5 families suffice)
+  - [ ] SlopAds / Trapdoor (App-ID → AndroZoo) — **need `ANDROZOO_APIKEY`**
   - [ ] Goldoson historical infected→clean boundary (AndroZoo) — *research Final-priority #1*
-- [x] **C — cross-family comparison** (4 families; anti-analysis + fraud-engine matrix)
+- [x] **C — cross-family comparison** (4 families; anti-analysis + fraud-engine matrix) — Necro = 5th, carve pending
 - [ ] **D — infrastructure correlation** (evidence-gated; C2/pDNS/cert — only with cited evidence)
 - [ ] Konfety↔MobiDash **phantom-viewport code diff** (both engines now recovered — direct compare)
 - [ ] Sample-generalize the unpackers across a Konfety/MobiDash version spread
@@ -76,6 +80,8 @@ materially change deep-analysis feasibility? Distinct from Track 1 (which is one
 - **Phase 1 (diversity):** ~10 **unrelated** SDK families × ~10 apps ≈ 100 APKs — mix of ad / analytics /
   privacy-sensitive / malicious / heavily-obfuscated / old+modern. Per sample: sha256, package, version,
   source, date, family, SDK-version evidence, obfuscation traits. *(Do not redistribute APKs.)*
+  - first benign general-SDK sample in hand: **DMB TV `com.project.onair`** ×5 (ExoPlayer/Firebase/
+    YouTube-player/okhttp/ButterKnife) — `analysis/general_apps/` — good non-adfraud carve target.
 - **Phase 2 (scale):** 20–30 families, several hundred APKs (AndroZoo useful, not required) — only if Phase 1 pays off.
 
 ### Experimental design (per target: baseline whole-app **vs** treatment carved)
@@ -131,7 +137,11 @@ analysis* — scoped to static references (no universal soundness).
 
 ## Immediate next actions (consolidated — pick one)
 
-1. **Track 1:** Konfety↔MobiDash phantom-viewport **code diff** (both engines recovered) — no new samples.
-2. **Track 2 kickoff:** read/diff **R-Droid** + build the related-work matrix (pure desk work, high leverage for novelty).
-3. **Track 2 pipeline:** automate baseline-vs-carved **metrics** on the samples in hand (Goldoson×11 + SpinOk + Konfety + MobiDash) — first RQ2/RQ3 data.
-4. **Blocked on `ANDROZOO_APIKEY`:** SlopAds/Trapdoor/Invisible/Necro + Goldoson historical + Phase-1 unrelated-family corpus.
+1. **Track 2 pipeline (recommended):** automate baseline(whole-app)-vs-carved **metrics** on the samples in
+   hand (Goldoson×11 + SpinOk + Konfety + MobiDash + Necro×9 + DMB-TV×5) — first RQ2/RQ3 data + the
+   feasibility evidence that underpins the R-Droid distinction.
+2. **Track 1:** Necro/Coral carve (anti-analysis `isAdb/isProxy/isSimulator/isDebug` + infected→clean diff);
+   Konfety↔MobiDash phantom-viewport code diff — no new samples.
+3. **Track 2 desk:** [done] R-Droid diff + related-work matrix (`docs/RELATED_WORK.md`); next = corpus schema + 10 families.
+4. **Blocked on `ANDROZOO_APIKEY`:** SlopAds/Trapdoor + Goldoson historical + Phase-1 unrelated-family corpus
+   (Invisible Adware also needs VT/Koodous — droppable).
