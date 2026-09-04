@@ -1,10 +1,11 @@
 # Baseline (whole-app) vs carved — metrics (issue #5 RQ1/RQ2/RQ3 + completeness)
 
 Empirical support for the R-Droid distinction (`docs/RELATED_WORK.md` §B1). Harness:
-`research/metrics.sh` (timing/RAM) and `research/completeness_run.sh` + `research/cq.sc`
-(target-presence), whole-app jar vs in-memory case-preserving carve, same analyzer
-(`jimple2cpg`). **Setup:** Apple Silicon, 16 GB, JDK 17, Joern jimple2cpg; 11 apps
-(TMAP + 10 Goldoson batch), 7.7k–59.7k classes.
+`research/metrics.sh` (timing/RAM), `research/completeness_run.sh` + `research/cq.sc`
+(jimple2cpg target-presence), and `research/completeness.ql` (CodeQL target-presence),
+whole-app vs in-memory case-preserving carve. **Setup:** Apple Silicon, 16 GB, JDK 17;
+**two analyzers** — Joern jimple2cpg (11 apps, TMAP + 10 Goldoson batch, 7.7k–59.7k classes)
+and CodeQL 2.26.3 `build-mode=none` (TMAP cross-check).
 
 ## Headline — whole-app CPG is silently *incomplete* (completeness)
 
@@ -57,6 +58,33 @@ the carve. SDK-inclusive subsets confirm scale/order dependence: at 5k/15k/30k/4
 SDK written *first*, all 557 SDK methods survive; the SDK drops only when it falls past the ~12.8k
 processing boundary (as in the real 50k-class app, where its classes sort late).
 
+### Analyzer independence — CodeQL cross-check (RESOLVES the load-bearing caveat)
+
+The completeness finding above is a *jimple2cpg* cap, so we cross-checked an **independent
+analyzer, CodeQL 2.26.3** (`build-mode=none`) on the same TMAP app. Result: **the silent
+incompleteness is jimple2cpg-specific — CodeQL is complete but expensive.**
+
+| stage | whole-app | carved | ratio |
+|---|--:|--:|--:|
+| decompile to source (jadx, **mandatory** — CodeQL can't read `.class`/dex) | 50 s, 4.9 GB, 26,954 `.java` (2.68M LOC) | ~2 s, 117 `.java` (4.8k LOC) | — |
+| CodeQL DB build (`build-mode=none`) | **542 s (9 min)**, 4.1 GB, 2.5 GB DB | 25 s, 2.1 GB, ~11 MB DB | **~22× faster** |
+| **SDK in DB** (types / methods / own-sinks) | **117 / 395 / 5 — COMPLETE** | 117 / 395 / 5 | identical |
+| detection run (`flows.ql`) | 22 s, **864 name-matched hits** (SDK's 32 buried inside) | 4 s, **30 hits = exactly the SDK** | **28× less noise** |
+
+Two independent facts fall out:
+
+1. **CodeQL ingests all 66,665 source types incl. the full SDK** (117/117) → *whole-app
+   incompleteness is not fundamental; it is a jimple2cpg limitation.* This is the honest
+   answer to "is silent-incompleteness general?" — **no, it's frontend-specific.**
+2. **But CodeQL pays dearly for completeness:** a mandatory decompilation gate (bytecode →
+   source) plus a ~9-min, 2.5 GB DB build, then 28× detection noise from name-matching across
+   66k types. Carving makes it **~22× cheaper to build, tiny on disk, and noise-free.**
+
+**Net:** carving helps *both* frontends, for *different* reasons — for jimple2cpg it is a
+**correctness fix** (recovers the silently-dropped SDK; 0→557 methods, 0→6 sinks), for CodeQL a
+**cost + precision fix** (22× faster, 555× less code, 28× less triage). Whichever analyzer you
+pick, carve-then-analyze is cheaper *and* at least as complete.
+
 ## RQ1 — feasibility (heap `-Xmx1g`, timeout 150 s; laptop/CI budget)
 
 Even where the whole-app CPG *would* be complete, it can't be built under a realistic budget:
@@ -87,18 +115,14 @@ boundary (reflection / dynamic loading / native — `docs/PRE_CARVE.md`).
   *builds* (12 GB, ~30 s, 42 MB) yet silently omits the target on 7/11 apps. The mechanism
   is now characterized (above): a silent, **order-dependent ~12.8k-class retention cap in
   jimple2cpg**, proven by the same-jar order test.
-- **Scoping honesty — this is a jimple2cpg-specific cap.** Because the root cause is one
-  frontend's limit, a skeptic could say "just fix/replace jimple2cpg." Two things hold
-  regardless: (a) carving reduces the input **below any frontend's practical limit** and
-  **deterministically includes the target**, so it helps whatever frontend you use; (b) RQ1's
-  feasibility failures (1 GB timeout/OOM) and RQ2's cost are not caused by this cap. But the
-  *silent-incompleteness* claim, as stated, currently rests on **this one tool** — so the
-  CodeQL cross-check below is now **load-bearing, not optional**: it decides whether silent
-  whole-app incompleteness is general or jimple2cpg-specific.
-- One machine, one analyzer (`jimple2cpg`). **Next (load-bearing):** repeat completeness +
-  RQ1/RQ2 on **CodeQL** (analyzer independence) — if CodeQL also drops/chokes on the full app,
-  the incompleteness is general; if it ingests all classes cleanly, reframe the finding as
-  "jimple2cpg has a silent cap; carving makes *any* frontend cheap+complete." Then unrelated
-  non-Goldoson SDKs (issue #5 Phase 1).
+- **Scoping honesty — the silent cap is jimple2cpg-specific (now cross-checked).** The CodeQL
+  run above **resolves** this: CodeQL extracts all 66,665 types incl. the full SDK, so
+  whole-app incompleteness is *not* fundamental — it is jimple2cpg's silent ~12.8k-class cap.
+  The value of carving therefore does **not** rest on that one tool's bug: it is a correctness
+  fix for jimple2cpg *and* an independent 22×-cost / 28×-noise fix for a complete-but-expensive
+  frontend (CodeQL). RQ1's 1 GB failures and RQ2's cost are likewise not caused by the cap.
+- Two analyzers now (`jimple2cpg` + CodeQL), one machine, one deep-dive app (TMAP) for the
+  cross-check. **Next:** extend the CodeQL completeness/cost pass across the full 11-app corpus
+  (only TMAP done end-to-end on CodeQL), then unrelated non-Goldoson SDKs (issue #5 Phase 1).
 - Reproduce: `bash research/completeness_run.sh` and `bash research/metrics.sh …`
   (`METRICS_HEAP=-Xmx1g` for the constrained run).
