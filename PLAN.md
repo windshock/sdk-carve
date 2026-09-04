@@ -103,8 +103,8 @@ sinks, reachability. **Failures are data** (timeout / OOM / parser / extractor /
 not-TPL-detector · not-just-slicing (R-Droid) · not-localization · analyzer-agnostic-feasibility · what's-preserved-vs-lost · generalizes-beyond-Goldoson.
 
 ### Immediate next steps (from issue #5)
-- [ ] Read + summarize **R-Droid**; document exact overlap/differences
-- [ ] Build the related-work matrix (the 14 refs above)
+- [x] Read + summarize **R-Droid**; document exact overlap/differences → [`docs/RELATED_WORK.md`](docs/RELATED_WORK.md) §B1
+- [x] Build the related-work matrix (13/14 refs; TaskFlow PDF pending) → [`docs/RELATED_WORK.md`](docs/RELATED_WORK.md)
 - [ ] Select 10 **unrelated** SDK families + define corpus metadata schema
 - [ ] Automate APK → detect → carve → analyze → **metrics** pipeline + whole-app baseline runner
 - [ ] Consistent timeout/OOM/failure recording; machine-readable scope-completeness output

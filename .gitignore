@@ -21,3 +21,6 @@ analysis/codeql/src-scoped/
 
 # Phase B downloaded malware samples — never commit
 research/acquisition/corpus/
+
+# Downloaded papers (copyright) — local reading only, never commit
+papers/

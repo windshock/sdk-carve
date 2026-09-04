@@ -74,6 +74,7 @@ REPRODUCE.md                    regenerate everything from the public sample
 AGENTS.md                       analysis conventions + evidence-labeling discipline
 docs/                           case-study knowledge (overview, evidence map, status)
   CROSS_APP_VALIDATION.md       method + detect.py validated across all 11 samples
+  RELATED_WORK.md               positioning vs R-Droid / TPL-detection / localization (issue #5)
 analysis/reports/               the deliverables:
   ANALYSIS_PLAN.md              the 3-track plan + why the old approach failed
   TRACK3_DATAFLOW.md            manual AI dataflow model (sources→sinks, guard decrypt)
