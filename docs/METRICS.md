@@ -1,66 +1,79 @@
-# Baseline (whole-app) vs carved — first metrics (issue #5 RQ1/RQ2/RQ3)
+# Baseline (whole-app) vs carved — metrics (issue #5 RQ1/RQ2/RQ3 + completeness)
 
-Evidence for the R-Droid distinction (`docs/RELATED_WORK.md` §B1): carving **restores analyzer
-feasibility** (RQ1) and **shrinks the analysis universe by 1–2 orders of magnitude** (RQ2) while
-**preserving the security-relevant surface** (RQ3). Harness: `research/metrics.sh` (whole-app jar
-vs in-memory case-preserving carve, same analyzer = `jimple2cpg`; `/usr/bin/time -l` for wall +
-peak RSS; per-CPG timeout).
+Empirical support for the R-Droid distinction (`docs/RELATED_WORK.md` §B1). Harness:
+`research/metrics.sh` (timing/RAM) and `research/completeness_run.sh` + `research/cq.sc`
+(target-presence), whole-app jar vs in-memory case-preserving carve, same analyzer
+(`jimple2cpg`). **Setup:** Apple Silicon, 16 GB, JDK 17, Joern jimple2cpg; 11 apps
+(TMAP + 10 Goldoson batch), 7.7k–59.7k classes.
 
-**Setup.** 1 machine (Apple Silicon, 16 GB, 10 cores), JDK 17, Joern `jimple2cpg`. 12 apps
-(TMAP + the 11 Goldoson batch apps), 7.7k–59.7k classes. Carve scope = the SDK root(s) from
-`detect.py`/`scope.txt`. Two heap settings model two environments.
+## Headline — whole-app CPG is silently *incomplete* (completeness)
 
-## RQ2 — reduction (heap `-Xmx12g`; whole-app *completes* here, so this isolates reduction)
+The most important result. A whole-app CPG that **builds fine** does not mean the target is
+in it. jimple2cpg retains a **bounded ~9–16k typeDecls regardless of input size** (12,778 for
+a 50k-class app), keeping mostly heavily-referenced libraries and **silently dropping the
+rest — including, on most apps, the entire target SDK.** No error/warning is emitted;
+`--full-resolver` does not change it.
 
-| app | classes WA→CV | × | wall s WA→CV | × | peak RAM MB WA→CV | × | CPG WA→CV |
-|---|--:|--:|--:|--:|--:|--:|--:|
-| com.skt.tmap.ku | 50157→117 | **429×** | 33.1→2.3 | 15× | 3803→386 | 10× | 42 MB→<1 |
-| com.gretech.gomplayerko | 59668→295 | 202× | 37.9→3.2 | 12× | 4609→709 | 7× | 51 MB→1 |
-| com.somcloud.somnote | 58431→184 | 318× | 33.4→2.5 | 14× | 4703→561 | 8× | 48 MB→<1 |
-| com.megabox.mop | 42702→271 | 158× | 26.0→3.4 | 8× | 4925→786 | 6× | 41 MB→1 |
-| kr.co.psynet | 33786→195 | 173× | 34.8→2.6 | 14× | 3793→531 | 7× | 44 MB→<1 |
-| com.wtwoo.girlsinger.worldcup | 25137→176 | 143× | 26.7→2.5 | 11× | 4746→518 | 9× | 39 MB→<1 |
-| kr.co.lottecinema.lcm | 16620→273 | 61× | 35.1→3.4 | 10× | 4841→600 | 8× | 47 MB→1 |
-| com.Monthly23.SwipeBrickBreaker | 13974→201 | 70× | 28.8→2.6 | 11× | 3783→511 | 7× | 35 MB→<1 |
-| com.appsnine.compass | 12385→210 | 59× | 29.8→2.6 | 11× | 4481→555 | 8× | 47 MB→<1 |
-| com.appsnine.audiorecorder | 11677→163 | 72× | 31.1→2.4 | 13× | 3782→431 | 9× | 42 MB→<1 |
-| mafu.driving.free | 7783→144 | 54× | 24.8→2.4 | 10× | 4200→454 | 9× | 35 MB→<1 |
+Target-SDK methods present in the CPG (whole-app vs carved), and SDK-own sink call-sites
+(`putCol`/`getBConfig`/`getPdata`/`userJoin`):
 
-**Reduction factors:** classes **54–429×** (median **143×**), wall time **8–15×**, peak RAM
-**6–10×**, CPG size **~40–70×**. Carved CPG builds in **2–4 s** everywhere.
+| app | input cls | whole-app SDK methods | whole-app own-sinks | carved SDK methods | carved own-sinks |
+|---|--:|--:|--:|--:|--:|
+| com.skt.tmap.ku | 50157 | **0** (0%) | **0** | 557 | 6 |
+| com.Monthly23.SwipeBrickBreaker | 13974 | **0** | **0** | 895 | 8 |
+| com.gretech.gomplayerko | 59668 | **23** (2%) | **0** | 1349 | 9 |
+| com.megabox.mop | 42702 | **0** | **0** | 1457 | 9 |
+| com.somcloud.somnote | 58431 | **0** | **0** | 909 | 8 |
+| kr.co.lottecinema.lcm | 16620 | **0** | 0\* | 1230 | 0\* |
+| kr.co.psynet | 33786 | **0** | **0** | 910 | 8 |
+| com.appsnine.audiorecorder | 11677 | 551 (96%) | 9 | 574 | 6 |
+| com.appsnine.compass | 12385 | 726 (97%) | 9 | 749 | 6 |
+| com.wtwoo.girlsinger.worldcup | 25137 | 757 (100%) | 8 | 757 | 8 |
+| mafu.driving.free | 7783 | 695 (100%) | 8 | 695 | 8 |
 
-## RQ1 — feasibility (heap `-Xmx1g`, timeout 150 s; models a laptop/CI runner)
+**On 7 of 11 apps the target SDK is effectively absent from the whole-app CPG** (0–2% of its
+methods; **0 SDK sinks → detection returns nothing, a false negative**). On 4/11 it survives.
+**The carved CPG contains 100% of the SDK on all 11** (by construction) → detection always
+works. (\*lottecinema renamed the SDK's own method names, so own-sinks=0 even carved; the
+method-count metric still shows 0 vs 1230.)
+
+Verified end-to-end on TMAP: the whole-app CPG (built at 12 GB) runs the detection script in
+60 s and reports **0 sources / 0 sinks / 0 flows**; a direct probe confirms `smart.sklb`,
+`SMARTLB`, `wepkr`, `nepkt_hrn`, `bhuroid` are **all absent** (not renamed — dropped).
+
+## RQ1 — feasibility (heap `-Xmx1g`, timeout 150 s; laptop/CI budget)
+
+Even where the whole-app CPG *would* be complete, it can't be built under a realistic budget:
 
 | app | whole-app | carved |
 |---|---|---|
-| com.skt.tmap.ku (50157) | **timeout (no CPG)** | ✅ 3.9 s |
-| com.gretech.gomplayerko (59668) | **timeout (no CPG)** | ✅ 4.0 s |
-| com.somcloud.somnote (58431) | **timeout (no CPG)** | ✅ 2.7 s |
-| com.megabox.mop (42702) | **OOM (no CPG)** | ✅ 3.7 s |
-| mafu.driving.free (7783) | **OOM (no CPG)** | ✅ 2.3 s |
+| TMAP / gomplayerko / somnote (50–60k) | **timeout, no CPG** | ✅ 3–4 s |
+| com.megabox.mop / mafu (43k / 7.7k) | **OOM, no CPG** | ✅ 2–4 s |
 
-At 1 GB, whole-app jimple2cpg **fails on 5/5** (timeout or OutOfMemory — including the smallest,
-7.7k-class app) and produces **no CPG**; the carved target **succeeds on 5/5** in 2–4 s. This is
-the feasibility half: where whole-app analysis is impossible under a realistic memory budget,
-carving makes it possible.
+At 1 GB, whole-app jimple2cpg **fails 5/5** (timeout/OOM, incl. the smallest 7.7k-class app),
+producing no CPG; carved **succeeds 5/5** in 2–4 s.
 
-## RQ3 — fidelity (preserved)
+## RQ2 — reduction (heap `-Xmx12g`, where whole-app *does* build)
 
-The carved CPGs recover the SDK's security-relevant surface established in the deep-dive: sources
-(installed-apps / Wi-Fi / BT / GPS / MAC / carrier / ad-ID), sinks (`putCol`/`userJoin`/
-`getBConfig`/`getPdata`/`loadUrl`/`loadData`), and entry→sink reachability — see
-`docs/CROSS_APP_VALIDATION.md` and `analysis/reports/`. Reduction does not drop the target's
-security behavior (modulo the documented static-reference boundary: reflection / dynamic loading
-/ native — `docs/PRE_CARVE.md`).
+54–429× fewer classes (**median 143×**), **8–15× faster**, **6–10× less peak RAM**, ~40–70×
+smaller CPG; carved CPG builds in **2–4 s** everywhere. (e.g. TMAP 50157→117 classes,
+33→2.3 s, 3.8 GB→386 MB, 42 MB→<1 MB CPG.)
+
+## RQ3 — fidelity
+
+Carved CPGs recover the SDK's source/sink/reachability surface established in the deep-dive
+(`docs/CROSS_APP_VALIDATION.md`, `analysis/reports/`), modulo the documented static-reference
+boundary (reflection / dynamic loading / native — `docs/PRE_CARVE.md`).
 
 ## Honest caveats
 
-- **Base CPG completes whole-app at a large heap** (12 GB) — so the reduction, not base-CPG
-  failure, is the headline at 12 GB. Failure is **environment-dependent** (heap/config), which is
-  exactly why the 1 GB run matters: feasibility is restored precisely where budgets are realistic.
-- Peak RSS includes JVM/Soot overhead (whole-app touches ~3.8–4.9 GB; carved ~0.3–0.8 GB).
-- One machine, one analyzer (`jimple2cpg`) so far. **Next:** the same comparison on **CodeQL DB
-  build** (heavier; likely fails whole-app sooner) and on a **downstream dataflow/query** pass
-  (superlinear — where reduction compounds), plus unrelated non-Goldoson SDKs (issue #5 Phase 1).
-- Reproduce: `bash research/metrics.sh <label> <app.jar> out.csv <root> [root…]`
-  (`METRICS_HEAP=-Xmx1g` to model constrained envs).
+- **The completeness result is the strongest and the most surprising:** the whole-app CPG
+  *builds* (12 GB, ~30 s, 42 MB) yet silently omits the target on 7/11 apps. The exact
+  class-selection mechanism of jimple2cpg on large jars is not fully characterized here
+  (it retains a bounded typeDecl set dominated by heavily-referenced libraries; the
+  manifest-registered SDK's survival is app-dependent) — but the *effect* (false-negative
+  detection) is reproduced across the corpus.
+- One machine, one analyzer (`jimple2cpg`). **Next:** repeat completeness + RQ1/RQ2 on
+  **CodeQL** (analyzer independence), and on unrelated non-Goldoson SDKs (issue #5 Phase 1).
+- Reproduce: `bash research/completeness_run.sh` and `bash research/metrics.sh …`
+  (`METRICS_HEAP=-Xmx1g` for the constrained run).

@@ -113,17 +113,23 @@ not-TPL-detector · not-just-slicing (R-Droid) · not-localization · analyzer-a
 - [x] Build the related-work matrix (13/14 refs; TaskFlow PDF pending) → [`docs/RELATED_WORK.md`](docs/RELATED_WORK.md)
 - [ ] Select 10 **unrelated** SDK families + define corpus metadata schema
 - [x] Automate APK → detect → carve → analyze → **metrics** pipeline + whole-app baseline runner
-  → [`research/metrics.sh`](research/metrics.sh); first results [`docs/METRICS.md`](docs/METRICS.md):
-  RQ2 **54–429× fewer classes** (median 143×), 8–15× faster, 6–10× less RAM; RQ1 at 1 GB heap whole-app
-  **fails 5/5** (timeout/OOM) while carved succeeds 5/5 — feasibility restored
+  → [`research/metrics.sh`](research/metrics.sh), [`research/completeness_run.sh`](research/completeness_run.sh);
+  results [`docs/METRICS.md`](docs/METRICS.md):
+  - **COMPLETENESS (headline):** whole-app CPG *builds* but silently **omits the target SDK on 7/11 apps**
+    (0–2% of its methods; 0 SDK sinks → false-negative detection); carved = **100%** on all 11.
+  - RQ1 feasibility: at 1 GB heap whole-app **fails 5/5** (timeout/OOM); carved succeeds 5/5.
+  - RQ2 reduction: **54–429× fewer classes** (median 143×), 8–15× faster, 6–10× less RAM.
 - [ ] Consistent timeout/OOM/failure recording; machine-readable scope-completeness output
 - [ ] Generalize SDK-root detection beyond Goldoson-specific anchors
 - [ ] Run Phase 1 (~100 APKs); analyze failures; **reassess the novelty claim**; decide on Phase 2
 
-**Target claim (if evidence supports):** *target-aware carving turns large decompiled Android apps
-that are impractical for heavyweight static analysis into substantially smaller, statically
-dependency-closed targets that preserve enough security-relevant behavior for meaningful downstream
-analysis* — scoped to static references (no universal soundness).
+**Target claim (revised by the metrics — completeness now leads):** *whole-app CPG construction on
+large Android apps is not only expensive but silently **incomplete** — the standard frontend drops the
+majority of app classes (bounded ~9–16k typeDecls) and, on most apps, the target SDK entirely, yielding
+false-negative analysis. Target-aware carving produces a small, statically dependency-closed program
+that **deterministically contains the whole target** and restores analyzer feasibility under realistic
+budgets* — scoped to static references (no universal soundness).
+Evidence: [`docs/METRICS.md`](docs/METRICS.md) (completeness 7/11 dropped; RQ1 1 GB fails 5/5; RQ2 54–429×).
 
 ---
 
@@ -140,9 +146,10 @@ analysis* — scoped to static references (no universal soundness).
 
 ## Immediate next actions (consolidated — pick one)
 
-1. **Track 2 pipeline (recommended):** automate baseline(whole-app)-vs-carved **metrics** on the samples in
-   hand (Goldoson×11 + SpinOk + Konfety + MobiDash + Necro×9 + DMB-TV×5) — first RQ2/RQ3 data + the
-   feasibility evidence that underpins the R-Droid distinction.
+1. **[done] Metrics pipeline** — completeness + RQ1 + RQ2 on the 11 Goldoson apps ([`docs/METRICS.md`](docs/METRICS.md)).
+   **Next (recommended): analyzer independence — repeat completeness + RQ1/RQ2 on CodeQL** (whole-app CodeQL DB
+   on 50k classes likely fails harder; confirms the claim isn't jimple2cpg-specific). Then extend to the other
+   families in hand (SpinOk/Konfety/MobiDash/Necro/DMB-TV) and unrelated SDKs.
 2. **Track 1:** Necro/Coral carve (anti-analysis `isAdb/isProxy/isSimulator/isDebug` + infected→clean diff);
    Konfety↔MobiDash phantom-viewport code diff — no new samples.
 3. **Track 2 desk:** [done] R-Droid diff + related-work matrix (`docs/RELATED_WORK.md`); next = corpus schema + 10 families.
