@@ -112,7 +112,10 @@ not-TPL-detector · not-just-slicing (R-Droid) · not-localization · analyzer-a
 - [x] Read + summarize **R-Droid**; document exact overlap/differences → [`docs/RELATED_WORK.md`](docs/RELATED_WORK.md) §B1
 - [x] Build the related-work matrix (13/14 refs; TaskFlow PDF pending) → [`docs/RELATED_WORK.md`](docs/RELATED_WORK.md)
 - [ ] Select 10 **unrelated** SDK families + define corpus metadata schema
-- [ ] Automate APK → detect → carve → analyze → **metrics** pipeline + whole-app baseline runner
+- [x] Automate APK → detect → carve → analyze → **metrics** pipeline + whole-app baseline runner
+  → [`research/metrics.sh`](research/metrics.sh); first results [`docs/METRICS.md`](docs/METRICS.md):
+  RQ2 **54–429× fewer classes** (median 143×), 8–15× faster, 6–10× less RAM; RQ1 at 1 GB heap whole-app
+  **fails 5/5** (timeout/OOM) while carved succeeds 5/5 — feasibility restored
 - [ ] Consistent timeout/OOM/failure recording; machine-readable scope-completeness output
 - [ ] Generalize SDK-root detection beyond Goldoson-specific anchors
 - [ ] Run Phase 1 (~100 APKs); analyze failures; **reassess the novelty claim**; decide on Phase 2
