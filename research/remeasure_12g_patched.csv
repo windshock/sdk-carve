@@ -1,0 +1,12 @@
+label,input_cls,wa_staged,wa_status,wa_wall_s,wa_rss_mb,wa_cpg_mb,wa_target_methods,wa_own_sinks,cv_cls,cv_status,cv_wall_s,cv_rss_mb,cv_cpg_mb,cv_target_methods,cv_own_sinks
+com.skt.tmap.ku,50157,50157,ok,517.91,4190,218,557,6,117,ok,2.25,389,0,557,6
+com.Monthly23.SwipeBrickBreaker,13974,13974,ok,772.02,5794,49,895,8,201,ok,2.38,565,0,895,8
+com.appsnine.audiorecorder,11677,11676,ok,28.04,5282,49,574,9,163,ok,2.48,494,0,574,6
+com.appsnine.compass,12385,12384,ok,31.75,5342,60,749,9,210,ok,2.86,516,0,749,6
+com.gretech.gomplayerko,59668,59668,ok,358.93,5216,261,1349,9,295,ok,3.78,791,1,1349,9
+com.megabox.mop,42702,42701,ok,170.15,5438,166,1457,9,271,ok,3.40,829,1,1457,9
+com.somcloud.somnote,58431,58430,ok,370.90,5284,252,909,8,184,ok,2.55,542,0,909,8
+com.wtwoo.girlsinger.worldcup,25137,25137,ok,54.23,6065,96,757,8,176,ok,2.33,536,0,757,8
+kr.co.lottecinema.lcm,16620,16620,ok,47.25,5536,78,1230,0,273,ok,3.15,723,1,1230,0
+kr.co.psynet,33786,33786,ok,119.84,5066,157,910,8,195,ok,2.72,553,0,910,8
+mafu.driving.free,7783,7783,ok,22.52,5071,35,695,8,144,ok,2.18,499,0,695,8

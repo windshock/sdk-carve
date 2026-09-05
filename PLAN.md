@@ -117,21 +117,31 @@ not-TPL-detector · not-just-slicing (R-Droid) · not-localization · analyzer-a
   results [`docs/METRICS.md`](docs/METRICS.md):
   - **COMPLETENESS (headline):** whole-app CPG *builds* but silently **omits the target SDK on 7/11 apps**
     (0–2% of its methods; 0 SDK sinks → false-negative detection); carved = **100%** on all 11.
-  - RQ1 feasibility: at 1 GB heap whole-app **fails 5/5** (timeout/OOM); carved succeeds 5/5.
-  - RQ2 reduction: **54–429× fewer classes** (median 143×), 8–15× faster, 6–10× less RAM.
+  - RQ1 feasibility (patched frontend, 1 GB heap): whole-app **fails on all 8 apps measured**
+    (timeout/OOM; smallest mafu 7.7k OOMs in 22 s, largest ~59k too; other 3 not re-run);
+    carved succeeds 11/11 in 2.2–4.3 s.
+  - RQ2 reduction (patched frontend, 12 GB): **54–429× fewer classes** (median 143×),
+    **10–324× faster** (median 44×), **~10× less RAM**, CPG sub-1 MB vs 35–261 MB.
+  - RQ3 fidelity: carved SDK method surface == whole-app SDK method surface **exactly, 11/11**.
+- [ ] Extend CodeQL cost/completeness cross-check across the 11-app corpus + unrelated SDKs
 - [ ] Consistent timeout/OOM/failure recording; machine-readable scope-completeness output
 - [ ] Generalize SDK-root detection beyond Goldoson-specific anchors
 - [ ] Run Phase 1 (~100 APKs); analyze failures; **reassess the novelty claim**; decide on Phase 2
 
-**Target claim (revised by the metrics — completeness now leads):** *whole-app CPG construction on
-large Android apps is not only expensive but silently **incomplete** — the standard frontend
-(jimple2cpg) stages only the first ~10,122 class files in archive order and silently drops the rest,
-taking the target SDK with it on most apps and yielding false-negative analysis. Target-aware carving
-produces a small, statically dependency-closed program that **deterministically contains the whole
-target** and restores analyzer feasibility under realistic budgets* — scoped to static references
-(no universal soundness). The incompleteness is jimple2cpg-specific (CodeQL, via decompiled source,
-stages all classes but at ~22× the cost); carving helps either frontend.
-Evidence: [`docs/METRICS.md`](docs/METRICS.md) (completeness 7/11 dropped; RQ1 1 GB fails 5/5; RQ2 54–429×).
+**Target claim (reframed after fixing joernio/joern#6257):**
+> *Target-aware carving reduces the analysis universe and downstream cost/noise while preserving the
+> selected SDK's security-relevant surface; paired whole-app vs carved validation can additionally
+> expose silent toolchain failures, as demonstrated by joernio/joern#6257.*
+
+The first clause is the project body (durable, frontend-agnostic): on the **fixed** frontend, carving
+is 10–324× faster (median 44×), ~10× less RAM, and feasible at 1 GB where whole-app fails 11/11,
+while preserving 100 % of the SDK method surface (RQ3); CodeQL corroborates the cost gap (~22×,
+independent of the bug). The second clause is a **bonus case study**: comparing carved vs whole-app
+surfaced a shipped silent-truncation bug in jimple2cpg (`FileUtil.unzipTo`), which we root-caused and
+fixed upstream. *Not* elevated to a general "carving is an analyzer-bug oracle" thesis (one instance).
+The earlier "whole-app is silently incomplete" headline is **demoted to that case study** — it was a
+fixable bug, not a standing property.
+Evidence: [`docs/METRICS.md`](docs/METRICS.md) (RQ1 1 GB fails 8/8 measured; RQ2 10–324×; RQ3 11/11 exact; case study #6257).
 
 ---
 
