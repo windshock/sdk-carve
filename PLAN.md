@@ -262,8 +262,11 @@ RQ5 boundary quantified (framework 55–92 %), resolver (③, `resolve.py`), Tra
    `host-app / inter-SDK / shared-utility / generated-glue` → answers *which kind* of host context is
    actually needed (and seeds an adaptive-context-expansion idea). `research/edges.sc` already dumps the
    boundary callees; classify them.
-3. **Corpus (external validity, not "more numbers").** Then run 10 families × several hosts via the
-   resolver — validates the *already-defined* preservation contract's external validity (RQ4).
+3. **[~] Corpus / external validity.** Resolver ready (dry-run OK); **actual fetch is auth-gated**
+   (mirror/ToS). Non-gated slice DONE: preservation contract validated **outside Goldoson** — okhttp3+
+   okio carved from DMB-TV (benign host `com.project.onair`) = 100 % internal-edge recall, 0 divergence.
+   In-hand external validity spans 5 malware families + 4 benign SDKs. Full unrelated-family corpus
+   (10×hosts) needs download authorization.
 
 **Parallel sure-wins (anytime):** land Joern #6257 merge; threat-intel report/blog; ship the tool.
 **Gated (later):** Necro native second stage (ghidra); Phase-D infra correlation (external evidence).

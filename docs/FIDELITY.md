@@ -88,6 +88,13 @@ framework/stdlib. The two largest apps (gomplayerko 59.7k, TMAP 50k) were **not 
 *whole-app* CPG edge-dump exceeds practical joern time/memory on this machine (the carved side dumps
 in seconds — the same cost asymmetry as §RQ2). We do not claim a result for them.
 
+**External validity (benign, non-Goldoson SDK + non-Goldoson host).** The same exact preservation
+holds outside the Goldoson family: carving **okhttp3 + okio** (a well-known benign library, 249 classes)
+from **DMB-TV** (`com.project.onair`, a benign streaming app) vs its whole-app CPG → **2295 = 2295
+methods, 3314/3314 internal edges shared (0 divergence, 100 % recall), boundary identical**. So the
+structural-fidelity result is not a property of Goldoson or of malware — it holds for an arbitrary
+embedded SDK in an unrelated host. *(No download needed — DMB-TV was already in hand.)*
+
 **Finding (RQ3).** Across every app measured, the carved CPG reproduces the SDK's **internal
 static call graph with 0 divergence** — same method set, same internal call edges (recall 100 %, no
 carved-only or whole-app-only internal edges). Within the SDK scope, the carved graph is *structurally
