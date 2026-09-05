@@ -55,8 +55,10 @@ phantom-viewport + synthetic-touch click fraud via different packing (both stati
   - [x] **Necro/Coral** — 8 infected + 1 clean via APKPure/apkfiles by hash (S10); **Coral Java loader carved** (660 cls; behavior fingerprint recovered — see S10 / `CROSS_FAMILY_COMPARISON.md`)
   - [ ] **Invisible Adware** — DMB TV (`com.project.onair`) sourced but turned out **benign ≠ IOC**; real
     `com.dmb.media`/`dmb.onair.media`/`band.kr.com`/`easy.kr` need VT/Koodous/AndroZoo (**droppable** — 5 families suffice)
-  - [ ] SlopAds / Trapdoor (App-ID → AndroZoo) — **need `ANDROZOO_APIKEY`**
-  - [ ] Goldoson historical infected→clean boundary (AndroZoo) — *research Final-priority #1*
+  - [ ] SlopAds / Trapdoor (App-ID → **resolver**: mirror history / AndroZoo) — no longer AndroZoo-only;
+    standalone-flagged variants may still need MalwareBazaar/Triage/VT
+  - [ ] Goldoson historical infected→clean boundary — via **resolver** (mirror version history), same
+    pattern as Necro/DMB-TV; AndroZoo optional for citable metadata — *research Final-priority #1*
 - [x] **C — cross-family comparison** (**5 families**; anti-analysis + fraud-engine matrix) — Necro/Coral carved (native-second-stage loader branch)
 - [ ] **D — infrastructure correlation** (evidence-gated; C2/pDNS/cert — only with cited evidence)
 - [x] Konfety↔MobiDash **phantom-viewport code diff** — direct class-level compare: Konfety
@@ -66,17 +68,45 @@ phantom-viewport + synthetic-touch click fraud via different packing (both stati
 
 ---
 
-## Track 2 — Method-generalization empirical study  *(GitHub issue #5)*
+## Track 2 — Resource-bounded, target-centric analysis of embedded SDKs  *(GitHub issue #5)*
 
-The academic question: does target-aware carving **generalize across unrelated SDKs** and
-materially change deep-analysis feasibility? Distinct from Track 1 (which is one SDK-model family).
+**Positioning (converged).** Not "SDK carving is a new algorithm" (it isn't — cf. slicing / R-Droid).
+The paper-worthy question is:
+
+> **How much application context is actually necessary to *faithfully* analyze a third-party SDK
+> embedded in an Android app, and where does target-centric reduction stop being faithful?**
+
+Framing that dodges the "this is just slicing" attack:
+- **Supply-chain unit of analysis.** The target is not the app — it is a component **repeated across
+  many host apps** (Goldoson/SpinOk/Konfety/MobiDash/Necro). Re-running whole-app analysis per host
+  is wasteful **in aggregate**; the natural unit is the SDK. (Tension we *observed and turn into a
+  finding:* SDKs are **re-obfuscated per host** — Goldoson per-app R8 renames, Necro per-build name
+  randomization — so it's carve-**and-reanalyze per host**; carving is what makes that tractable *at
+  scale*, which also answers the "just add heap" rebuttal — individual builds may run at 12 GB, but
+  triaging one SDK across thousands of hosts is infeasible whole-app in aggregate.)
+- **Feasibility transformation, not speed optimization.** The headline is RQ1 (1 GB: whole-app 11/11
+  fail → carve 11/11 succeed), i.e. moving the *feasibility boundary*, not a 44× speedup.
+- **The Joern bug is a cautionary case study**, not the thesis: a production analyzer had a
+  resource-sensitive silent failure on large/adversarial Android input, and the carve-vs-whole-app
+  *differential* surfaced it (joernio/joern#6257) — motivation, not claim.
+
+**The real bottleneck is definitional, not corpus size:** we must **define what must be preserved for
+a carve to be "correct enough"** (the *preservation contract*). With that definition, ~100 APKs are
+evidence; without it, 1,000 APKs still only show "smaller ⇒ faster." This is the priority, and it is
+**not AndroZoo-gated** — it can be built now on the samples in hand.
 
 ### Research questions
-- **RQ1 Feasibility** — does carving let analyzers process targets that time out / OOM whole-app?
+- **RQ1 Feasibility (headline)** — does carving move the *feasibility boundary*: analyze targets that
+  are impossible whole-app under a realistic/at-scale budget? *(1 GB: whole-app fails 11/11, carve
+  succeeds 11/11.)*
 - **RQ2 Reduction** — classes / methods / size / CPG-DB size / time / peak memory (whole-app vs carved).
-- **RQ3 Fidelity** — sources, sinks, entry→sink reachability, endpoints, sensitive APIs preserved?
+- **RQ3 Semantic fidelity (the core, was under-specified)** — beyond method-presence: **call-graph
+  edges, source→sink reachability *paths*, dataflow findings, manifest/resource/entry-point deps**
+  preserved carved-vs-(complete)-whole-app. Method-count alone is *not* fidelity.
 - **RQ4 Generalizability** — unrelated families, multiple versions, hosts, R8/ProGuard, renames, damaged decompilation, big apps, lib-dependent SDKs.
-- **RQ5 Boundaries** — reflection, dynamic class loading, JNI/native, framework-mediated flow, no clean boundary, shaded deps.
+- **RQ5 Failure boundary (co-core with RQ3)** — where carve stops being faithful: reflection, dynamic
+  class loading, JNI/native, shared host utilities, resource lookup, manifest components, inter-SDK
+  deps, shaded deps. Must be **shown explicitly**, not hand-waved.
 
 ### Corpus
 - **Phase 1 (diversity):** ~10 **unrelated** SDK families × ~10 apps ≈ 100 APKs — mix of ad / analytics /
@@ -85,6 +115,23 @@ materially change deep-analysis feasibility? Distinct from Track 1 (which is one
   - first benign general-SDK sample in hand: **DMB TV `com.project.onair`** ×5 (ExoPlayer/Firebase/
     YouTube-player/okhttp/ButterKnife) — `analysis/general_apps/` — good non-adfraud carve target.
 - **Phase 2 (scale):** 20–30 families, several hundred APKs (AndroZoo useful, not required) — only if Phase 1 pays off.
+
+### Corpus acquisition — **NOT AndroZoo-gated** (revised)
+`package + historical version → APK` is already solved by many tools; don't build a downloader, build
+a **resolver** over them. (This is exactly how the Necro hosts + DMB-TV versions were already
+obtained — via APKPure/apkfiles by hash, no AndroZoo.)
+- [ ] **Multi-source resolver** `resolve(package, version?)` with fallback chain →
+  `local · AndroZoo · APKMirror (apkmirror-downloader) · APKCombo · APKPure (py) · Play (gpapi/Aurora) · Uptodown`,
+  emitting a **normalized record** `{package, version_name, version_code, sha256, signer_sha256, source, source_url, split, retrieved_at}`.
+- **Fit for *our* threat model:** malicious SDKs ride in **real host apps** (Goldoson=Play apps,
+  Necro=Wuta/Spotify mods) with an **infected→clean version boundary** → historical-version mirrors are
+  the *right* tool and already worked for us. **Caveats:** (a) *standalone flagged* malware is taken
+  down from mirrors/Play → still via MalwareBazaar/Triage/VT (already used); (b) mirror APKs can be
+  **repackaged** → the resolver **must verify `signer_sha256` + `sha256`** (also our SDK-provenance
+  check); (c) AndroZoo stays valuable for **reproducibility/metadata** (citable hashes, dex-date, VT
+  count) but is **optional, not a gate**; (d) respect ToS + the authorization gate (below).
+- **Consequence:** RQ4 generality is now an **engineering task (the resolver)**, not an external gate.
+  The intellectual bottleneck remains the **preservation contract** (★ PRIORITY), not sample access.
 
 ### Experimental design (per target: baseline whole-app **vs** treatment carved)
 Record: classes, methods, input size, analysis-completed?, runtime, peak memory, CPG/DB size, sources,
@@ -124,7 +171,9 @@ not-TPL-detector · not-just-slicing (R-Droid) · not-localization · analyzer-a
     carved succeeds 11/11 in 2.2–4.3 s.
   - RQ2 reduction (patched frontend, 12 GB): **54–429× fewer classes** (median 143×),
     **10–324× faster** (median 44×), **~10× less RAM**, CPG sub-1 MB vs 35–261 MB.
-  - RQ3 fidelity: carved SDK method surface == whole-app SDK method surface **exactly, 11/11**.
+  - RQ3 **method-presence only** (NOT yet semantic fidelity): carved SDK method surface == whole-app
+    exactly, 11/11. ⚠️ Reviewer: "method present ≠ analysis meaning preserved" — semantic fidelity
+    (call-graph edges / source→sink paths / dataflow) is the **pending core**, see priority block below.
 - [~] Extend CodeQL cost/completeness cross-check across the corpus — **carved: all 11 apps**
   (21–29 s, 7–11 MB DB, 100 % SDK each; `research/codeql_carved_corpus.csv`). Whole-app: 2 apps
   with original APK (TMAP 542 s/2.5 GB, worldcup 220 s/207 MB) → carved ~9–22× faster, ~30–280×
@@ -134,22 +183,44 @@ not-TPL-detector · not-just-slicing (R-Droid) · not-localization · analyzer-a
   Remaining: original APKs for wider whole-app CodeQL set.
 - [ ] Consistent timeout/OOM/failure recording; machine-readable scope-completeness output
 - [ ] Generalize SDK-root detection beyond Goldoson-specific anchors
-- [ ] Run Phase 1 (~100 APKs); analyze failures; **reassess the novelty claim**; decide on Phase 2
+- [ ] Run Phase 1 (~100 APKs) — **generality evidence, AndroZoo-gated, but NOT the bottleneck**
+  (see priority block); analyze failures; **reassess novelty**; decide on Phase 2
 
-**Target claim (reframed after fixing joernio/joern#6257):**
-> *Target-aware carving reduces the analysis universe and downstream cost/noise while preserving the
-> selected SDK's security-relevant surface; paired whole-app vs carved validation can additionally
-> expose silent toolchain failures, as demonstrated by joernio/joern#6257.*
+### ★ PRIORITY (non-gated, the intellectual core) — define + measure the preservation contract
+The bottleneck is *definitional*, not corpus size. Do this now on samples in hand (11 Goldoson +
+Necro; whole-app CPG is complete post-#6257 so carved-vs-whole-app is a fair comparison):
+- [ ] **Define the preservation contract** — what must survive a carve to be "correct enough":
+  call-graph edges (SDK-internal + SDK→boundary), source→sink reachability *paths*, dataflow
+  findings, entry points, manifest/resource/reflection deps. This *definition* is the core novelty lever.
+- [ ] **RQ3 semantic fidelity (measure, not method-count)** — diff carved vs complete-whole-app CPG:
+  CG-edge recall, source→sink path recall, dataflow-finding agreement (missed / spurious). Report %.
+- [ ] **RQ5 failure boundary (measure explicitly)** — enumerate & quantify where carve breaks:
+  reflection, dynamic loading, JNI/native, shared host utils, resource lookup, manifest components,
+  inter-SDK deps. "Where reduction stops being faithful" is a *result*, not a caveat.
+- [ ] Only then: Phase-1 corpus (via the **multi-source resolver**, AndroZoo optional) turns the
+  *defined* contract into generality evidence.
 
-The first clause is the project body (durable, frontend-agnostic): on the **fixed** frontend, carving
-is 10–324× faster (median 44×), ~10× less RAM, and feasible at 1 GB where whole-app fails 11/11,
-while preserving 100 % of the SDK method surface (RQ3); CodeQL corroborates the cost gap (~22×,
-independent of the bug). The second clause is a **bonus case study**: comparing carved vs whole-app
-surfaced a shipped silent-truncation bug in jimple2cpg (`FileUtil.unzipTo`), which we root-caused and
-fixed upstream. *Not* elevated to a general "carving is an analyzer-bug oracle" thesis (one instance).
-The earlier "whole-app is silently incomplete" headline is **demoted to that case study** — it was a
-fixable bug, not a standing property.
-Evidence: [`docs/METRICS.md`](docs/METRICS.md) (RQ1 1 GB fails 8/8 measured; RQ2 10–324×; RQ3 11/11 exact; case study #6257).
+**Target claim (converged framing — feasibility + fidelity, supply-chain unit):**
+> *For a third-party SDK embedded across many Android host apps, whole-app analysis is the wrong
+> default unit: target-centric carving **moves the feasibility boundary** (analyzes SDKs that are
+> impossible whole-app under realistic/at-scale budgets) at 1–2 orders less cost, **while preserving
+> the SDK's security-relevant semantics** — and we characterize exactly **where that preservation
+> stops holding**. The carve-vs-whole-app differential additionally surfaced a real production-analyzer
+> failure (joernio/joern#6257).*
+
+- **Headline = feasibility transformation** (RQ1: 1 GB whole-app 8/8 measured fail → carve 11/11 ok),
+  not the 10–324× speedup (RQ2), which is expected. The "just add heap" rebuttal is answered by the
+  **supply-chain-at-scale** unit (triage one SDK across thousands of hosts is infeasible whole-app in
+  aggregate) — reinforced by our finding that SDKs are **re-obfuscated per host** (carve+reanalyze
+  per host is unavoidable, and carving is what makes it tractable).
+- **Core still open = semantic fidelity (RQ3, not method-count) + failure boundary (RQ5).** These are
+  the paper-defining deliverables and are **not corpus-gated** — see the ★ PRIORITY block.
+- **Joern #6257 = cautionary case study / motivation**, not the thesis. Earlier "whole-app is silently
+  incomplete" headline demoted (it was a fixable bug).
+- **Honest venue:** solid empirical / SE-security (measurement + systematization), *not* a novel-algorithm
+  paper — and that's fine; the contribution is the *preservation-contract definition + feasibility/
+  fidelity/boundary characterization for supply-chain SDK analysis*.
+Evidence: [`docs/METRICS.md`](docs/METRICS.md) (RQ1 1 GB fails 8/8 measured; RQ2 10–324×; RQ3 method-presence 11/11 — semantic fidelity pending; case study #6257).
 
 ---
 
@@ -159,19 +230,21 @@ Evidence: [`docs/METRICS.md`](docs/METRICS.md) (RQ1 1 GB fails 8/8 measured; RQ2
 |---|---|
 | Local carves of samples already held | ✅ proceed |
 | Sample/hash fetch (AndroZoo/MalwareBazaar/Hybrid Analysis/Triage/VT) | ⛔ per-step user OK (standing OK for Track 1 Phase B) |
+| APK fetch via mirror resolver (APKMirror/APKCombo/APKPure/Play/Uptodown) | ⛔ per-step user OK; **respect each source's ToS/anti-bot**; **verify signer+hash** (mirror APKs may be repackaged) |
 | Network call to a candidate/known C2 | ⛔ explicit OK + isolated env (`AGENTS.md`) |
 | Commit/push to the public repo | ⛔ explicit OK |
 
 ---
 
-## Immediate next actions (consolidated — pick one)
+## Immediate next actions (consolidated — priority order)
 
-1. **[done] Metrics pipeline** — completeness + RQ1 + RQ2 on the 11 Goldoson apps ([`docs/METRICS.md`](docs/METRICS.md)).
-   **Next (recommended): analyzer independence — repeat completeness + RQ1/RQ2 on CodeQL** (whole-app CodeQL DB
-   on 50k classes likely fails harder; confirms the claim isn't jimple2cpg-specific). Then extend to the other
-   families in hand (SpinOk/Konfety/MobiDash/Necro/DMB-TV) and unrelated SDKs.
-2. **Track 1:** Necro/Coral carve (anti-analysis `isAdb/isProxy/isSimulator/isDebug` + infected→clean diff);
-   Konfety↔MobiDash phantom-viewport code diff — no new samples.
-3. **Track 2 desk:** [done] R-Droid diff + related-work matrix (`docs/RELATED_WORK.md`); next = corpus schema + 10 families.
-4. **Blocked on `ANDROZOO_APIKEY`:** SlopAds/Trapdoor + Goldoson historical + Phase-1 unrelated-family corpus
-   (Invisible Adware also needs VT/Koodous — droppable).
+1. **★ Semantic-fidelity + failure-boundary study (RQ3/RQ5) — the paper-defining, non-gated core.**
+   Define the **preservation contract**, then measure carved-vs-(complete)-whole-app: CG-edge recall,
+   source→sink path recall, dataflow-finding agreement, and *where carve breaks*. On 11 Goldoson +
+   Necro, now — no new samples needed.
+2. **Build the multi-source APK resolver** (`resolve(package, version?)`, normalized record, signer+hash
+   verify) → unblocks RQ4 generality without AndroZoo as a gate. Then Phase-1 corpus.
+3. **Track 1 (done this pass):** Necro/Coral carved + Konfety↔MobiDash diff + cross-host build compare.
+   Remaining is gated (native ghidra track; Phase-D infra correlation needs external evidence).
+4. **Wrap the sure wins:** land Joern #6257 merge; publish threat-intel as a report/blog; ship the tool.
+5. **Track 2 desk (done):** R-Droid diff + related-work matrix (`docs/RELATED_WORK.md`).
