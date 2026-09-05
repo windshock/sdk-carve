@@ -1,9 +1,25 @@
-# Semantic fidelity & failure boundary — carved vs whole-app CPG (RQ3 / RQ5)
+# Structural (static-analysis surface) fidelity & failure boundary — carved vs whole-app CPG (RQ3 / RQ5)
 
 *Answers the reviewer question "method present ≠ analysis meaning preserved."* Compares the **carved**
 CPG against the **complete whole-app** CPG (jimple2cpg patched with
 [joernio/joern#6257](https://github.com/joernio/joern/pull/6257), so the whole-app graph actually
 contains the SDK) — beyond method-count, at the **call-graph** level.
+
+**Scope of the claim (deliberately precise).** What is demonstrated is *structural* fidelity of the
+static-analysis surface, not *semantic* (taint/dataflow) equivalence:
+
+```
+Method set                     = exact (9/11)
+SDK-internal call graph        = exact, 0 divergence (9/11)
+Boundary call-sites            = exact (9/11)
+Source/sink surface            = exact (2 apps)
+Call-graph reachability        = exact where the path stays SDK-internal (by construction)
+Taint/dataflow semantic equiv. = NOT yet demonstrated (needs dataflow semantics models — future work)
+```
+
+So the finding is: **for the measured SDKs, no host-app code was required to preserve the SDK-internal
+static call graph and source/sink surface; fidelity loss begins at explicitly-modeled boundaries** —
+*not* "app context can be zero."
 
 ## What is measured (`research/edges.sc`, `research/fidelity_batch.sh`)
 
@@ -32,19 +48,18 @@ Then, carved vs whole-app:
 | com.megabox.mop | 1457 | 1556 | **100.0 %** | 619 | 81 % |
 | com.somcloud.somnote | 909 | 1182 | **100.0 %** | 373 | 90 % |
 
-**9/11 apps measured — every one exact 100 % internal-edge recall with 0 divergence** (no carved-only
-or whole-app-only internal edge on any app), across the full size range **7.7k–58k input classes**.
-The boundary count is **identical (WA=CV) on every app**, 55–92 % of it framework/stdlib. The two
-largest apps (gomplayerko 59.7k, TMAP 50k) were not re-run — their *whole-app* CPG edge-dump exceeds
-practical joern time/memory on this machine (the carved side dumps in seconds — the same cost
-asymmetry as §RQ2), and they fall inside the already-covered size range (somnote 58k is measured), so
-the deterministic result is the same: both CPGs contain identical SDK bytecode ⇒ identical internal
-call graph.
+**9/11 measured, 9/9 exact — every measured app has 100 % internal-edge recall with 0 divergence**
+(no carved-only or whole-app-only internal edge), across the full size range **7.7k–58k input
+classes**. The boundary count is **identical (WA=CV) on every measured app**, 55–92 % of it
+framework/stdlib. The two largest apps (gomplayerko 59.7k, TMAP 50k) were **not measured** — their
+*whole-app* CPG edge-dump exceeds practical joern time/memory on this machine (the carved side dumps
+in seconds — the same cost asymmetry as §RQ2). We do not claim a result for them.
 
 **Finding (RQ3).** Across every app measured, the carved CPG reproduces the SDK's **internal
-call graph with 0 divergence** — same method set, same internal call edges (recall 100 %, no
-carved-only or whole-app-only internal edges). Carving is not a lossy approximation of the SDK's
-own semantics; within the scope it is *identical* to what the whole-app analysis sees.
+static call graph with 0 divergence** — same method set, same internal call edges (recall 100 %, no
+carved-only or whole-app-only internal edges). Within the SDK scope, the carved graph is *structurally
+identical* to what the complete whole-app analysis sees; no host-app code was needed to reconstruct
+it. (This is a statement about the static call graph, not about taint/dataflow — see the scope box.)
 
 **Finding (RQ5 — the boundary is the cut, and it is mostly framework).** The only difference is at
 **boundary edges** (SDK → non-SDK). The carved graph keeps the *call site* but the callee is a stub;
@@ -72,8 +87,11 @@ with the 100 % internal call graph, source→sink **call-graph reachability is p
 construction** (same graph, same endpoints). *Honest caveat:* joern's default **taint-flow**
 (`reachableBy`) reports **0 flows in both** carved and whole-app — the SDK's collect→upload path runs
 through `Bundle`/field/serialization that joern doesn't track without dataflow **semantics models**;
-this is an identical analyzer limitation, **not** a carving fidelity gap (the CodeQL name-matched
-detection in `docs/METRICS.md` recovers the same source/sink set in both).
+this is an identical analyzer limitation, **not** a carving fidelity gap (a **negative control**:
+carving didn't break dataflow — nothing to break). The *positive* evidence — carved and whole-app
+producing the **same non-zero** taint flows — is **not yet demonstrated** and is the clear next step:
+add dataflow **semantics models** for the `Bundle`/serialization sinks, then compare flow sets. Until
+then this section claims **structural** (surface) fidelity, not **semantic** (dataflow) equivalence.
 
 ## Preservation contract (what "correct enough" means, made explicit)
 

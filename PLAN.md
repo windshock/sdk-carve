@@ -192,12 +192,13 @@ Necro; whole-app CPG is complete post-#6257 so carved-vs-whole-app is a fair com
 - [x] **Define the preservation contract** — method set + internal call graph + boundary call-sites
   preserved; deliberately-cut = callee bodies across the boundary + reflection/dynamic/JNI paths →
   [`docs/FIDELITY.md`](docs/FIDELITY.md).
-- [x] **RQ3 semantic fidelity (call-graph)** — carved vs complete-whole-app CPG: **internal-edge recall
-  = 100.0 %, 0 divergence on 9/11 apps** (7.7k–58k classes; 2 largest not re-run — whole-app edge-dump
-  impractical, within covered range, deterministic same). `docs/FIDELITY.md`, `research/edges.sc`.
-- [x] **RQ3 deeper (②)** — source→sink surface identical carved-vs-whole-app (worldcup, audiorecorder:
-  source/sink sites + methods 0 divergence) → reachability preserved by construction. True taint-flow
-  (joern `reachableBy`) = 0 in both (dataflow-semantics limitation, identical). `research/paths.sc`.
+- [x] **RQ3 structural fidelity (call-graph)** — carved vs complete-whole-app CPG: **internal-edge
+  recall = 100.0 %, 0 divergence — 9/11 measured, 9/9 exact** (7.7k–58k classes). 2 largest **not
+  measured** (whole-app edge-dump resource cost) — no result claimed. `docs/FIDELITY.md`, `edges.sc`.
+- [x] **RQ3 deeper (②) — structural source→sink surface** identical carved-vs-whole-app (worldcup,
+  audiorecorder: source/sink sites + methods 0 divergence) → CG reachability preserved by construction.
+  True taint-flow (`reachableBy`) = 0 in both = **negative control** (not broken by carving); *semantic*
+  (dataflow) equivalence **not yet demonstrated** → future work: add semantics models. `research/paths.sc`.
 - [~] **RQ5 failure boundary (measure explicitly)** — boundary edges (SDK→non-SDK) are the cut; **55–92 %
   are framework/stdlib** (stubs in whole-app too → not lost), only the non-framework host-app fraction is
   genuinely dropped. Still to enumerate: reflection / dynamic loading / JNI / manifest-component paths.
@@ -208,9 +209,10 @@ Necro; whole-app CPG is complete post-#6257 so carved-vs-whole-app is a fair com
 > *For a third-party SDK embedded across many Android host apps, whole-app analysis is the wrong
 > default unit: target-centric carving **moves the feasibility boundary** (analyzes SDKs that are
 > impossible whole-app under realistic/at-scale budgets) at 1–2 orders less cost, **while preserving
-> the SDK's security-relevant semantics** — and we characterize exactly **where that preservation
-> stops holding**. The carve-vs-whole-app differential additionally surfaced a real production-analyzer
-> failure (joernio/joern#6257).*
+> the SDK's security-relevant *static-analysis surface* (method set, internal call graph, source/sink
+> surface — measured exact)** — and we characterize exactly **where that preservation stops holding**
+> (the modeled boundary). *(Semantic/dataflow equivalence is future work.)* The carve-vs-whole-app
+> differential additionally surfaced a real production-analyzer failure (joernio/joern#6257).*
 
 - **Headline = feasibility transformation** (RQ1: 1 GB whole-app 8/8 measured fail → carve 11/11 ok),
   not the 10–324× speedup (RQ2), which is expected. The "just add heap" rebuttal is answered by the

@@ -38,3 +38,12 @@ record rows in the normalized schema (PLAN Phase C).
 ## Safety
 - Static analysis only; do not install/run APKs.
 - `corpus/` is git-ignored; never commit samples (see repo `.gitignore`).
+
+## resolve.py — the AndroZoo dependency, removed
+
+Research infrastructure (not a paper contribution). Trajectory worth noting:
+- **Before:** "we probably need AndroZoo to build the corpus."
+- **After:** a provenance-checked multi-source resolver (`resolve.py`) makes `package(+version) → APK`
+  work off many downloaders; **AndroZoo is no longer a methodological dependency** — it remains useful
+  for reproducibility (citable hashes) and metadata. Corpus acquisition for the "malicious SDK in a
+  real host app + infected→clean boundary" case is not AndroZoo-gated (see PLAN Track 2).
