@@ -94,11 +94,23 @@ now code-confirmed in `com.stwdi.denhonol…`:
 - **`Proxy.NO_PROXY`** anti-mitm (`uVm228`/…) + a **2,056-class Netty** residential-proxy stack
 - `irs`=IronSource (1,834), `apl`=AppLovin (2,732) ad modules.
 
-**Convergence:** Konfety and MobiDash independently arrive at the **same phantom-viewport +
-synthetic-touch click-fraud** engine, both reachable only after statically peeling their
-loaders. Different packaging (XOR asset vs SQLCipher+XOR modules), same fraud endgame —
-technique convergence, and both fully recoverable offline because the key material
-(asset-name / in-APK signing cert) never leaves the sample.
+**Convergence — direct code diff (phantom-viewport class in each payload):**
+
+| | Konfety | MobiDash |
+|---|---|---|
+| phantom-viewport class(es) | **`com.adcommercial.utils.xOnUc`** (1) | **`com.stwdi.denhonol.vacbe.jdhcc.jdhcc.{HqJz25,NkgMB0,GNoVze,jvByHu,ZzGeqf}`** (5) |
+| `createVirtualDisplay` / `VirtualDisplay` / `Presentation` | 1 / 1 / 1 | 1 / 1 / 4 |
+| synthetic `MotionEvent` / `onTouchEvent` | 17 / 8 | 99 / 35 |
+| `WebView` / `loadUrl` / `addJavascriptInterface` | 6 / 1 / 0 | 78 / 21 / 5 |
+
+Same technique — off-screen `VirtualDisplay`+`Presentation`, synthetic `MotionEvent` touch, WebView
+ad render — but **entirely different packages, class counts, and scale** (Konfety: 1 lean class in
+`com.adcommercial`; MobiDash: a 5-class, WebView-centric engine in the `jdhcc` module). This is the
+direct evidence for **technique lineage, not shared code**: Konfety and MobiDash independently arrive
+at the **same phantom-viewport + synthetic-touch click-fraud** engine, each reachable only after
+statically peeling their loaders. Different packaging (XOR asset vs SQLCipher+XOR modules), same
+fraud endgame, both fully recoverable offline because the key material (asset-name / in-APK signing
+cert) never leaves the sample.
 
 ## Necro / Coral — a native-second-stage loader in trojanized host apps (5th family)
 

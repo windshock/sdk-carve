@@ -59,7 +59,9 @@ phantom-viewport + synthetic-touch click fraud via different packing (both stati
   - [ ] Goldoson historical infected→clean boundary (AndroZoo) — *research Final-priority #1*
 - [x] **C — cross-family comparison** (**5 families**; anti-analysis + fraud-engine matrix) — Necro/Coral carved (native-second-stage loader branch)
 - [ ] **D — infrastructure correlation** (evidence-gated; C2/pDNS/cert — only with cited evidence)
-- [ ] Konfety↔MobiDash **phantom-viewport code diff** (both engines now recovered — direct compare)
+- [x] Konfety↔MobiDash **phantom-viewport code diff** — direct class-level compare: Konfety
+  `com.adcommercial.utils.xOnUc` (1 class) vs MobiDash `com.stwdi…jdhcc.jdhcc.{HqJz25,…}` (5 classes),
+  different packages/scale → **technique lineage, not shared code** (`CROSS_FAMILY_COMPARISON.md`)
 - [ ] Sample-generalize the unpackers across a Konfety/MobiDash version spread
 
 ---
