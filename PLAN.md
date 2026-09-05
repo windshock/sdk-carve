@@ -124,11 +124,13 @@ not-TPL-detector · not-just-slicing (R-Droid) · not-localization · analyzer-a
 - [ ] Run Phase 1 (~100 APKs); analyze failures; **reassess the novelty claim**; decide on Phase 2
 
 **Target claim (revised by the metrics — completeness now leads):** *whole-app CPG construction on
-large Android apps is not only expensive but silently **incomplete** — the standard frontend drops the
-majority of app classes (bounded ~9–16k typeDecls) and, on most apps, the target SDK entirely, yielding
-false-negative analysis. Target-aware carving produces a small, statically dependency-closed program
-that **deterministically contains the whole target** and restores analyzer feasibility under realistic
-budgets* — scoped to static references (no universal soundness).
+large Android apps is not only expensive but silently **incomplete** — the standard frontend
+(jimple2cpg) stages only the first ~10,122 class files in archive order and silently drops the rest,
+taking the target SDK with it on most apps and yielding false-negative analysis. Target-aware carving
+produces a small, statically dependency-closed program that **deterministically contains the whole
+target** and restores analyzer feasibility under realistic budgets* — scoped to static references
+(no universal soundness). The incompleteness is jimple2cpg-specific (CodeQL, via decompiled source,
+stages all classes but at ~22× the cost); carving helps either frontend.
 Evidence: [`docs/METRICS.md`](docs/METRICS.md) (completeness 7/11 dropped; RQ1 1 GB fails 5/5; RQ2 54–429×).
 
 ---

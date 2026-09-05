@@ -10,10 +10,12 @@ and CodeQL 2.26.3 `build-mode=none` (TMAP cross-check).
 ## Headline — whole-app CPG is silently *incomplete* (completeness)
 
 The most important result. A whole-app CPG that **builds fine** does not mean the target is
-in it. jimple2cpg retains a **bounded ~9–16k typeDecls regardless of input size** (12,778 for
-a 50k-class app), keeping mostly heavily-referenced libraries and **silently dropping the
-rest — including, on most apps, the entire target SDK.** No error/warning is emitted;
-`--full-resolver` does not change it.
+in it. jimple2cpg silently stages only the **first ~10,122 class files in archive iteration
+order** and drops the rest *before Soot ever runs* — so whatever falls in that prefix survives
+and **everything after it is silently dropped, including, on most apps, the entire target
+SDK.** No error/warning is emitted (verified at DEBUG); `--full-resolver` does not change it.
+See the root-cause section for the controlled proof (survivors = exactly the first 10,122 in
+zip order).
 
 Target-SDK methods present in the CPG (whole-app vs carved), and SDK-own sink call-sites
 (`putCol`/`getBConfig`/`getPdata`/`userJoin`):
@@ -42,21 +44,45 @@ Verified end-to-end on TMAP: the whole-app CPG (built at 12 GB) runs the detecti
 60 s and reports **0 sources / 0 sinks / 0 flows**; a direct probe confirms `smart.sklb`,
 `SMARTLB`, `wepkr`, `nepkt_hrn`, `bhuroid` are **all absent** (not renamed — dropped).
 
-### Root cause (confirmed): a silent, order-dependent ~12.8k-class cap in jimple2cpg
+### Root cause (confirmed): a silent ~10,122-file staging ceiling, "first-N-in-zip-order"
 
-Controlled test — the **same 30,117-class jar**, only the entry **order** changed:
+**Correction.** An earlier version of this doc claimed a "~12.8k **typeDecl** cap." That was
+wrong: SwipeBrickBreaker (13,974 input classes) yields **13,554 typeDecls** — above any such
+ceiling — yet its SDK is 100% absent. The ~12,778 typeDecls seen on TMAP were *staged program
+files + Soot-resolved library types on top*, not a cap. The real mechanism is upstream of Soot.
 
-| SDK classes written | typeDecls | SDK methods in CPG |
-|---|--:|--:|
-| **first** | 12,761 | **557 (present)** |
-| **last** | 12,778 | **0 (dropped)** |
+jimple2cpg logs `Loading N program files` after its class-staging step
+(`ProgramHandlingUtil.extractClassesInPackageLayout`). Measured across the corpus, **staged =
+min(input, ~10,122)**:
 
-Identical input, opposite result → jimple2cpg silently retains ~the **first ~12,800 classes** it
-processes and drops the rest, with **no error/warning**. It is **not** memory (12 GB heap, ~3.8 GB
-used; the cap is heap-independent), **not** `--full-resolver`-fixable, **not** obfuscation, **not**
-the carve. SDK-inclusive subsets confirm scale/order dependence: at 5k/15k/30k/40k input with the
-SDK written *first*, all 557 SDK methods survive; the SDK drops only when it falls past the ~12.8k
-processing boundary (as in the real 50k-class app, where its classes sort late).
+| app | input classes | staged | SDK in CPG |
+|---|--:|--:|--:|
+| mafu.driving.free | 7,783 | 7,783 (all) | 100% |
+| com.appsnine.audiorecorder | 11,677 | 10,121 | 96% |
+| com.appsnine.compass | 12,385 | 10,121 | 97% |
+| com.Monthly23.SwipeBrickBreaker | 13,974 | 10,122 | **0%** |
+| com.wtwoo.girlsinger.worldcup | 25,137 | 10,122 | 100% |
+| kr.co.psynet | 33,786 | 10,122 | **0%** |
+| com.skt.tmap.ku | 50,157 | 10,122 | **0%** |
+| com.somcloud.somnote | 58,431 | 10,121 | **0%** |
+
+**It is the *first* ~10,122 entries in zip/archive iteration order** (controlled proof: the
+DEBUG-dumped survivor list ∩ the first 10,122 zip entries = 10,122/10,122, 0 outside). So the
+SDK is included **iff its classes fall in that prefix** — worldcup's do (100%), audiorecorder/
+compass's mostly do (96–97%), TMAP/SBB/psynet/somnote's don't (0%). Apps below the ceiling
+(mafu) keep everything.
+
+Ruled out as the cause (each tested): **memory** (3.7 GB of 12 GB used, no OOM); **`ulimit -n`
+/ file descriptors** (ceiling unchanged from `ulimit -n` 4,096 → 1,048,576; `kern.maxfilesperproc`
+= 61,440); **case-insensitive path collisions** (0; raw `unzip` lands all 13,974); **obfuscated
+SDK bytecode** (the same 201 SDK classes yield 895 methods when carved alone → the drop is
+whole-app-context/order-dependent, not content); **concurrency/race** (3 runs → byte-identical
+typeDecl sets); **per-class Soot/AST failures** (those log `WARN "Exception on AST creation"` —
+none observed, even at DEBUG). The loss is **silent** (0 relevant WARN/ERROR at DEBUG; the SDK
+package is never named) and located to jimple2cpg's pre-Soot staging (`unzipTo` additionally
+leaks a per-entry stream — `pipeTo` never closes them, the `Using.Manager` holds them all open).
+The exact numeric trigger of ~10,122 is not yet isolated to a single line; the *behavior*
+(silent first-N-in-zip-order truncation) is reproduced and characterized above.
 
 ### Analyzer independence — CodeQL cross-check (RESOLVES the load-bearing caveat)
 
@@ -113,16 +139,22 @@ boundary (reflection / dynamic loading / native — `docs/PRE_CARVE.md`).
 
 - **The completeness result is the strongest and the most surprising:** the whole-app CPG
   *builds* (12 GB, ~30 s, 42 MB) yet silently omits the target on 7/11 apps. The mechanism
-  is now characterized (above): a silent, **order-dependent ~12.8k-class retention cap in
-  jimple2cpg**, proven by the same-jar order test.
+  is characterized above: a silent **~10,122-file "first-N-in-zip-order" staging ceiling in
+  jimple2cpg** (proven: survivors = the first 10,122 zip entries, 0 outside), *not* the
+  "~12.8k typeDecl cap" an earlier draft claimed. The exact numeric trigger isn't pinned to a
+  single line, but the behavior and its consequences are reproduced across the corpus.
 - **Scoping honesty — the silent cap is jimple2cpg-specific (now cross-checked).** The CodeQL
   run above **resolves** this: CodeQL extracts all 66,665 types incl. the full SDK, so
-  whole-app incompleteness is *not* fundamental — it is jimple2cpg's silent ~12.8k-class cap.
-  The value of carving therefore does **not** rest on that one tool's bug: it is a correctness
+  whole-app incompleteness is *not* fundamental — it is jimple2cpg's silent ~10,122-file
+  staging ceiling. The value of carving therefore does **not** rest on that one tool's bug: it is a correctness
   fix for jimple2cpg *and* an independent 22×-cost / 28×-noise fix for a complete-but-expensive
   frontend (CodeQL). RQ1's 1 GB failures and RQ2's cost are likewise not caused by the cap.
 - Two analyzers now (`jimple2cpg` + CodeQL), one machine, one deep-dive app (TMAP) for the
   cross-check. **Next:** extend the CodeQL completeness/cost pass across the full 11-app corpus
   (only TMAP done end-to-end on CodeQL), then unrelated non-Goldoson SDKs (issue #5 Phase 1).
 - Reproduce: `bash research/completeness_run.sh` and `bash research/metrics.sh …`
-  (`METRICS_HEAP=-Xmx1g` for the constrained run).
+  (`METRICS_HEAP=-Xmx1g` for the constrained run). The harness now records the staging count
+  (`wa_staged` = jimple2cpg's `Loading N program files`) and **keeps the raw logs** under
+  `research/metrics-logs/<label>/` — an earlier version deleted them, which is why the silent
+  staging truncation went unnoticed at first. To see the ceiling directly:
+  `SL_LOGGING_LEVEL=INFO jimple2cpg <app>.jar --output /tmp/x.cpg 2>&1 | grep 'program files'`.
