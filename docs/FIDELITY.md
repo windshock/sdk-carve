@@ -21,6 +21,39 @@ So the finding is: **for the measured SDKs, no host-app code was required to pre
 static call graph and source/sink surface; fidelity loss begins at explicitly-modeled boundaries** —
 *not* "app context can be zero."
 
+## What target-centric carving preserves — and where fidelity can be lost
+
+```text
+                    Host application
+          ┌────────────────────────────────┐
+          │ host code / other SDKs / JNI    │
+          │ reflection / dynamic loading    │   ← intentionally removed
+          └───────────────┬─────────────────┘
+                          │
+                 explicit boundary
+            fidelity may be lost here
+                          │
+                          ▼
+        ┌──────────────────────────────────┐
+        │          Target SDK carve         │
+        │                                   │
+        │ Method set           exact        │
+        │ Internal call graph  exact (9/9)  │
+        │ Boundary call-sites  exact (9/9)  │
+        │ Source/sink surface  exact (2/2)  │
+        │                                   │
+        │ Dataflow equivalence:             │
+        │   NOT yet positively demonstrated │
+        └───────────────────────────────────┘
+
+          54–429× smaller analysis universe
+          10–324× cheaper CPG construction
+```
+
+*(9/9 = of 9 apps measured; 2/2 = of 2 apps measured for the source/sink surface. Both CPGs use the
+identical, complete SDK bytecode; the "exact" rows are equalities between the carved and the
+patched-complete whole-app graph, not approximations.)*
+
 ## What is measured (`research/edges.sc`, `research/fidelity_batch.sh`)
 
 For the target SDK's methods, every call site is classified:
