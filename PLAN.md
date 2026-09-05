@@ -248,10 +248,13 @@ Evidence: [`docs/METRICS.md`](docs/METRICS.md) (RQ1 1 GB fails 8/8 measured; RQ2
 RQ5 boundary quantified (framework 55–92 %), resolver (③, `resolve.py`), Track 1 (Necro + Konfety↔MobiDash).
 
 **Next — "prove the one empty cell", in this order (agreed):**
-1. **★ Positive dataflow evidence (fill `Dataflow equivalence: NOT yet demonstrated`).** Add a *minimal*
-   set of dataflow **semantics models** (Bundle/field/serialization sinks) so `reachableBy` yields
-   `flows > 0`, then check **carved and whole-app produce the identical flow set**. This turns the one
-   blank cell in the Figure-1 box into a number — a clear research milestone.
+1. **[~] Positive dataflow evidence — ATTEMPTED, deferred (honest).** Ran CodeQL `TaintTracking` +
+   3 within-SDK models (method arg/qual→return, field store→read, collector-mutation arg→qual):
+   **still 0 source→sink flows on carved** → confirmed on **2 analyzers** (joern + CodeQL), orthogonal
+   to carving (negative control holds). Root cause: SDK serializes via a **field-object collector**
+   (`putCol(collectorObj)` with tainted `obj.field`) — general static taint can't bridge it without
+   **per-SDK content/field-object models** (reverse-engineer the collector). Positive equivalence =
+   its own subproject; the Figure-1 cell stays blank. `research/dataflow.ql`, `docs/FIDELITY.md`.
 2. **Non-framework boundary decomposition.** Split the genuinely-cut (non-framework) boundary calls into
    `host-app / inter-SDK / shared-utility / generated-glue` → answers *which kind* of host context is
    actually needed (and seeds an adaptive-context-expansion idea). `research/edges.sc` already dumps the

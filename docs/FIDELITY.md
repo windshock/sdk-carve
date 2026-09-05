@@ -121,10 +121,19 @@ construction** (same graph, same endpoints). *Honest caveat:* joern's default **
 (`reachableBy`) reports **0 flows in both** carved and whole-app — the SDK's collect→upload path runs
 through `Bundle`/field/serialization that joern doesn't track without dataflow **semantics models**;
 this is an identical analyzer limitation, **not** a carving fidelity gap (a **negative control**:
-carving didn't break dataflow — nothing to break). The *positive* evidence — carved and whole-app
-producing the **same non-zero** taint flows — is **not yet demonstrated** and is the clear next step:
-add dataflow **semantics models** for the `Bundle`/serialization sinks, then compare flow sets. Until
-then this section claims **structural** (surface) fidelity, not **semantic** (dataflow) equivalence.
+carving didn't break dataflow — nothing to break).
+
+*Positive-taint attempt (documented, `research/qlqueries/dataflow.ql`).* We also ran **CodeQL
+`TaintTracking`** (mature built-in flow models) with **three added within-SDK steps** (method
+arg/qualifier→return, field store→read, and collector-mutation arg→qualifier) — still **0
+source→sink flows on the carved DB**.
+Root cause: the SDK collects into **fields of a collector object** and passes that *object* to the
+sink (`putCol(collector)`); a tainted *field* does not taint the *container argument* in general
+static taint, and the SDK's serialization is obfuscated. So **0 flows is confirmed on two analyzers
+(joern + CodeQL)**, orthogonal to carving. Positive **semantic** (dataflow) equivalence therefore
+needs **per-SDK content/field-object models** (reverse-engineering the collector) — deferred as its
+own subproject. Until then this section claims **structural** (surface) fidelity, not **semantic**
+(dataflow) equivalence; the box in the figure keeps that cell explicitly blank.
 
 ## Preservation contract (what "correct enough" means, made explicit)
 
