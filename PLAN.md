@@ -189,14 +189,16 @@ not-TPL-detector · not-just-slicing (R-Droid) · not-localization · analyzer-a
 ### ★ PRIORITY (non-gated, the intellectual core) — define + measure the preservation contract
 The bottleneck is *definitional*, not corpus size. Do this now on samples in hand (11 Goldoson +
 Necro; whole-app CPG is complete post-#6257 so carved-vs-whole-app is a fair comparison):
-- [ ] **Define the preservation contract** — what must survive a carve to be "correct enough":
-  call-graph edges (SDK-internal + SDK→boundary), source→sink reachability *paths*, dataflow
-  findings, entry points, manifest/resource/reflection deps. This *definition* is the core novelty lever.
-- [ ] **RQ3 semantic fidelity (measure, not method-count)** — diff carved vs complete-whole-app CPG:
-  CG-edge recall, source→sink path recall, dataflow-finding agreement (missed / spurious). Report %.
-- [ ] **RQ5 failure boundary (measure explicitly)** — enumerate & quantify where carve breaks:
-  reflection, dynamic loading, JNI/native, shared host utils, resource lookup, manifest components,
-  inter-SDK deps. "Where reduction stops being faithful" is a *result*, not a caveat.
+- [x] **Define the preservation contract** — method set + internal call graph + boundary call-sites
+  preserved; deliberately-cut = callee bodies across the boundary + reflection/dynamic/JNI paths →
+  [`docs/FIDELITY.md`](docs/FIDELITY.md).
+- [~] **RQ3 semantic fidelity (measure, not method-count)** — carved vs complete-whole-app CPG call-graph
+  diff: **internal-edge recall = 100.0 %, 0 divergence on all apps measured** (mafu/audiorecorder/
+  compass/lottecinema/worldcup = 5/11; batch completing SBB/megabox/somnote/gomplayerko/psynet/TMAP).
+  `docs/FIDELITY.md`, `research/edges.sc`+`fidelity_batch.sh`. Next: source→sink *path* recall + dataflow.
+- [~] **RQ5 failure boundary (measure explicitly)** — boundary edges (SDK→non-SDK) are the cut; **55–92 %
+  are framework/stdlib** (stubs in whole-app too → not lost), only the non-framework host-app fraction is
+  genuinely dropped. Still to enumerate: reflection / dynamic loading / JNI / manifest-component paths.
 - [ ] Only then: Phase-1 corpus (via the **multi-source resolver**, AndroZoo optional) turns the
   *defined* contract into generality evidence.
 
