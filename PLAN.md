@@ -123,7 +123,10 @@ not-TPL-detector · not-just-slicing (R-Droid) · not-localization · analyzer-a
   - RQ2 reduction (patched frontend, 12 GB): **54–429× fewer classes** (median 143×),
     **10–324× faster** (median 44×), **~10× less RAM**, CPG sub-1 MB vs 35–261 MB.
   - RQ3 fidelity: carved SDK method surface == whole-app SDK method surface **exactly, 11/11**.
-- [ ] Extend CodeQL cost/completeness cross-check across the 11-app corpus + unrelated SDKs
+- [~] Extend CodeQL cost/completeness cross-check across the corpus — **2 apps measured**
+  (TMAP ~22×, worldcup ~9× cheaper carved; carved DB 100 % SDK on tmap/SBB/worldcup). Full
+  11-app **timing** sweep deferred to a quiet machine (contention made batch timings unreliable).
+  Remaining: unrelated non-Goldoson SDKs. See `research/codeql_corpus.csv`.
 - [ ] Consistent timeout/OOM/failure recording; machine-readable scope-completeness output
 - [ ] Generalize SDK-root detection beyond Goldoson-specific anchors
 - [ ] Run Phase 1 (~100 APKs); analyze failures; **reassess the novelty claim**; decide on Phase 2
