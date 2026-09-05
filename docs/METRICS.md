@@ -96,8 +96,20 @@ Cost/feasibility is not a jimple2cpg artifact. An **independent analyzer, CodeQL
 CodeQL ingests all 66,665 source types (it has no jimple2cpg-style truncation), but pays a
 mandatory decompilation gate + a ~9-min / 2.5 GB DB build, then 28× detection noise from
 name-matching across the whole app. **Carving is ~22× cheaper to build and noise-free** — an
-advantage entirely independent of the jimple2cpg bug below. *(Cross-check is TMAP-only so far;
-extending it across the corpus is the main open Track-2 item.)*
+advantage entirely independent of the jimple2cpg bug below.
+
+**Generalization (2 apps measured; `research/codeql_corpus.csv`).** A second app, worldcup (25k
+classes, medium), reproduces the cost gap: whole-app CodeQL = 27 s decompile + 220 s build,
+**207 MB DB**, vs carved (176 classes) = ~2 s + 25 s, **9 MB DB** → **~9× faster to build, ~23×
+smaller DB**. Carved DBs are tiny and 100 %-SDK by construction, confirmed on three apps
+(tmap 117/117 types, SwipeBrickBreaker 201/201, worldcup 176/176). The cost advantage is a direct
+consequence of the **54–429× input reduction measured on all 11 apps** (§RQ2), so it is
+analyzer-agnostic in principle. *Honest scope:* only 2 whole-app CodeQL builds are measured — each
+is ~4–9 min plus a mandatory decompilation gate, and this (shared) machine's background load made
+batch timings unreliable (a carved DB build that took 25 s idle took ~16 min under contention), so a
+full 11-app CodeQL **timing** sweep is deferred to a dedicated/quiet run rather than reported with
+contaminated numbers. Completeness of whole-app CodeQL is established on TMAP (SDK 117/395/5) and is
+not in question for worldcup (its SDK survives even the *buggy* jimple2cpg).
 
 ## Case study — a silent toolchain failure, caught by carve-vs-whole-app validation
 
@@ -153,8 +165,10 @@ it. One instance shows differential validation *can* surface silent toolchain fa
 - **Baseline honesty.** All whole-app numbers here are on the **patched** frontend (it does the full
   work), so RQ1/RQ2 reflect the true baseline cost — larger than the earlier draft's, which compared
   against a silently-truncated baseline.
-- **Scope.** One machine; jimple2cpg on 11 apps; CodeQL on 1 app (TMAP). **Next:** extend the CodeQL
-  cost/completeness pass across the 11-app corpus and to unrelated non-Goldoson SDKs (issue #5
+- **Scope.** One (shared/busy) machine; jimple2cpg on 11 apps (clean); CodeQL cost measured on 2
+  whole-app builds (TMAP, worldcup) + carved on 3 (TMAP, SBB, worldcup). A full 11-app CodeQL
+  **timing** sweep is deferred to a quiet/dedicated machine (contention made batch timings
+  unreliable — see the CodeQL section). **Next:** that sweep + unrelated non-Goldoson SDKs (issue #5
   Phase 1) to firm up the analyzer-independent claim.
 - **Reproduce:** `bash research/metrics.sh …` (`METRICS_HEAP=-Xmx1g` for the RQ1 run;
   default 12g for RQ2). The harness records the staging count (`wa_staged` = jimple2cpg's
