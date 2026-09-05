@@ -43,7 +43,7 @@
 | S7 | **SpinOk** carved: no packet-capture guard, AES/GCM; anti-analysis in bundled ad SDKs | `CROSS_FAMILY_COMPARISON.md` |
 | S8 | **Konfety** (5): ZIP-tamper + decoy dex + XOR asset → **fully unpacked** → phantom-viewport engine | `PRE_CARVE.md` |
 | S9 | **MobiDash** (Jamf c64db66f): SQLCipher(cert-key)+XOR modules → **fully unpacked** → same phantom-viewport engine | `CROSS_FAMILY_COMPARISON.md` |
-| S10 | **Necro/Coral** acquired: 8 infected hosts (Wuta 6.3.2/4/5/6, Spotify 18.9.40.5, Max Browser 1.2.2–4; `libcoral.so`/`fkgh` confirmed) + clean Wuta 6.9.8.161 (version spread + infected→clean boundary); carve pending | `analysis/necro/` (local) |
+| S10 | **Necro/Coral** carved: IOC boundary confirmed (`com/coral/Coral`+`libcoral.so` in Wuta 6.3.2–6.3.6 / Spotify / Max Browser; **absent in clean Wuta 6.9.8.161**; gbwhatsapp = not-Necro). Java loader carved (660 cls, CPG 3.3 s): obfuscated + **runtime string encryption**; `com.coral.vmout.CoNativ.load(…File…)` native second-stage + `URL.openConnection` + AES `Cipher.doFinal` + reflective `Method.invoke` + `ProcessBuilder.start` | `CROSS_FAMILY_COMPARISON.md`; `analysis/necro/` (local) |
 
 **Finding:** Goldoson's packet-capture blocklist is unique; Konfety & MobiDash converge on
 phantom-viewport + synthetic-touch click fraud via different packing (both statically recoverable).
@@ -52,12 +52,12 @@ phantom-viewport + synthetic-touch click fraud via different packing (both stati
 - [x] **A — Goldoson anti-analysis** (blocklist decrypt 11/11, domain reclassification, YARA)
 - [~] **B — corpus acquisition** *(authorization-gated; kit `research/acquisition/`)*
   - [x] SpinOk (MalwareBazaar), Konfety ×5 (Hybrid Analysis), MobiDash (Triage)
-  - [x] **Necro/Coral** — 8 infected + 1 clean via APKPure/apkfiles by hash (S10); Coral SDK carve pending
+  - [x] **Necro/Coral** — 8 infected + 1 clean via APKPure/apkfiles by hash (S10); **Coral Java loader carved** (660 cls; behavior fingerprint recovered — see S10 / `CROSS_FAMILY_COMPARISON.md`)
   - [ ] **Invisible Adware** — DMB TV (`com.project.onair`) sourced but turned out **benign ≠ IOC**; real
     `com.dmb.media`/`dmb.onair.media`/`band.kr.com`/`easy.kr` need VT/Koodous/AndroZoo (**droppable** — 5 families suffice)
   - [ ] SlopAds / Trapdoor (App-ID → AndroZoo) — **need `ANDROZOO_APIKEY`**
   - [ ] Goldoson historical infected→clean boundary (AndroZoo) — *research Final-priority #1*
-- [x] **C — cross-family comparison** (4 families; anti-analysis + fraud-engine matrix) — Necro = 5th, carve pending
+- [x] **C — cross-family comparison** (**5 families**; anti-analysis + fraud-engine matrix) — Necro/Coral carved (native-second-stage loader branch)
 - [ ] **D — infrastructure correlation** (evidence-gated; C2/pDNS/cert — only with cited evidence)
 - [ ] Konfety↔MobiDash **phantom-viewport code diff** (both engines now recovered — direct compare)
 - [ ] Sample-generalize the unpackers across a Konfety/MobiDash version spread

@@ -100,6 +100,37 @@ loaders. Different packaging (XOR asset vs SQLCipher+XOR modules), same fraud en
 technique convergence, and both fully recoverable offline because the key material
 (asset-name / in-APK signing cert) never leaves the sample.
 
+## Necro / Coral — a native-second-stage loader in trojanized host apps (5th family)
+
+Unlike the others (an SDK a developer *added*), Necro rides in **trojanized/modded builds of
+popular apps**. IOC boundary across the samples in hand (`unzip -l` + dex-string scan):
+
+| sample | `com/coral/Coral` | `libcoral.so` | verdict |
+|---|:--:|:--:|---|
+| Wuta Cam 6.3.2 / 6.3.4 / 6.3.5 / 6.3.6 | ✓ | ✓ | **Necro-infected** |
+| Wuta Cam **6.9.8.161** | ✗ | ✗ | **clean** (infected→clean boundary) |
+| Spotify 18.9.40.5 (mod) | ✓ (+`coraL` case-variant) | ✓ | infected |
+| Max Browser 1.2.4 | ✓ | ✗ (in ABI split) | infected |
+| gbwhatsapp 2.22.2.730 | ✗ | ✗ | **not Necro** |
+
+Carved the Coral Java payload from Wuta 6.3.2 (**660 classes → `com/coral/**` mini-JAR; CPG in
+3.3 s**). It is heavily obfuscated (random class names) with **runtime string encryption** (XOR /
+`copyOfRange` / `charAt` dominate the call profile; deobfuscator helper `wiGVP20` called 280×), so
+plaintext IOC grep yields nothing — but the carved CPG recovers the behavior by API call-site:
+
+- **native second-stage loader** — `com.coral.vmout.CoNativ.load(Context, File, String, String)`
+  loads a native lib **from a File** (+ `System.loadLibrary`); `libcoral.so` itself is a 38 KB
+  stripped stub → the real payload is fetched/decrypted at runtime.
+- **fetch + decrypt** — `URL.openConnection`; `Cipher.doFinal` + `SecretKeyFactory` (AES) + custom
+  `SSLContext`/`TrustManagerFactory`.
+- **reflective execution** — `Class.getDeclaredMethod` → `Method.invoke`; **`ProcessBuilder.start`**.
+- host also bundles **hooking frameworks** `libpine.so` (Java) + `libshadowhook.so` (native);
+  Coral inner classes named `_boostWeave`.
+
+So Necro = **obfuscated Java loader → encrypted native/DEX second stage**, recovered statically by
+carving despite obfuscation + string encryption. (Native-payload internals need the `ghidra2cpg`
+track; the runtime-downloaded stage is out of static scope — a documented boundary.)
+
 ## Anti-analysis technique, by layer
 
 | Family | Anti-analysis layer | Mechanism |
@@ -108,16 +139,20 @@ technique convergence, and both fully recoverable offline because the key materi
 | **SpinOk** | (SDK: none) | sensor/emulator checks live in **co-bundled ad networks**, not the SpinOk SDK |
 | **Konfety** | packaging + loader | fake-method/fake-enc **ZIP tamper** + decoy dex + `java.util.Random`-XOR **packed asset** (install-referrer gating in payload) |
 | **MobiDash** | loader + encrypted DB | primary-dex loader → **SQLCipher `jdhcc.db`** keyed on the **signing cert** → `InMemoryDexClassLoader` fraud engine |
+| **Necro/Coral** | obfuscation + native loader | random-name classes + **runtime string encryption** (XOR/`copyOfRange`); Java loader → AES-decrypt → **native second stage from a File**; co-bundled Java+native **hooking** libs |
 
-Four samples, four branches → reinforces **technique lineage, not shared code**. Goldoson's
+Five samples, five branches → reinforces **technique lineage, not shared code**. Goldoson's
 dedicated analysis-tool blocklist stays unique; Konfety and MobiDash independently converge on
 the **loader → encrypted-payload → in-memory-DexClassLoader** shape (XOR-packed asset vs
-SQLCipher DB), and both payloads reach the same **phantom-viewport click-fraud** endgame.
+SQLCipher DB), and both payloads reach the same **phantom-viewport click-fraud** endgame; Necro
+is a distinct **native-second-stage downloader** riding trojanized host apps.
 
 ## Limits
 
 One SpinOk version; 5 Konfety samples (payload fully carved); 1 MobiDash (Jamf `c64db66f…`
-via Triage — **fully unpacked**: SQLCipher DB + XOR modules → fraud engine, statically).
-Invisible Adware and Necro are on none of MalwareBazaar / Hybrid Analysis / our Triage
-exports → need AndroZoo (academic-gated). Ad-network attribution for SpinOk is by package
-name, not per-version audit.
+via Triage — **fully unpacked**: SQLCipher DB + XOR modules → fraud engine, statically);
+**Necro/Coral** — 8 infected hosts + 1 clean (Wuta 6.3.2–6.3.6 + Spotify/Max-Browser vs clean
+Wuta 6.9.8.161), Java loader carved (660 classes), native/downloaded second stage out of static
+scope. **Invisible Adware** is on none of MalwareBazaar / Hybrid Analysis / our Triage exports →
+needs AndroZoo (academic-gated). Ad-network attribution for SpinOk is by package name, not
+per-version audit.
