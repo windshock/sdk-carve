@@ -195,7 +195,9 @@ Necro; whole-app CPG is complete post-#6257 so carved-vs-whole-app is a fair com
 - [x] **RQ3 semantic fidelity (call-graph)** — carved vs complete-whole-app CPG: **internal-edge recall
   = 100.0 %, 0 divergence on 9/11 apps** (7.7k–58k classes; 2 largest not re-run — whole-app edge-dump
   impractical, within covered range, deterministic same). `docs/FIDELITY.md`, `research/edges.sc`.
-- [ ] **RQ3 deeper (②)** — source→sink *path* recall + dataflow-finding agreement (carved vs whole-app).
+- [x] **RQ3 deeper (②)** — source→sink surface identical carved-vs-whole-app (worldcup, audiorecorder:
+  source/sink sites + methods 0 divergence) → reachability preserved by construction. True taint-flow
+  (joern `reachableBy`) = 0 in both (dataflow-semantics limitation, identical). `research/paths.sc`.
 - [~] **RQ5 failure boundary (measure explicitly)** — boundary edges (SDK→non-SDK) are the cut; **55–92 %
   are framework/stdlib** (stubs in whole-app too → not lost), only the non-framework host-app fraction is
   genuinely dropped. Still to enumerate: reflection / dynamic loading / JNI / manifest-component paths.

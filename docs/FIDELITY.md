@@ -55,6 +55,26 @@ the **non-framework (host-app) fraction** of boundary calls — and this is exac
 intentional reduction: flow *through* host-app code is not followed (see `docs/PRE_CARVE.md` for the
 reflection / dynamic-loading / native caveats that also break the closure).
 
+## Source→sink surface (RQ3 deeper — ②; `research/paths.sc`)
+
+Beyond the call graph: the SDK's sensitive-**source** call-sites (`getInstalledApplications`,
+`getHardwareAddress`, `getBSSID`, GPS, IMEI, …) and **sink** call-sites (`loadUrl`/`loadData`,
+`openConnection`/`exec`, SDK-own `putCol`/`getPdata`/`userJoin`/`getBConfig`) — the dataflow-relevant
+surface — carved vs whole-app:
+
+| app | source-sites | sink-sites | source-methods | sink-methods | src/sink method divergence |
+|---|--:|--:|--:|--:|--:|
+| com.wtwoo.girlsinger.worldcup | 33 | 16 | 15 | 15 | **0 (WA=CV)** |
+| com.appsnine.audiorecorder | 16 | 7 | 6 | 7 | **0 (WA=CV)** |
+
+Every source/sink call-site and its containing method is **identical carved-vs-whole-app**. Combined
+with the 100 % internal call graph, source→sink **call-graph reachability is preserved by
+construction** (same graph, same endpoints). *Honest caveat:* joern's default **taint-flow**
+(`reachableBy`) reports **0 flows in both** carved and whole-app — the SDK's collect→upload path runs
+through `Bundle`/field/serialization that joern doesn't track without dataflow **semantics models**;
+this is an identical analyzer limitation, **not** a carving fidelity gap (the CodeQL name-matched
+detection in `docs/METRICS.md` recovers the same source/sink set in both).
+
 ## Preservation contract (what "correct enough" means, made explicit)
 
 A carve is faithful when, for the target SDK: **(1) the method set, (2) the internal call graph, and

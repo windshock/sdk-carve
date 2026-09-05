@@ -1,0 +1,5 @@
+app,side,source_sites,sink_sites,source_methods,sink_methods,srcsink_method_divergence
+com.wtwoo.girlsinger.worldcup,whole-app,33,16,15,15,0
+com.wtwoo.girlsinger.worldcup,carved,33,16,15,15,0
+com.appsnine.audiorecorder,whole-app,16,7,6,7,0
+com.appsnine.audiorecorder,carved,16,7,6,7,0
