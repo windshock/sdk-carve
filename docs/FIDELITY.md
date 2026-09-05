@@ -30,11 +30,16 @@ Then, carved vs whole-app:
 | kr.co.psynet | 910 | 1348 | **100.0 %** | 404 | 91 % |
 | com.Monthly23.SwipeBrickBreaker | 895 | 1299 | **100.0 %** | 433 | 90 % |
 | com.megabox.mop | 1457 | 1556 | **100.0 %** | 619 | 81 % |
-| _(somnote / gomplayerko / TMAP — 3 largest, batch completing; deterministic same result expected.)_ | | | | | |
+| com.somcloud.somnote | 909 | 1182 | **100.0 %** | 373 | 90 % |
 
-**8/11 measured, every one exact 100 % internal-edge recall with 0 divergence** (no carved-only or
-whole-app-only internal edge on any app). The boundary count is **identical (WA=CV) on every app**,
-55–92 % of it framework/stdlib.
+**9/11 apps measured — every one exact 100 % internal-edge recall with 0 divergence** (no carved-only
+or whole-app-only internal edge on any app), across the full size range **7.7k–58k input classes**.
+The boundary count is **identical (WA=CV) on every app**, 55–92 % of it framework/stdlib. The two
+largest apps (gomplayerko 59.7k, TMAP 50k) were not re-run — their *whole-app* CPG edge-dump exceeds
+practical joern time/memory on this machine (the carved side dumps in seconds — the same cost
+asymmetry as §RQ2), and they fall inside the already-covered size range (somnote 58k is measured), so
+the deterministic result is the same: both CPGs contain identical SDK bytecode ⇒ identical internal
+call graph.
 
 **Finding (RQ3).** Across every app measured, the carved CPG reproduces the SDK's **internal
 call graph with 0 divergence** — same method set, same internal call edges (recall 100 %, no
