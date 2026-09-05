@@ -135,6 +135,36 @@ needs **per-SDK content/field-object models** (reverse-engineering the collector
 own subproject. Until then this section claims **structural** (surface) fidelity, not **semantic**
 (dataflow) equivalence; the box in the figure keeps that cell explicitly blank.
 
+## Boundary decomposition — what *kind* of context is cut (RQ5, #2; `research/boundary_classify.sh`)
+
+The boundary (SDK → non-SDK) is the only place fidelity is lost. Deduped by **class** and classified
+(boundary callees are identical carved=whole-app, so the fast carved CPG is used):
+
+| app | boundary classes | framework/stdlib | recognized lib | obfuscated residue | **named host-app pkg** | residue % |
+|---|--:|--:|--:|--:|--:|--:|
+| kr.co.lottecinema.lcm | 167 | 156 | 10 | 0 | **0** | 0 % |
+| kr.co.psynet | 122 | 115 | 6 | 0 | **0** | 0 % |
+| com.Monthly23.SwipeBrickBreaker | 128 | 120 | 7 | 0 | **0** | 0 % |
+| com.somcloud.somnote | 111 | 104 | 6 | 0 | **0** | 0 % |
+| com.gretech.gomplayerko | 169 | 158 | 10 | 0 | **0** | 0 % |
+| com.skt.tmap.ku | 115 | 101 | 8 | 5 | **0** | 4 % |
+| com.megabox.mop | 182 | 159 | 10 | 12 | **0** | 7 % |
+| com.wtwoo.girlsinger.worldcup | 112 | 95 | 6 | 10 | **0** | 9 % |
+| com.appsnine.compass | 214 | 152 | 3 | 58 | **0** | 27 % |
+| mafu.driving.free | 86 | 58 | 0 | 27 | **0** | 31 % |
+| com.appsnine.audiorecorder | 178 | 104 | 0 | 73 | **0** | 41 % |
+
+**Finding.** On **all 11 apps, zero boundary calls target a human-named host-app package**
+(`named host-app pkg = 0`) — the SDK does not call the host application's business logic; its external
+surface is **framework/stdlib + recognized libraries** (retrofit2/okhttp3/picasso/gson — network/
+image/serialization, exactly the deps you'd stub or model). The only ambiguous cut is an
+**R8-obfuscated residue** (short renamed classes like `g4`,`b7`): **0 % on 5/11**, up to 41 %. By name
+it cannot be attributed to host-app vs bundled-library vs *missed-SDK-scope* — but the total absence
+of human-named host packages makes host **business logic** an unlikely component of it. Attributing
+the residue (per-class) is future work and directly motivates **adaptive context expansion** (pull the
+residue's closure into the carve and re-check). *(Answer to "how much app context is needed":
+none of the host's *named* code; at most a small obfuscated residue whose nature is TBD.)*
+
 ## Preservation contract (what "correct enough" means, made explicit)
 
 A carve is faithful when, for the target SDK: **(1) the method set, (2) the internal call graph, and

@@ -199,9 +199,12 @@ Necro; whole-app CPG is complete post-#6257 so carved-vs-whole-app is a fair com
   audiorecorder: source/sink sites + methods 0 divergence) → CG reachability preserved by construction.
   True taint-flow (`reachableBy`) = 0 in both = **negative control** (not broken by carving); *semantic*
   (dataflow) equivalence **not yet demonstrated** → future work: add semantics models. `research/paths.sc`.
-- [~] **RQ5 failure boundary (measure explicitly)** — boundary edges (SDK→non-SDK) are the cut; **55–92 %
-  are framework/stdlib** (stubs in whole-app too → not lost), only the non-framework host-app fraction is
-  genuinely dropped. Still to enumerate: reflection / dynamic loading / JNI / manifest-component paths.
+- [x] **RQ5 failure boundary — decomposed (#2 done).** Boundary classes classified (11/11): framework/
+  stdlib dominant + recognized libs (retrofit2/okhttp3/picasso) + R8-**obfuscated residue** (0 % on 5/11,
+  ≤41 %); **named host-app packages = 0 on all 11** → SDK never calls host business logic. Residue
+  attribution (lib vs host vs missed-SDK-scope) = future work → motivates adaptive expansion.
+  `docs/FIDELITY.md`, `research/boundary_classify.sh` + `boundary_breakdown.csv`.
+  Still to enumerate: reflection / dynamic-loading / JNI / manifest-component paths.
 - [ ] Only then: Phase-1 corpus (via the **multi-source resolver**, AndroZoo optional) turns the
   *defined* contract into generality evidence.
 
