@@ -1,25 +1,34 @@
 # sdk-carve
 
 **Carve one embedded SDK out of a huge, decompiler-damaged Android app and analyze it
-with scoped, tool-verified static analysis — where whole-app CPG/CodeQL fails.**
+with scoped, tool-verified static analysis — 1–2 orders of magnitude cheaper than
+whole-app CPG/CodeQL, and feasible under a laptop/CI budget where whole-app is not.**
 
 This repo is a *method* plus a fully worked *case study* (the Goldoson/SMARTLB
-advertising/spyware SDK). It shows that the classic "Joern CPG and CodeQL are
-impossible on decompiled Android at this scale" outcome was never a tool limitation —
-it was a **methodology** problem: running whole-application analysis over tens of
-thousands of damaged decompiled files. Scope to the target subgraph and the same tools
-finish in seconds.
+advertising/spyware SDK). Whole-application analysis of a decompiled app is not
+*impossible* — with enough heap the same tools finish — but it is **expensive and, under
+a realistic budget, infeasible**: measured across 11 apps, scoping the target subgraph is
+**10–324× faster, ~10× less RAM (`docs/METRICS.md`)**, and it succeeds at 1 GB where the
+whole-app build fails (timeout/OOM) on every app tried. Scope to the target and the same
+tools finish in seconds.
 
 ## The problem
 
 A large Android app decompiles to ~27k Java files / ~50k classes / several GB, with
 `??` placeholders and `Method not decompiled` stubs scattered through it. Point Joern
-or CodeQL at the whole thing and:
+or CodeQL at the whole thing and (measured, `docs/METRICS.md`):
 
-- Joern's whole-JAR CPG grows to ~2 GB and never finalizes.
-- CodeQL (old Java extractor) requires a build; decompiled, dependency-less, damaged
-  code never compiles → the database never finalizes.
+- Joern's whole-JAR CPG (`jimple2cpg`): at a laptop/CI budget (1 GB) it **fails 11/11**
+  (timeout/OOM); at 12 GB it *does* finalize but is **10–324× slower** than the carved
+  build (e.g. TMAP 518 s → 2.3 s), with a large working set.
+- CodeQL: needs source, so the damaged decompilation must be decompiled first
+  (`build-mode=none`); the whole-app DB is a **~9-min / 2.5 GB** build (TMAP) vs seconds
+  when scoped, and detection is ~28× noisier from name-matching across the whole app.
 - Source parsers (Semgrep, source-based CPG) choke on the damaged syntax.
+
+(Historically these looked like "impossible / never finalizes" at default settings; the
+numbers above are the honest, re-measured picture — expensive/infeasible-at-budget, not
+impossible.)
 
 ## The method (sdk-carve)
 
@@ -41,12 +50,14 @@ or CodeQL at the whole thing and:
 Target scoped from **50,157 classes → 117** (the SDK's `com.smart.sklb.edge` +
 obfuscated `bg`/`cg`/`dg`, = 59 `.java`):
 
-| | Whole-app (historical) | Scoped (this method) |
+| | Whole-app (measured) | Scoped (this method) |
 |---|---|---|
-| Joern CPG (`jimple2cpg`) | 2.0 GB tmp, never finalized | **538 KB, finalized in ~2.2 s** (893 methods) |
-| CodeQL DB | 3 databases, none finalized | **finalized, 4,825 LOC** (`--build-mode=none`) |
-| Query | — | source/sink inventory in **0.66 s** (21 sources, 9 sinks) |
+| Joern CPG (`jimple2cpg`) | 1 GB: **timeout/OOM**; 12 GB: 518 s, 218 MB CPG | **538 KB, finalized in ~2.2 s** (893 methods) |
+| CodeQL DB | ~9-min / 2.5 GB build (`--build-mode=none`, via decompiled source) | **finalized, 4,825 LOC** in ~25 s |
+| Query | source/sink inventory buried in ~28× name-match noise | in **0.66 s** (21 sources, 9 sinks) |
 | Reachability | — | `onStartJob` → every network + WebView sink |
+
+Full RQ1/RQ2/RQ3 numbers across 11 apps: `docs/METRICS.md`.
 
 Three independent methods (manual, Joern/bytecode, CodeQL/source) recover the same
 source/sink set. Where they differ is instructive: the bytecode CPG resolved GPS and
