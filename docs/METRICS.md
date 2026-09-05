@@ -72,17 +72,24 @@ SDK is included **iff its classes fall in that prefix** — worldcup's do (100%)
 compass's mostly do (96–97%), TMAP/SBB/psynet/somnote's don't (0%). Apps below the ceiling
 (mafu) keep everything.
 
-Ruled out as the cause (each tested): **memory** (3.7 GB of 12 GB used, no OOM); **`ulimit -n`
-/ file descriptors** (ceiling unchanged from `ulimit -n` 4,096 → 1,048,576; `kern.maxfilesperproc`
-= 61,440); **case-insensitive path collisions** (0; raw `unzip` lands all 13,974); **obfuscated
-SDK bytecode** (the same 201 SDK classes yield 895 methods when carved alone → the drop is
-whole-app-context/order-dependent, not content); **concurrency/race** (3 runs → byte-identical
-typeDecl sets); **per-class Soot/AST failures** (those log `WARN "Exception on AST creation"` —
-none observed, even at DEBUG). The loss is **silent** (0 relevant WARN/ERROR at DEBUG; the SDK
-package is never named) and located to jimple2cpg's pre-Soot staging (`unzipTo` additionally
-leaks a per-entry stream — `pipeTo` never closes them, the `Using.Manager` holds them all open).
-The exact numeric trigger of ~10,122 is not yet isolated to a single line; the *behavior*
-(silent first-N-in-zip-order truncation) is reproduced and characterized above.
+Ruled out along the way (each tested): **memory** (3.7 GB of 12 GB used, no OOM);
+**case-insensitive path collisions** (0; raw `unzip` lands all 13,974); **obfuscated SDK
+bytecode** (the same 201 SDK classes yield 895 methods when carved alone → whole-app-context/
+order-dependent, not content); **concurrency/race** (3 runs → byte-identical typeDecl sets);
+**per-class Soot/AST failures** (those log `WARN "Exception on AST creation"` — none observed).
+
+**Root cause found and fixed (upstream PR [joernio/joern#6257](https://github.com/joernio/joern/pull/6257)).**
+The loss is in `FileUtil.unzipTo`: it registers every per-entry `getInputStream`/`newOutputStream`
+with a single `Using.Manager` scoped to the **whole** archive, so all streams stay open until
+extraction finishes — leaking **one file descriptor and one zlib `Inflater` per entry**. On a
+large archive this exhausts a per-process resource limit partway through; the failure isn't
+surfaced, so extraction silently stops after the first N entries (hence "first-in-zip-order").
+Observed directly: process open-FD count climbs to ~10k during extraction (a correct extractor
+stays flat). **Fix** = close each entry's streams immediately (nested `Using.resource`). Verified
+by rebuilding the patched frontend: staging **10,122 → 50,157** (TMAP) and **10,122 → 13,974**
+(SBB), and SBB's whole-app SDK recovers from **0 → 895 methods / 0 → 8 sinks** (= carved). So the
+whole-app incompleteness on this frontend is a *fixable resource-leak bug*, not a fundamental
+limit — and target-aware carving avoids the failure surface entirely regardless.
 
 ### Analyzer independence — CodeQL cross-check (RESOLVES the load-bearing caveat)
 
@@ -139,10 +146,11 @@ boundary (reflection / dynamic loading / native — `docs/PRE_CARVE.md`).
 
 - **The completeness result is the strongest and the most surprising:** the whole-app CPG
   *builds* (12 GB, ~30 s, 42 MB) yet silently omits the target on 7/11 apps. The mechanism
-  is characterized above: a silent **~10,122-file "first-N-in-zip-order" staging ceiling in
-  jimple2cpg** (proven: survivors = the first 10,122 zip entries, 0 outside), *not* the
-  "~12.8k typeDecl cap" an earlier draft claimed. The exact numeric trigger isn't pinned to a
-  single line, but the behavior and its consequences are reproduced across the corpus.
+  is characterized above and its **root cause found, fixed, and upstreamed**
+  ([joernio/joern#6257](https://github.com/joernio/joern/pull/6257)): a per-entry stream leak in
+  `FileUtil.unzipTo` silently truncates large archives to the first ~10,122 classes. Confirmed by
+  patching + rebuilding (staging 10,122 → full input; SDK 0 → 895 methods). This supersedes the
+  "~12.8k typeDecl cap" an earlier draft claimed.
 - **Scoping honesty — the silent cap is jimple2cpg-specific (now cross-checked).** The CodeQL
   run above **resolves** this: CodeQL extracts all 66,665 types incl. the full SDK, so
   whole-app incompleteness is *not* fundamental — it is jimple2cpg's silent ~10,122-file
