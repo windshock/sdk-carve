@@ -117,6 +117,23 @@ carve (bytecode → `jimple2cpg`, or a small clean decompile → CodeQL) sideste
 also showed this machine's background load can inflate CodeQL build timings ~40×; the numbers here
 are from clean, low-load, sequential runs.)
 
+## Generality beyond the malware target (non-Goldoson SDKs)
+
+The method is not specific to the Goldoson SDK. Carving four well-known **benign** libraries out of
+the *same* TMAP app (whole-app CPG = 518 s) — `research/nongoldoson_carve.csv`:
+
+| SDK | classes | carved CPG build | vs whole-app | methods in CPG |
+|---|--:|--:|--:|--:|
+| retrofit2 | 153 | 2.2 s | **232×** | 543 |
+| okhttp3 | 325 | 3.9 s | 134× | 2,817 |
+| com.google.firebase | 1,594 | 7.2 s | 72× | 9,705 |
+| io.reactivex | 3,122 | 9.3 s | 56× | 15,913 |
+
+Carved cost scales with the **target** (2–9 s for 153–3,122 classes), not the 50k-class host app, and
+the carved CPG captures the SDK's method surface. (These are package-scope carves for the cost/
+generality demonstration, not full dependency-closure carves.) So "scope to the target subgraph →
+cheap, targeted analysis" holds for an arbitrary SDK, not just the malware case study.
+
 ## Case study — a silent toolchain failure, caught by carve-vs-whole-app validation
 
 While establishing the baseline we compared carved vs whole-app CPGs and found the whole-app CPG

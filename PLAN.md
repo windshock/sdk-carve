@@ -127,7 +127,9 @@ not-TPL-detector · not-just-slicing (R-Droid) · not-localization · analyzer-a
   (21–29 s, 7–11 MB DB, 100 % SDK each; `research/codeql_carved_corpus.csv`). Whole-app: 2 apps
   with original APK (TMAP 542 s/2.5 GB, worldcup 220 s/207 MB) → carved ~9–22× faster, ~30–280×
   smaller. Whole-app on other 9 blocked by dex2jar→jadx source-damage confound (need original APKs).
-  Remaining: original APKs for wider whole-app set + unrelated non-Goldoson SDKs.
+  **Non-Goldoson generality done:** carved 4 benign SDKs (retrofit2/okhttp3/firebase/reactivex)
+  from TMAP → 2–9 s (56–232× vs whole-app), method captured (`research/nongoldoson_carve.csv`).
+  Remaining: original APKs for wider whole-app CodeQL set.
 - [ ] Consistent timeout/OOM/failure recording; machine-readable scope-completeness output
 - [ ] Generalize SDK-root detection beyond Goldoson-specific anchors
 - [ ] Run Phase 1 (~100 APKs); analyze failures; **reassess the novelty claim**; decide on Phase 2
