@@ -27,7 +27,14 @@ Then, carved vs whole-app:
 | com.appsnine.compass | 749 | 736 | **100.0 %** | 627 | 81 % |
 | kr.co.lottecinema.lcm | 1230 | 2023 | **100.0 %** | 602 | 92 % |
 | com.wtwoo.girlsinger.worldcup | 757 | 845 | **100.0 %** | 363 | 75 % |
-| _(SwipeBrickBreaker / megabox / somnote / gomplayerko / psynet / TMAP — batch completing; large whole-app builds. All apps measured so far = exact 100 %.)_ | | | | | |
+| kr.co.psynet | 910 | 1348 | **100.0 %** | 404 | 91 % |
+| com.Monthly23.SwipeBrickBreaker | 895 | 1299 | **100.0 %** | 433 | 90 % |
+| com.megabox.mop | 1457 | 1556 | **100.0 %** | 619 | 81 % |
+| _(somnote / gomplayerko / TMAP — 3 largest, batch completing; deterministic same result expected.)_ | | | | | |
+
+**8/11 measured, every one exact 100 % internal-edge recall with 0 divergence** (no carved-only or
+whole-app-only internal edge on any app). The boundary count is **identical (WA=CV) on every app**,
+55–92 % of it framework/stdlib.
 
 **Finding (RQ3).** Across every app measured, the carved CPG reproduces the SDK's **internal
 call graph with 0 divergence** — same method set, same internal call edges (recall 100 %, no

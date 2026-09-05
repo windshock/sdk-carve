@@ -1,0 +1,9 @@
+label,sdk_methods_wa,sdk_methods_cv,internal_edges_wa,internal_edges_cv,internal_shared,internal_recall_pct,boundary_wa,boundary_cv,boundary_framework_pct
+mafu.driving.free,695,695,671,671,671,100.0,318,318,55
+com.appsnine.audiorecorder,574,574,235,235,235,100.0,498,498,64
+com.appsnine.compass,749,749,736,736,736,100.0,627,627,81
+kr.co.lottecinema.lcm,1230,1230,2023,2023,2023,100.0,602,602,92
+com.wtwoo.girlsinger.worldcup,757,757,845,845,845,100.0,363,363,75
+kr.co.psynet,910,910,1348,1348,1348,100.0,404,404,91
+com.Monthly23.SwipeBrickBreaker,895,895,1299,1299,1299,100.0,433,433,90
+com.megabox.mop,1457,1457,1556,1556,1556,100.0,619,619,81
