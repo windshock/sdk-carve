@@ -98,18 +98,24 @@ mandatory decompilation gate + a ~9-min / 2.5 GB DB build, then 28× detection n
 name-matching across the whole app. **Carving is ~22× cheaper to build and noise-free** — an
 advantage entirely independent of the jimple2cpg bug below.
 
-**Generalization (2 apps measured; `research/codeql_corpus.csv`).** A second app, worldcup (25k
-classes, medium), reproduces the cost gap: whole-app CodeQL = 27 s decompile + 220 s build,
-**207 MB DB**, vs carved (176 classes) = ~2 s + 25 s, **9 MB DB** → **~9× faster to build, ~23×
-smaller DB**. Carved DBs are tiny and 100 %-SDK by construction, confirmed on three apps
-(tmap 117/117 types, SwipeBrickBreaker 201/201, worldcup 176/176). The cost advantage is a direct
-consequence of the **54–429× input reduction measured on all 11 apps** (§RQ2), so it is
-analyzer-agnostic in principle. *Honest scope:* only 2 whole-app CodeQL builds are measured — each
-is ~4–9 min plus a mandatory decompilation gate, and this (shared) machine's background load made
-batch timings unreliable (a carved DB build that took 25 s idle took ~16 min under contention), so a
-full 11-app CodeQL **timing** sweep is deferred to a dedicated/quiet run rather than reported with
-contaminated numbers. Completeness of whole-app CodeQL is established on TMAP (SDK 117/395/5) and is
-not in question for worldcup (its SDK survives even the *buggy* jimple2cpg).
+**Corpus generalization.** Carved CodeQL was run on **all 11 apps**
+(`research/codeql_carved_corpus.csv`): each builds in **21–29 s** into a **7–11 MB DB** containing
+**100 % of the SDK** — source-type count ≈ carved class count on 11/11 (tmap 117/117, SBB 201/201,
+gomplayerko 295/295, megabox 271/271, lottecinema 273/273, worldcup 176/176, … mafu 145/144). Carved
+CodeQL is uniformly cheap and complete regardless of app size. Whole-app CodeQL was measured on the
+two apps for which the **original APK** is available (`research/codeql_wholeapp.csv`): tmap
+(542 s build / 2.5 GB DB) and worldcup (220 s / 207 MB) → carved is **~9–22× faster to build and
+~30–280× smaller on disk**, consistent with the 54–429× input reduction (§RQ2).
+
+*Honest limit — whole-app CodeQL beyond 2 apps.* The other 9 apps have only their dex2jar
+`app.jar` (not the original APK). Decompiling that with jadx yields source damaged enough that
+CodeQL's `build-mode=none` silently drops most of it — e.g. mafu: 1,554 of ~5,286 files extracted,
+SDK 0. That is a **decompilation-quality** confound, *not* a CodeQL property, so those whole-app
+runs are not reported. It is, however, itself an argument for the bytecode carve: source-based
+whole-app analysis of repackaged/obfuscated apps is gated on decompilation fidelity, which the
+carve (bytecode → `jimple2cpg`, or a small clean decompile → CodeQL) sidesteps. (An earlier batch
+also showed this machine's background load can inflate CodeQL build timings ~40×; the numbers here
+are from clean, low-load, sequential runs.)
 
 ## Case study — a silent toolchain failure, caught by carve-vs-whole-app validation
 
@@ -165,11 +171,11 @@ it. One instance shows differential validation *can* surface silent toolchain fa
 - **Baseline honesty.** All whole-app numbers here are on the **patched** frontend (it does the full
   work), so RQ1/RQ2 reflect the true baseline cost — larger than the earlier draft's, which compared
   against a silently-truncated baseline.
-- **Scope.** One (shared/busy) machine; jimple2cpg on 11 apps (clean); CodeQL cost measured on 2
-  whole-app builds (TMAP, worldcup) + carved on 3 (TMAP, SBB, worldcup). A full 11-app CodeQL
-  **timing** sweep is deferred to a quiet/dedicated machine (contention made batch timings
-  unreliable — see the CodeQL section). **Next:** that sweep + unrelated non-Goldoson SDKs (issue #5
-  Phase 1) to firm up the analyzer-independent claim.
+- **Scope.** One machine; jimple2cpg on 11 apps (clean); **carved CodeQL on all 11** (clean); whole-app
+  CodeQL on the 2 apps with an original APK (TMAP, worldcup). Whole-app CodeQL on the other 9 is
+  blocked by decompilation-quality confound (only dex2jar `app.jar` available — see the CodeQL
+  section), not by CodeQL itself. **Next:** original APKs for a wider whole-app CodeQL set, and
+  unrelated non-Goldoson SDKs (issue #5 Phase 1).
 - **Reproduce:** `bash research/metrics.sh …` (`METRICS_HEAP=-Xmx1g` for the RQ1 run;
   default 12g for RQ2). The harness records the staging count (`wa_staged` = jimple2cpg's
   `Loading N program files`) and **keeps the raw logs** under `research/metrics-logs/<label>/` — an

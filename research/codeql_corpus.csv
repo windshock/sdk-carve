@@ -1,6 +1,0 @@
-app,side,input_or_carved_cls,decompile_s,dbbuild_s,db_mb,sdk_types,sdk_methods,note
-com.skt.tmap.ku,whole-app,50157,50,542,2560,117,395,"clean isolated run"
-com.skt.tmap.ku,carved,117,1,25,8,117,395,"= whole-app SDK surface"
-com.Monthly23.SwipeBrickBreaker,carved,201,1,,9,201,586,"build time load-contaminated; types/db reliable"
-com.wtwoo.girlsinger.worldcup,whole-app,25137,27,220,207,,,"clean cost; sdk query not captured (pack bug); SDK present (survived buggy jimple2cpg)"
-com.wtwoo.girlsinger.worldcup,carved,176,2,25,9,176,475,"= 100% SDK"

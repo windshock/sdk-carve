@@ -1,0 +1,3 @@
+app,input_cls,decompile_s,java_files,dbbuild_s,db_mb,sdk_present,source
+com.skt.tmap.ku,50157,50,26954,542,2560,yes (117 types/395 m/5 sinks),original APK
+com.wtwoo.girlsinger.worldcup,25137,27,14894,220,207,yes (SDK survives; count not captured),original APK
