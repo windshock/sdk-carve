@@ -244,13 +244,21 @@ Evidence: [`docs/METRICS.md`](docs/METRICS.md) (RQ1 1 GB fails 8/8 measured; RQ2
 
 ## Immediate next actions (consolidated — priority order)
 
-1. **★ Semantic-fidelity + failure-boundary study (RQ3/RQ5) — the paper-defining, non-gated core.**
-   Define the **preservation contract**, then measure carved-vs-(complete)-whole-app: CG-edge recall,
-   source→sink path recall, dataflow-finding agreement, and *where carve breaks*. On 11 Goldoson +
-   Necro, now — no new samples needed.
-2. **Build the multi-source APK resolver** (`resolve(package, version?)`, normalized record, signer+hash
-   verify) → unblocks RQ4 generality without AndroZoo as a gate. Then Phase-1 corpus.
-3. **Track 1 (done this pass):** Necro/Coral carved + Konfety↔MobiDash diff + cross-host build compare.
-   Remaining is gated (native ghidra track; Phase-D infra correlation needs external evidence).
-4. **Wrap the sure wins:** land Joern #6257 merge; publish threat-intel as a report/blog; ship the tool.
+**Done:** structural fidelity (RQ3 call-graph 9/9 exact + source→sink surface 2/2 exact, `docs/FIDELITY.md`),
+RQ5 boundary quantified (framework 55–92 %), resolver (③, `resolve.py`), Track 1 (Necro + Konfety↔MobiDash).
+
+**Next — "prove the one empty cell", in this order (agreed):**
+1. **★ Positive dataflow evidence (fill `Dataflow equivalence: NOT yet demonstrated`).** Add a *minimal*
+   set of dataflow **semantics models** (Bundle/field/serialization sinks) so `reachableBy` yields
+   `flows > 0`, then check **carved and whole-app produce the identical flow set**. This turns the one
+   blank cell in the Figure-1 box into a number — a clear research milestone.
+2. **Non-framework boundary decomposition.** Split the genuinely-cut (non-framework) boundary calls into
+   `host-app / inter-SDK / shared-utility / generated-glue` → answers *which kind* of host context is
+   actually needed (and seeds an adaptive-context-expansion idea). `research/edges.sc` already dumps the
+   boundary callees; classify them.
+3. **Corpus (external validity, not "more numbers").** Then run 10 families × several hosts via the
+   resolver — validates the *already-defined* preservation contract's external validity (RQ4).
+
+**Parallel sure-wins (anytime):** land Joern #6257 merge; threat-intel report/blog; ship the tool.
+**Gated (later):** Necro native second stage (ghidra); Phase-D infra correlation (external evidence).
 5. **Track 2 desk (done):** R-Droid diff + related-work matrix (`docs/RELATED_WORK.md`).
