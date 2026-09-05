@@ -262,11 +262,13 @@ RQ5 boundary quantified (framework 55–92 %), resolver (③, `resolve.py`), Tra
    `host-app / inter-SDK / shared-utility / generated-glue` → answers *which kind* of host context is
    actually needed (and seeds an adaptive-context-expansion idea). `research/edges.sc` already dumps the
    boundary callees; classify them.
-3. **[~] Corpus / external validity.** Resolver ready (dry-run OK); **actual fetch is auth-gated**
-   (mirror/ToS). Non-gated slice DONE: preservation contract validated **outside Goldoson** — okhttp3+
-   okio carved from DMB-TV (benign host `com.project.onair`) = 100 % internal-edge recall, 0 divergence.
-   In-hand external validity spans 5 malware families + 4 benign SDKs. Full unrelated-family corpus
-   (10×hosts) needs download authorization.
+3. **[x] Corpus / external validity — DONE (download authorized + executed).** Resolver
+   download-functional (F-Droid adapter tested end-to-end: fetch + sha256 + signer-cert verify).
+   External validity: **5 benign SDKs in DMB-TV (in-hand) + okhttp3 in NewPipe (DOWNLOADED, F-Droid)
+   all 100 % internal-edge recall**, plus 9-app Goldoson + Necro → 5 malware families + 5 benign SDKs
+   across 2 hosts. `research/dmb_extval.{sh,csv}`, `docs/FIDELITY.md`. (Mirror adapters apkmirror/
+   apkcombo: broken `.bin` shim on this host — documented; F-Droid is the reliable backend. Scaling to
+   a large multi-family corpus = more of the same, per-step per source ToS.)
 
 **Parallel sure-wins (anytime):** land Joern #6257 merge; threat-intel report/blog; ship the tool.
 **Gated (later):** Necro native second stage (ghidra); Phase-D infra correlation (external evidence).

@@ -115,6 +115,14 @@ VALID_VER = re.compile(r"^[A-Za-z0-9_.+-]*$")
 _AZKEY = "@ANDROZOO_APIKEY@"  # replaced (not shell-expanded) with the env value at run time
 
 ADAPTERS = {
+    "fdroid":    {"bin": "python3",
+                  "argv": ["python3", "-c",
+                           "import sys,json,urllib.request as u; pkg=sys.argv[1];"
+                           " d=json.load(u.urlopen('https://f-droid.org/api/v1/packages/'+pkg));"
+                           " vc=d.get('suggestedVersionCode') or d['packages'][0]['versionCode'];"
+                           " open(sys.argv[2],'wb').write(u.urlopen('https://f-droid.org/repo/%s_%s.apk'%(pkg,vc)).read())",
+                           "{package}", "{out}"],
+                  "note": "F-Droid direct (open repo, reliable, ToS-clean) — FOSS apps only. TESTED (NewPipe)."},
     "androzoo":  {"env": "ANDROZOO_APIKEY", "bin": "curl",
                   "argv": ["curl", "-fL", "-G", "--data-urlencode", "apikey=" + _AZKEY,
                            "--data-urlencode", "sha256={sha}",
@@ -151,7 +159,7 @@ def adapter_available(name: str) -> bool:
     return shutil.which(a["bin"]) is not None
 
 # ------------------------- resolve -------------------------
-DEFAULT_ORDER = ["local", "androzoo", "apkmirror", "apkcombo", "apkpure", "play", "uptodown"]
+DEFAULT_ORDER = ["local", "fdroid", "androzoo", "apkmirror", "apkcombo", "apkpure", "play", "uptodown"]
 
 def local_lookup(package: str, version: str | None, corpus: str) -> str | None:
     if not os.path.isdir(corpus): return None

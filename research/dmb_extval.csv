@@ -1,0 +1,6 @@
+sdk,carved_classes,methods_wa,methods_cv,internal_edges_wa,internal_shared,recall_pct
+okhttp3,249,2295,2295,3314,3314,100.0
+com.google.android.exoplayer2,1421,10262,10256,14733,14733,100.0
+com.google.firebase,576,2760,2758,2761,2761,100.0
+com.google.android.gms,1608,8779,8779,15002,15002,100.0
+com.project.onair,215,1137,1137,1338,1338,100.0
