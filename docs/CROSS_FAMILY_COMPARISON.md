@@ -143,6 +143,21 @@ So Necro = **obfuscated Java loader → encrypted native/DEX second stage**, rec
 carving despite obfuscation + string encryption. (Native-payload internals need the `ghidra2cpg`
 track; the runtime-downloaded stage is out of static scope — a documented boundary.)
 
+**Cross-host build comparison (Coral class names across trojanized hosts).** Two markers are
+**obfuscation-invariant** across every build: `com.coral.CoralSdk` (entry) and `com.coral.vmout`
+(native-loader package) — reliable detection signatures. The `com.coral.imp.*` implementation
+classes (25) are **re-randomized per build**:
+
+| host pair | shared `com.coral.imp.*` names |
+|---|---|
+| Wuta 6.3.2 ≡ **Spotify 18.9.40.5** | **25 / 25 (identical build)** |
+| Wuta 6.3.2 vs Wuta **6.3.6** | 0 / 25 (fully re-obfuscated) |
+| Wuta 6.3.2 vs Max Browser 1.2.4 | 0 / 25 |
+
+→ Coral is **re-obfuscated per build**, so plaintext/name IOCs are per-build; but Wuta 6.3.2 and
+Spotify carry the **identical** obfuscated build → same injection batch/campaign. Detect on the
+invariant `CoralSdk`/`vmout` pair, not the `imp` names.
+
 ## Anti-analysis technique, by layer
 
 | Family | Anti-analysis layer | Mechanism |
