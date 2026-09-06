@@ -208,6 +208,45 @@ Necro; whole-app CPG is complete post-#6257 so carved-vs-whole-app is a fair com
 - [ ] Only then: Phase-1 corpus (via the **multi-source resolver**, AndroZoo optional) turns the
   *defined* contract into generality evidence.
 
+### ★★ SNAPSHOT SCOPE (agreed re-scoping) — two axes, 5 fixed families, natural counterfactuals
+
+**Two evaluation axes, kept separate (never conflated):**
+- **Axis 1 — Preservation fidelity** (*"Did we **preserve** the carved code?"*): baseline = whole-app
+  CPG of the **same** APK; metric = SDK-internal call-graph / boundary / source-sink **set equality**.
+  *(RQ3; measured — `docs/FIDELITY.md` axis 1.)*
+- **Axis 2 — Pair-derived scope validation** (*"Did we carve the **right** code?"*): baseline = a
+  **natural counterpart APK**; metric = **counterfactual scope agreement** between the carve scope and
+  the pair-supported malicious region. *(New — `docs/FIDELITY.md` axis 2.)*
+
+**Fixed to 5 malware families** (Goldoson/SpinOk/Konfety/MobiDash/Necro) — **do NOT hunt new families.**
+Each family's counterfactual matches its **real distribution model** (not one forced infected→clean rule):
+
+| type | relation | what it establishes | families |
+|---|---|---|---|
+| **A. strong / base-matched** | same base + component added/removed | same-base APK delta = independent scope ground truth → scope **precision / recall (/completeness)** | MobiDash (original↔patched), Konfety (decoy↔evil-twin) |
+| **B. longitudinal** | same lineage, component present→gone | **NOT** raw diff — anchor on **published IOC region**; yields **counterfactual scope support** (scope is infection-associated), **not** scope-completeness | Goldoson (infected↔clean), SpinOk (infected↔removed), Necro (Wuta 6.3.x↔6.9.8) |
+
+**Umbrella term = *pair-derived scope validation* (a.k.a. counterfactual scope support).** Do NOT
+generalize "scope-completeness" to type-B — only type-A (same base) can support precision/recall.
+
+**Termination.** Define all 5 distribution models + counterfactual types up front; run axis-2 on every
+family with a **provenance-compatible** counterpart obtainable; families without → record as
+**evaluation limitation / acquisition gap** (*not* an RQ4 result). **Report separately:** #families
+sdk-carve *applied* to vs #families *pair-validated* (**now 5 / 1**). Feasibility table + Necro pilot
+result in `docs/FIDELITY.md`.
+
+**Pilot (done): Necro/Coral, Wuta 6.3.2 ↔ 6.9.8.161 (type-B).** *All carved Java classes fall within
+the IOC-anchored `com.coral.*` region observed infected-present / clean-absent (660/0); no carved class
+is observed in the clean counterpart.* → the longitudinal pair **independently supports that the carve
+scope is infection-associated** (counterfactual scope support, non-circular — pair support is
+independent of the carve); it does **not** prove scope-completeness (different versions, not same base).
+`libcoral.so` native = documented out-of-scope boundary. `analysis/necro_fidelity.sh`.
+
+**Explicitly OUT of this snapshot (stay future work):** general/population benchmark expansion (100+
+APKs), new malware families, adaptive-context-expansion completion, per-SDK semantic taint model,
+semantic/dataflow-equivalence claims, population-wide "SDKs don't need host context" claims. **New
+ideas are judged against *this* RQ before being added to scope — not auto-adopted.**
+
 **Target claim (converged framing — feasibility + fidelity, supply-chain unit):**
 > *For a third-party SDK embedded across many Android host apps, whole-app analysis is the wrong
 > default unit: target-centric carving **moves the feasibility boundary** (analyzes SDKs that are
@@ -248,9 +287,25 @@ Evidence: [`docs/METRICS.md`](docs/METRICS.md) (RQ1 1 GB fails 8/8 measured; RQ2
 ## Immediate next actions (consolidated — priority order)
 
 **Done:** structural fidelity (RQ3 call-graph 9/9 exact + source→sink surface 2/2 exact, `docs/FIDELITY.md`),
-RQ5 boundary quantified (framework 55–92 %), resolver (③, `resolve.py`), Track 1 (Necro + Konfety↔MobiDash).
+RQ5 boundary quantified (framework 55–92 %), resolver (③, `resolve.py`), Track 1 (Necro + Konfety↔MobiDash),
+**axis-2 pilot (Necro/Wuta scope validation, `analysis/necro_fidelity.sh`)**.
 
-**Next — "prove the one empty cell", in this order (agreed):**
+**Next — re-scoped snapshot (agreed): close the 5 families along both axes.**
+1. [x] **Docs: split the two axes** (preservation fidelity ↔ pair-derived scope validation) + pair
+   taxonomy (A strong / B longitudinal) + feasibility table → `docs/FIDELITY.md`, `PLAN.md` ★★ block.
+2. [x] **Necro/Wuta pilot** (type-B, IOC-anchored — NOT raw version diff): `com.coral.*` 660/0
+   present/absent, carve∩clean 0, native `libcoral.so` = out-of-scope boundary. Metric validated.
+3. [x] **Necro axis-1** (preservation fidelity on infected Wuta) — **host-limited = the RQ1 point.**
+   Carved `com.coral` CPG builds in seconds (660 cls → 2,208 methods, 1,536 internal edges, complete by
+   construction); the **whole-app baseline is not buildable on this 16 GB host** (56k cls: OOMs at 12g →
+   corrupt graph, can't allocate at 16g). So Necro is a concrete RQ1 feasibility instance; its axis-1
+   *cross-check* is deferred to a bigger-RAM host (axis-1 equality already stands on 9 Goldoson + 5
+   benign libs). `analysis/necro_fidelity.sh`.
+4. [ ] **Extend to the other 4 families** — only where a provenance-compatible counterpart is
+   obtainable (acquisition-gated, per-step OK): MobiDash original↔patched (A), Konfety decoy↔twin (A),
+   Goldoson infected↔clean (B), SpinOk infected↔removed (B). Un-obtainable → log as acquisition gap.
+
+**Superseded (kept for history) — the earlier "prove the one empty cell" order:**
 1. **[~] Positive dataflow evidence — ATTEMPTED, deferred (honest).** Ran CodeQL `TaintTracking` +
    3 within-SDK models (method arg/qual→return, field store→read, collector-mutation arg→qual):
    **still 0 source→sink flows on carved** → confirmed on **2 analyzers** (joern + CodeQL), orthogonal

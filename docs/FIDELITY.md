@@ -21,6 +21,20 @@ So the finding is: **for the measured SDKs, no host-app code was required to pre
 static call graph and source/sink surface; fidelity loss begins at explicitly-modeled boundaries** —
 *not* "app context can be zero."
 
+## Two independent evaluation axes (kept separate on purpose)
+
+Target-centric carving is evaluated along **two orthogonal questions**. They use different baselines
+and must never be conflated:
+
+| Axis | Question | Baseline | Metric | Status |
+|---|---|---|---|---|
+| **1. Preservation fidelity** | *Did we preserve the carved code?* | **whole-app CPG of the same APK** (patched-complete) | SDK-internal call-graph / boundary / source-sink **set equality** | measured — §Result below |
+| **2. Pair-derived scope validation** | *Did we carve the right code?* | **a natural counterpart APK** (infected↔clean / decoy↔twin / original↔patched) | **counterfactual scope agreement** — carve scope vs pair-supported malicious region | pilot (Necro/Wuta) done — §Pair-derived scope validation |
+
+Axis 1 lives **inside one APK**; axis 2 lives **across a pair**. Axis 2 does **not** reuse axis-1's
+edge-recall pipeline — the counterpart APK does not contain the SDK, so there is nothing to recall.
+This document covers axis 1 first (the sections through *Boundary decomposition*), then axis 2.
+
 ## What target-centric carving preserves — and where fidelity can be lost
 
 ```text
@@ -202,6 +216,113 @@ By name that residue cannot be attributed to host-app vs bundled-library vs *mis
 motivates **adaptive context expansion** (pull the residue's closure in and re-check). *(Answer to
 "how much app context is needed": none of the host's **identifiable** code; an unresolved obfuscated
 residue of 0–41 % remains to be attributed.)*
+
+---
+
+# Axis 2 — Pair-derived scope validation: *"Did we carve the right code?"* (`analysis/necro_fidelity.sh` + pilot)
+
+Preservation fidelity (axis 1, above) shows the carve **faithfully preserves whatever it selected**.
+It says nothing about whether the *selection itself* — the target scope — corresponds to the real
+malicious component. A **natural counterfactual** (a real, in-the-wild APK that differs from the
+infected one by the presence/absence of the malicious component) gives an **independent** check on the
+scope decision: if the carved scope lines up with what actually differs between the pair, we carved the
+right code.
+
+**Pair taxonomy — the counterfactual is not the same kind of evidence for every family.**
+
+| Type | Relation | What it can establish | Families |
+|---|---|---|---|
+| **A. Strong / base-matched** | same base APK with the malicious component directly added/removed (repackage, evil-twin) | same-base APK delta = independent scope ground truth → scope **precision / recall (/completeness)** | MobiDash (original↔patched), Konfety (decoy↔evil-twin) — *when the matched relation is established* |
+| **B. Longitudinal** | same app lineage, different versions; component present then gone | raw version delta is **NOT** ground truth (host/lib/feature churn + R8 rename noise) — anchor on **published IOC region**; yields **counterfactual scope support** (scope is infection-associated), **not** scope-completeness | Goldoson (infected↔later-clean), SpinOk (infected↔removed), Necro/Wuta (infected↔later-clean) |
+
+For type-B pairs we **do not** call the raw `infected − clean` class diff "malicious". We define the
+malicious region from **published IOC markers** (package / class / native marker), verify that region
+is **present in infected and absent in clean** (the pair *supports* the marker), then measure how the
+sdk-carve scope agrees with that pair-supported region.
+
+## Metric — counterfactual scope support (umbrella: *pair-derived scope validation*)
+**What each pair type can establish is deliberately different — do not generalize "scope-completeness"
+to type-B:**
+- **Type B (longitudinal)** provides **counterfactual scope support / scope validity** only: it can
+  *support* that the selected scope is **infection-associated** (present in the infected build, absent
+  in the clean counterpart). It **cannot** establish scope *completeness* — because the two APKs are
+  different versions, not the same base binary, a type-B pair cannot prove that all infection-added
+  code is known, that no infection-related code exists outside the IOC region, or that every carved
+  class was added *solely* by the injection.
+- **Type A (base-matched)** can go further: an original↔patched delta on the **same base** is an
+  independent scope ground truth, enabling scope **precision / recall (/completeness)** of the carve.
+
+Measured quantities (for the carve scope *C*, the clean counterpart, and — type-A only — an
+independent infection delta *D*):
+- **Pair support** — |IOC region in infected| vs |in clean|: supports that the region is
+  infection-associated, not pre-existing host code (independent of the carve).
+- **Carve∩clean** — carved classes also observed in the clean counterpart (a low count supports that
+  the carve is infection-associated; it does **not** prove classes were added *solely* by injection).
+- **Carve within IOC region** — are all carved classes inside the published IOC region observed as
+  infected-present / clean-absent? (type-B: a *support* check, not a completeness proof.)
+- **Scope precision/recall vs *D*** — **type-A only**, when a same-base infection delta is available.
+- **Out-of-scope boundary** — injected components that are real but outside the bytecode-carve model
+  (native `.so`), recorded as a documented boundary, **not** a scope miss.
+
+## Necro/Coral pilot — Wuta 6.3.2 infected ↔ 6.9.8.161 clean *(both in hand; type-B longitudinal)*
+IOC-anchored region *R* = `com.coral.*` (`CoralSdk`, `com.coral.vmout`, `com.coral.imp.*`); native
+marker `libcoral.so`.
+
+| measurement | value | reading |
+|---|--:|---|
+| **Pair support** — `com.coral.*` classes infected / clean | **660 / 0** | the IOC region is **observed in the infected build and absent from the clean counterpart** — observed **independently** of the carve |
+| **Carve∩clean** — carved classes also in clean | **0** | **no carved class is observed in the clean counterpart** |
+| **Carve within IOC region** — carved classes inside `com.coral.*` | 660 / 660 | **all carved Java classes fall within the IOC-anchored region** observed infected-present / clean-absent |
+| **Other stable IOC markers** infected-only besides `com.coral` | none | no stable coral-adjacent Java marker observed outside the carve |
+| **Out-of-scope boundary** — `libcoral.so` infected / clean | **2 / 0** | native 2nd-stage is observed infected-present / clean-absent but **outside bytecode-carve scope** — documented boundary, not a Java-scope miss |
+
+**Reading (calibrated to what a type-B pair supports).** *All carved Java classes fall within the
+IOC-anchored `com.coral.*` region observed in the infected build and absent from the clean counterpart;
+no carved class is observed in the clean counterpart.* Therefore: **the longitudinal pair independently
+supports that the selected carve scope is infection-associated** — a **counterfactual scope
+support / scope-validity** result, *not* a scope-completeness ground truth. Because Wuta 6.3.2 and
+6.9.8.161 are **different versions, not the same base binary**, this pair does **not** establish that
+all infection-added code is known, that no infection-related code exists outside `com.coral`, or that
+every carved class was added *solely* by the injection. The native second stage (`libcoral.so`) is
+observed as an injected artifact but is explicitly out of bytecode-carve scope.
+
+**Necro axis-1 (preservation fidelity) is host-limited — and that is itself the RQ1 point.** The
+carved `com.coral` CPG builds in seconds (660 classes → 2,208 methods, 1,536 internal edges — a
+complete SDK-internal call graph by construction). The **whole-app** baseline needed to cross-check it
+is **not buildable on this 16 GB machine**: Wuta 6.3.2 is ~56k classes, and its whole-app CPG **OOMs
+during serialization at 12g (writes a corrupt graph) and cannot allocate at 16g**. So Necro is a
+concrete instance of the feasibility transformation (RQ1) — whole-app analysis is infeasible-at-budget
+while the carve analyzes fine. **This is recorded as a feasibility-boundary result, not a
+preservation-equality result:** the carved-vs-whole-app *fidelity equality* cross-check for Necro is
+**deferred until a larger-RAM host is available**, not claimed. The axis-1 equality result already
+stands on 9 Goldoson hosts + 5 benign libraries (above); Necro contributes an axis-2 scope-support
+result plus an RQ1 feasibility-boundary data point, not another axis-1 equality point.
+
+**Honest limitation (type-B).** A longitudinal pair cannot rule out injected malicious **Java outside
+`com.coral`**, because the raw name-delta is dominated by R8 rebuild-renaming between 6.3.x and 6.9.8
+(56,416 vs 69,499 classes, mostly renamed) — so we anchor on the published `com.coral` IOC rather than
+the version diff. A **type-A** pair (e.g. MobiDash original↔patched) would let the APK delta itself
+serve as the scope ground truth, closing this gap. This is exactly why the two pair types are kept
+distinct.
+
+## Pair feasibility / acquisition status
+
+| family | distribution model | pair type | counterfactual | status |
+|---|---|---|---|---|
+| **Necro/Coral** | trojanized app build | B (longitudinal) | Wuta 6.3.2 infected ↔ 6.9.8.161 clean | ✅ **in hand — pilot done** |
+| **Goldoson** | dev-included supply-chain SDK | B (longitudinal) | infected host ↔ later clean version (same app) | ⛔ acquisition — historical clean version needed (resolver) |
+| **SpinOk** | marketing SDK | B (longitudinal) | infected ↔ SpinOk-removed version (e.g. Zapya) | ⛔ acquisition — infected/removed pair needed |
+| **Konfety** | Play decoy + evil-twin | A (base-matched) | Play decoy ↔ evil-twin | ⛔ acquisition + **matching identification** (twin ↔ decoy) |
+| **MobiDash** | parasite repackaging | A (base-matched) | original legit APK ↔ MobiDash-patched | ⛔ acquisition + **original identification** (which app was repackaged) |
+
+**Termination (snapshot).** Define each family's distribution model + natural-counterfactual type up
+front; run pair-derived scope validation on **every family where a provenance-compatible counterpart
+can actually be obtained**; for families where it cannot, record the reason as an **evaluation
+limitation / acquisition gap** (*not* as an RQ4 result). **Report the two counts separately:**
+#families sdk-carve was *applied* to vs #families with a *pair-validated* scope — **currently applied 5
+/ pair-validated 1**.
+
+---
 
 ## Preservation contract (what "correct enough" means, made explicit)
 
