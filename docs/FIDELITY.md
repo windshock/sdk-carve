@@ -327,12 +327,40 @@ are different versions, not the same base binary). Provenance is verified by sig
 the clean side is a genuine SKT successor rather than a repackage. Harness: `analysis/goldoson_scopeval.sh`;
 provenance record `research/scope_validation.csv`.
 
+### Second Goldoson host — worldcup: an **R8-renamed** region (the harder, non-circular case)
+TMAP's Goldoson package (`com.smart.sklb` = "SMARTLB") is human-readable, which invites the objection
+*"scope validation only works when the package name is recognizable."* The worldcup lineage answers it:
+its Goldoson SDK is **R8-renamed** to the meaningless `com.eltqkdl.sekai.hontoni`, so the region cannot
+be judged "Goldoson" by its name. We therefore fixed the region **independently of the carve** using
+the **Goldoson AES packet-capture blocklist** (the byte-identical anti-analysis guard documented in
+`docs/ANTI_ANALYSIS.md`, decrypted by `analysis/decrypt_blocklist.py`), then checked whether *both* the
+independent guard **and** the carve region disappear across the pair.
+
+| signal | infected 3.0.13 (vc 3000013) | clean 3.1.0 (vc 3001000) |
+|---|--:|--:|
+| **provenance** — signer_sha256 | `c345a694…556200` | `c345a694…556200` (**same key, not repackaged**) |
+| **independent anchor** — Goldoson AES blocklist decrypts | **present** (`com.ddm.iptools`, a blocklisted capture app) | **absent (0)** |
+| **carve region** — `com.eltqkdl.sekai.hontoni` classes | **154** | **0** |
+| **carve∩clean** | — | **0** |
+
+Fetched via **apkeep/APKPure**, signer-verified. **Both** the carve-independent guard and the carve
+region vanish together in the clean successor — so the renamed region is tied to Goldoson by evidence
+that does not depend on the carve, and the pair supports that the (R8-renamed) carve scope is
+infection-associated. This reproduces the TMAP result on an obfuscated region, closing the
+"recognizable-name-only" objection. *Note:* the infected decrypt surfaced one documented blocklist app
+(`com.ddm.iptools`) from the dex2jar'd jar — the present/absent contrast (guard present in infected, 0
+in clean) is what the counterfactual needs, not the full 5-app list.
+
+**Goldoson type-B extension closed (2 hosts: `com.smart.sklb` clean-named + `com.eltqkdl.sekai.hontoni`
+R8-renamed).** Per the agreed stopping rule, no further Goldoson hosts; a type-A pair is **not**
+auto-promoted to a required task — its snapshot contribution is re-evaluated first.
+
 ## Pair feasibility / acquisition status
 
 | family | distribution model | pair type | counterfactual | status |
 |---|---|---|---|---|
 | **Necro/Coral** | trojanized app build | B (longitudinal) | Wuta 6.3.2 infected ↔ 6.9.8.161 clean | ✅ **in hand — pilot done** |
-| **Goldoson** | dev-included supply-chain SDK | B (longitudinal) | TMAP 9.16.0.291767 ↔ 9.21.7.291923 (same app) | ✅ **done — TMAP lineage** (apkeep/APKPure, signer-verified) |
+| **Goldoson** | dev-included supply-chain SDK | B (longitudinal) | TMAP 9.16.0↔9.21.7 (clean-named) + worldcup 3.0.13↔3.1.0 (R8-renamed) | ✅ **done — 2 hosts** (apkeep/APKPure, signer-verified, non-circular anchor) |
 | **SpinOk** | marketing SDK | B (longitudinal) | infected ↔ SpinOk-removed version (e.g. Zapya) | ⛔ acquisition — infected/removed pair needed |
 | **Konfety** | Play decoy + evil-twin | A (base-matched) | Play decoy ↔ evil-twin | ⛔ acquisition + **matching identification** (twin ↔ decoy) |
 | **MobiDash** | parasite repackaging | A (base-matched) | original legit APK ↔ MobiDash-patched | ⛔ acquisition + **original identification** (which app was repackaged) |

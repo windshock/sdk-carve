@@ -307,10 +307,16 @@ RQ5 boundary quantified (framework 55–92 %), resolver (③, `resolve.py`), Tra
    carve∩clean 0 → scope infection-associated. Reproduces the Necro methodology on the flagship family.
    Resolver durably fixed (apkeep adapter added; apkmirror=Cloudflare-blocked, apkcombo=stale documented).
    `analysis/goldoson_scopeval.sh`, `research/scope_validation.csv`.
-5. [ ] **Optional: 1 more Goldoson host type** (different app), then re-judge whether a **type-A** pair
-   (MobiDash original↔patched preferred) strengthens the snapshot before pursuing it. Remaining families
-   (SpinOk B, Konfety A, MobiDash A) only where a provenance-compatible counterpart is obtainable;
-   un-obtainable → log as acquisition gap. **Do not** parallel-hunt type-A yet (agreed).
+5. [x] **Second Goldoson host — worldcup (R8-renamed region)** — DONE. infected 3.0.13 ↔ clean 3.1.0
+   (apkeep/APKPure, **signer-verified** c345a694…). **Non-circular anchor** required (region name
+   `com.eltqkdl.sekai.hontoni` is meaningless): fixed via the carve-independent **Goldoson AES
+   packet-capture blocklist** (decrypts in infected, **absent in clean**); the region 154→0 and the
+   guard vanish **together** in the clean successor. Closes the "recognizable-name-only" objection.
+6. [x] **Goldoson type-B extension CLOSED** (stopping rule): 2 hosts (clean-named + R8-renamed). A
+   **type-A** pair is **not** auto-promoted to a required task — re-evaluate its snapshot contribution
+   first (current view: not essential; structural-fidelity + feasibility + scope-support (Necro +
+   Goldoson×2) + 5-family applicability already stand). Remaining families (SpinOk B, Konfety A,
+   MobiDash A) only if a provenance-compatible counterpart is obtainable; else log as acquisition gap.
 
 **Superseded (kept for history) — the earlier "prove the one empty cell" order:**
 1. **[~] Positive dataflow evidence — ATTEMPTED, deferred (honest).** Ran CodeQL `TaintTracking` +
