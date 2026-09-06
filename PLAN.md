@@ -57,8 +57,9 @@ phantom-viewport + synthetic-touch click fraud via different packing (both stati
     `com.dmb.media`/`dmb.onair.media`/`band.kr.com`/`easy.kr` need VT/Koodous/AndroZoo (**droppable** — 5 families suffice)
   - [ ] SlopAds / Trapdoor (App-ID → **resolver**: mirror history / AndroZoo) — no longer AndroZoo-only;
     standalone-flagged variants may still need MalwareBazaar/Triage/VT
-  - [ ] Goldoson historical infected→clean boundary — via **resolver** (mirror version history), same
-    pattern as Necro/DMB-TV; AndroZoo optional for citable metadata — *research Final-priority #1*
+  - [x] Goldoson historical infected→clean boundary — **TMAP 9.16.0.291767 (infected) ↔ 9.21.7.291923
+    (clean)** via resolver (**apkeep/APKPure**), signer-verified same SKT key. `com.smart.sklb` 113→0.
+    Used for axis-2 scope validation (Track 2); AndroZoo optional for citable metadata.
 - [x] **C — cross-family comparison** (**5 families**; anti-analysis + fraud-engine matrix) — Necro/Coral carved (native-second-stage loader branch)
 - [ ] **D — infrastructure correlation** (evidence-gated; C2/pDNS/cert — only with cited evidence)
 - [x] Konfety↔MobiDash **phantom-viewport code diff** — direct class-level compare: Konfety
@@ -232,8 +233,8 @@ generalize "scope-completeness" to type-B — only type-A (same base) can suppor
 **Termination.** Define all 5 distribution models + counterfactual types up front; run axis-2 on every
 family with a **provenance-compatible** counterpart obtainable; families without → record as
 **evaluation limitation / acquisition gap** (*not* an RQ4 result). **Report separately:** #families
-sdk-carve *applied* to vs #families *pair-validated* (**now 5 / 1**). Feasibility table + Necro pilot
-result in `docs/FIDELITY.md`.
+sdk-carve *applied* to vs #families *pair-validated* (**now 5 / 2** — Necro/Coral + Goldoson/TMAP).
+Feasibility table + pilot results in `docs/FIDELITY.md`; provenance records `research/scope_validation.csv`.
 
 **Pilot (done): Necro/Coral, Wuta 6.3.2 ↔ 6.9.8.161 (type-B).** *All carved Java classes fall within
 the IOC-anchored `com.coral.*` region observed infected-present / clean-absent (660/0); no carved class
@@ -301,9 +302,15 @@ RQ5 boundary quantified (framework 55–92 %), resolver (③, `resolve.py`), Tra
    corrupt graph, can't allocate at 16g). So Necro is a concrete RQ1 feasibility instance; its axis-1
    *cross-check* is deferred to a bigger-RAM host (axis-1 equality already stands on 9 Goldoson + 5
    benign libs). `analysis/necro_fidelity.sh`.
-4. [ ] **Extend to the other 4 families** — only where a provenance-compatible counterpart is
-   obtainable (acquisition-gated, per-step OK): MobiDash original↔patched (A), Konfety decoy↔twin (A),
-   Goldoson infected↔clean (B), SpinOk infected↔removed (B). Un-obtainable → log as acquisition gap.
+4. [x] **Goldoson type-B (TMAP lineage)** — DONE. infected 9.16.0.291767 ↔ clean 9.21.7.291923
+   (apkeep/APKPure; **signer-verified same SKT key**, not repackaged): `com.smart.sklb` 113→0,
+   carve∩clean 0 → scope infection-associated. Reproduces the Necro methodology on the flagship family.
+   Resolver durably fixed (apkeep adapter added; apkmirror=Cloudflare-blocked, apkcombo=stale documented).
+   `analysis/goldoson_scopeval.sh`, `research/scope_validation.csv`.
+5. [ ] **Optional: 1 more Goldoson host type** (different app), then re-judge whether a **type-A** pair
+   (MobiDash original↔patched preferred) strengthens the snapshot before pursuing it. Remaining families
+   (SpinOk B, Konfety A, MobiDash A) only where a provenance-compatible counterpart is obtainable;
+   un-obtainable → log as acquisition gap. **Do not** parallel-hunt type-A yet (agreed).
 
 **Superseded (kept for history) — the earlier "prove the one empty cell" order:**
 1. **[~] Positive dataflow evidence — ATTEMPTED, deferred (honest).** Ran CodeQL `TaintTracking` +

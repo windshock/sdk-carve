@@ -305,12 +305,34 @@ the version diff. A **type-A** pair (e.g. MobiDash original↔patched) would let
 serve as the scope ground truth, closing this gap. This is exactly why the two pair types are kept
 distinct.
 
+## Goldoson pilot — TMAP lineage: infected 9.16.0.291767 ↔ clean 9.21.7.291923 *(type-B longitudinal)*
+Flagship-family reproduction of the same type-B methodology. Infected `com.skt.tmap.ku` v9.16.0.291767
+(versionCode 1400) is in hand; the clean successor v9.21.7.291923 (versionCode 1469, July 2023 —
+post-McAfee-disclosure) was fetched via **apkeep / APKPure** (the mirror adapter that works on this
+host — apkmirror is Cloudflare-blocked, apkcombo's tool is stale). IOC-anchored region *R* =
+`com.smart.sklb`, the identified **non-R8-renamed** Goldoson SDK package for TMAP.
+
+| measurement | value | reading |
+|---|--:|---|
+| **Provenance** — signer_sha256 infected / clean | `90351f2e…cf0f8e2` = same | **same SKT signing key** → genuine same-lineage successor, **not repackaged** (the mirror-repackaging check) |
+| **Pair support** — `com.smart.sklb` classes infected / clean | **113 / 0** | the region is observed infected-present / clean-absent — independently of the carve |
+| **Carve∩clean** — carved classes also in clean | **0** | no carved class is observed in the clean counterpart |
+| clean total classes | 50,911 | comparable-scale successor (infected ~50k) |
+
+**Reading (same calibration as Necro).** *All carved `com.smart.sklb` classes are observed in the
+infected build and absent from the clean counterpart; no carved class is observed in the clean
+counterpart.* → **the longitudinal pair independently supports that the carve scope is
+infection-associated** (counterfactual scope support), **not** scope-completeness (9.16.0 and 9.21.7
+are different versions, not the same base binary). Provenance is verified by signer-cert equality, so
+the clean side is a genuine SKT successor rather than a repackage. Harness: `analysis/goldoson_scopeval.sh`;
+provenance record `research/scope_validation.csv`.
+
 ## Pair feasibility / acquisition status
 
 | family | distribution model | pair type | counterfactual | status |
 |---|---|---|---|---|
 | **Necro/Coral** | trojanized app build | B (longitudinal) | Wuta 6.3.2 infected ↔ 6.9.8.161 clean | ✅ **in hand — pilot done** |
-| **Goldoson** | dev-included supply-chain SDK | B (longitudinal) | infected host ↔ later clean version (same app) | ⛔ acquisition — historical clean version needed (resolver) |
+| **Goldoson** | dev-included supply-chain SDK | B (longitudinal) | TMAP 9.16.0.291767 ↔ 9.21.7.291923 (same app) | ✅ **done — TMAP lineage** (apkeep/APKPure, signer-verified) |
 | **SpinOk** | marketing SDK | B (longitudinal) | infected ↔ SpinOk-removed version (e.g. Zapya) | ⛔ acquisition — infected/removed pair needed |
 | **Konfety** | Play decoy + evil-twin | A (base-matched) | Play decoy ↔ evil-twin | ⛔ acquisition + **matching identification** (twin ↔ decoy) |
 | **MobiDash** | parasite repackaging | A (base-matched) | original legit APK ↔ MobiDash-patched | ⛔ acquisition + **original identification** (which app was repackaged) |
@@ -320,7 +342,7 @@ front; run pair-derived scope validation on **every family where a provenance-co
 can actually be obtained**; for families where it cannot, record the reason as an **evaluation
 limitation / acquisition gap** (*not* as an RQ4 result). **Report the two counts separately:**
 #families sdk-carve was *applied* to vs #families with a *pair-validated* scope — **currently applied 5
-/ pair-validated 1**.
+/ pair-validated 2** (Necro/Coral, Goldoson/TMAP).
 
 ---
 

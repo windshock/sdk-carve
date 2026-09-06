@@ -128,19 +128,27 @@ ADAPTERS = {
                            "--data-urlencode", "sha256={sha}",
                            "https://androzoo.uni.lu/api/download", "-o", "{out}"],
                   "note": "needs sha256 (from AndroZoo metadata by package/version); best for citable/reproducible corpus"},
-    "apkmirror": {"bin": "npx",
-                  "argv": ["npx", "apkmirror-downloader", "--org", "{org}", "--repo", "{repo}",
-                           "--version", "{version}", "--out", "{out}"],
-                  "note": "APKMirror history; Cloudflare — github tanishqmanuja/apkmirror-downloader"},
-    "apkcombo":  {"bin": "npx",
-                  "argv": ["npx", "@nirewen/apkcombo-downloader", "--package", "{package}",
-                           "--version", "{version}", "--out", "{out}"],
-                  "note": "APKCombo history; good fallback for APKMirror Cloudflare"},
+    "apkeep":    {"bin": "apkeep",
+                  "argv": ["apkeep", "-a", "{package}@{version}", "-d", "apk-pure", "{outdir}"],
+                  "note": "EFForg apkeep (Rust) via APKPure backend — NOT Cloudflare-gated. TESTED: "
+                          "fetched TMAP clean successor 9.21.7.291923 (signer verified == infected). "
+                          "Emits {package}@{version}.xapk|.apk into {outdir}; caller extracts base + verifies signer."},
+    "apkmirror": {"bin": "node",
+                  "argv": ["node", "{apkmd_cli}", "download", "{org}", "{repo}", "-v", "{version}",
+                           "-t", "apk", "--outdir", "{outdir}"],
+                  "note": "apkmirror-downloader (apkmd) — run via `node dist/cli.js` (the npx .bin shim is a "
+                          "shebang-less ESM bundle on some hosts). org/repo = APKMirror URL slugs, NOT the "
+                          "package. BLOCKED by Cloudflare bot-check on this host (JS+cookies required)."},
+    "apkcombo":  {"bin": "node",
+                  "argv": ["node", "{apkcd_cli}", "download", "{org}", "{repo}", "-v", "{version}",
+                           "-t", "apk", "--outdir", "{outdir}"],
+                  "note": "@nirewen/apkcombo-downloader via `node dist/cli.js`. org=app-slug, repo=package. "
+                          "v1.0.3 crashes parsing APKCombo's current page (undefined.split) — stale. Prefer apkeep."},
     "apkpure":   {"pip": "apkpure", "bin": "python3",
                   "argv": ["python3", "-c",
                            "import apkpure,sys; apkpure.download(sys.argv[1], version=sys.argv[2])",
                            "{package}", "{version}"],
-                  "note": "get_versions()+download(); Python-native (used for Necro/DMB-TV)"},
+                  "note": "the PyPI `apkpure` package exposes no usable API on this host — use apkeep instead."},
     "play":      {"bin": "gpapi-download",
                   "argv": ["gpapi-download", "--package", "{package}", "--version-code", "{version}"],
                   "note": "Google Play is NOT an archive — only if Google still hosts that versionCode"},
@@ -159,7 +167,7 @@ def adapter_available(name: str) -> bool:
     return shutil.which(a["bin"]) is not None
 
 # ------------------------- resolve -------------------------
-DEFAULT_ORDER = ["local", "fdroid", "androzoo", "apkmirror", "apkcombo", "apkpure", "play", "uptodown"]
+DEFAULT_ORDER = ["local", "fdroid", "androzoo", "apkeep", "apkmirror", "apkcombo", "apkpure", "play", "uptodown"]
 
 def local_lookup(package: str, version: str | None, corpus: str) -> str | None:
     if not os.path.isdir(corpus): return None
@@ -179,6 +187,9 @@ def resolve(package: str, version: str | None, order: list[str], corpus: str,
         raise SystemExit(f"[resolve] invalid version (allowed: A-Za-z0-9_.+-): {version!r}")
     fields = dict(package=package, version=version or "", org=package,
                   repo=package.split(".")[-1], sha="<sha256-from-metadata>",
+                  outdir=out_dir,
+                  apkmd_cli=os.environ.get("APKMD_CLI", ""),   # path to apkmirror-downloader dist/cli.js
+                  apkcd_cli=os.environ.get("APKCD_CLI", ""),   # path to apkcombo-downloader  dist/cli.js
                   out=os.path.join(out_dir, f"{package}-{version or 'latest'}.apk"))
     for src in order:
         if src == "local":
@@ -196,8 +207,14 @@ def resolve(package: str, version: str | None, order: list[str], corpus: str,
             print(f"[{src}] DRY-RUN (auth gate; --allow-download to run): "
                   + " ".join(shlex.quote(x) for x in argv), file=sys.stderr); continue
         print(f"[{src}] RUN (no shell): {argv}", file=sys.stderr)
+        before = set(os.listdir(out_dir)) if os.path.isdir(out_dir) else set()
         rc = subprocess.run(argv).returncode  # shell=False — package/version cannot inject
         out = fields["out"]
+        if rc == 0 and not os.path.exists(out):
+            # dir-output adapters (apkeep emits {package}@{version}.xapk|.apk) — pick the new artifact
+            new = [f for f in (set(os.listdir(out_dir)) - before) if f.endswith((".apk", ".xapk", ".apks"))]
+            if new:
+                out = os.path.join(out_dir, sorted(new)[-1])
         if rc == 0 and os.path.exists(out):
             return verify(out, package, source=src)
     return None
