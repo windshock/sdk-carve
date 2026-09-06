@@ -58,7 +58,8 @@ phantom-viewport + synthetic-touch click fraud via different packing (both stati
   - [ ] SlopAds / Trapdoor (App-ID → **resolver**: mirror history / AndroZoo) — no longer AndroZoo-only;
     standalone-flagged variants may still need MalwareBazaar/Triage/VT
   - [x] Goldoson historical infected→clean boundary — **TMAP 9.16.0.291767 (infected) ↔ 9.21.7.291923
-    (clean)** via resolver (**apkeep/APKPure**), signer-verified same SKT key. `com.smart.sklb` 113→0.
+    (clean)** via resolver (**apkeep/APKPure**), same SKT signing identity (no evidence of re-signing).
+    `com.smart.sklb` 107→0.
     Used for axis-2 scope validation (Track 2); AndroZoo optional for citable metadata.
 - [x] **C — cross-family comparison** (**5 families**; anti-analysis + fraud-engine matrix) — Necro/Coral carved (native-second-stage loader branch)
 - [ ] **D — infrastructure correlation** (evidence-gated; C2/pDNS/cert — only with cited evidence)
@@ -241,7 +242,8 @@ the IOC-anchored `com.coral.*` region observed infected-present / clean-absent (
 is observed in the clean counterpart.* → the longitudinal pair **independently supports that the carve
 scope is infection-associated** (counterfactual scope support, non-circular — pair support is
 independent of the carve); it does **not** prove scope-completeness (different versions, not same base).
-`libcoral.so` native = documented out-of-scope boundary. `analysis/necro_fidelity.sh`.
+`libcoral.so` native = documented out-of-scope boundary. `research/scope_validate.sh` (axis-2),
+`research/preservation_fidelity.sh` (axis-1).
 
 **Explicitly OUT of this snapshot (stay future work):** general/population benchmark expansion (100+
 APKs), new malware families, adaptive-context-expansion completion, per-SDK semantic taint model,
@@ -289,7 +291,7 @@ Evidence: [`docs/METRICS.md`](docs/METRICS.md) (RQ1 1 GB fails 8/8 measured; RQ2
 
 **Done:** structural fidelity (RQ3 call-graph 9/9 exact + source→sink surface 2/2 exact, `docs/FIDELITY.md`),
 RQ5 boundary quantified (framework 55–92 %), resolver (③, `resolve.py`), Track 1 (Necro + Konfety↔MobiDash),
-**axis-2 pilot (Necro/Wuta scope validation, `analysis/necro_fidelity.sh`)**.
+**axis-2 pilot (Necro/Wuta scope validation, `research/scope_validate.sh`)**.
 
 **Next — re-scoped snapshot (agreed): close the 5 families along both axes.**
 1. [x] **Docs: split the two axes** (preservation fidelity ↔ pair-derived scope validation) + pair
@@ -301,16 +303,16 @@ RQ5 boundary quantified (framework 55–92 %), resolver (③, `resolve.py`), Tra
    construction); the **whole-app baseline is not buildable on this 16 GB host** (56k cls: OOMs at 12g →
    corrupt graph, can't allocate at 16g). So Necro is a concrete RQ1 feasibility instance; its axis-1
    *cross-check* is deferred to a bigger-RAM host (axis-1 equality already stands on 9 Goldoson + 5
-   benign libs). `analysis/necro_fidelity.sh`.
+   benign libs). `research/preservation_fidelity.sh`.
 4. [x] **Goldoson type-B (TMAP lineage)** — DONE. infected 9.16.0.291767 ↔ clean 9.21.7.291923
-   (apkeep/APKPure; **signer-verified same SKT key**, not repackaged): `com.smart.sklb` 113→0,
-   carve∩clean 0 → scope infection-associated. Reproduces the Necro methodology on the flagship family.
+   (apkeep/APKPure; **same SKT signing identity**, no evidence of third-party re-signing): `com.smart.sklb`
+   107→0, carve∩clean 0 → scope infection-associated. Reproduces the Necro methodology on the flagship family.
    Resolver durably fixed (apkeep adapter added; apkmirror=Cloudflare-blocked, apkcombo=stale documented).
-   `analysis/goldoson_scopeval.sh`, `research/scope_validation.csv`.
+   `research/scope_validate.sh`, `research/decrypt_goldoson_blocklist.py`, `research/scope_validation.csv`.
 5. [x] **Second Goldoson host — worldcup (R8-renamed region)** — DONE. infected 3.0.13 ↔ clean 3.1.0
-   (apkeep/APKPure, **signer-verified** c345a694…). **Non-circular anchor** required (region name
+   (apkeep/APKPure, **same signing identity** c345a694…, no evidence of re-signing). **Non-circular anchor** required (region name
    `com.eltqkdl.sekai.hontoni` is meaningless): fixed via the carve-independent **Goldoson AES
-   packet-capture blocklist** (decrypts in infected, **absent in clean**); the region 154→0 and the
+   packet-capture blocklist** (decrypts in infected, **absent in clean**); the region 148→0 and the
    guard vanish **together** in the clean successor. Closes the "recognizable-name-only" objection.
 6. [x] **Goldoson type-B extension CLOSED** (stopping rule): 2 hosts (clean-named + R8-renamed). A
    **type-A** pair is **not** auto-promoted to a required task — re-evaluate its snapshot contribution

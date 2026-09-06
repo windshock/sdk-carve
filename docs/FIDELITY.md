@@ -219,7 +219,7 @@ residue of 0–41 % remains to be attributed.)*
 
 ---
 
-# Axis 2 — Pair-derived scope validation: *"Did we carve the right code?"* (`analysis/necro_fidelity.sh` + pilot)
+# Axis 2 — Pair-derived scope validation: *"Did we carve the right code?"* (`research/scope_validate.sh`)
 
 Preservation fidelity (axis 1, above) shows the carve **faithfully preserves whatever it selected**.
 It says nothing about whether the *selection itself* — the target scope — corresponds to the real
@@ -297,6 +297,8 @@ preservation-equality result:** the carved-vs-whole-app *fidelity equality* cros
 **deferred until a larger-RAM host is available**, not claimed. The axis-1 equality result already
 stands on 9 Goldoson hosts + 5 benign libraries (above); Necro contributes an axis-2 scope-support
 result plus an RQ1 feasibility-boundary data point, not another axis-1 equality point.
+(Axis-1 harness: `research/preservation_fidelity.sh` — validates the CPG header and reports
+"whole-app NOT measurable (build cost)" instead of querying a corrupt graph.)
 
 **Honest limitation (type-B).** A longitudinal pair cannot rule out injected malicious **Java outside
 `com.coral`**, because the raw name-delta is dominated by R8 rebuild-renaming between 6.3.x and 6.9.8
@@ -314,8 +316,8 @@ host — apkmirror is Cloudflare-blocked, apkcombo's tool is stale). IOC-anchore
 
 | measurement | value | reading |
 |---|--:|---|
-| **Provenance** — signer_sha256 infected / clean | `90351f2e…cf0f8e2` = same | **same SKT signing key** → genuine same-lineage successor, **not repackaged** (the mirror-repackaging check) |
-| **Pair support** — `com.smart.sklb` classes infected / clean | **113 / 0** | the region is observed infected-present / clean-absent — independently of the carve |
+| **Provenance** — signer_sha256 infected / clean | `90351f2e…cf0f8e2` = same | **same SKT signing identity** → **no evidence of third-party re-signing / repackaging** (strongly lowers the mirror-repackage risk; does not by itself prove the build was unmodified) |
+| **Pair support** — `com.smart.sklb` classes infected / clean | **107 / 0** | the region is observed infected-present / clean-absent — independently of the carve |
 | **Carve∩clean** — carved classes also in clean | **0** | no carved class is observed in the clean counterpart |
 | clean total classes | 50,911 | comparable-scale successor (infected ~50k) |
 
@@ -323,9 +325,11 @@ host — apkmirror is Cloudflare-blocked, apkcombo's tool is stale). IOC-anchore
 infected build and absent from the clean counterpart; no carved class is observed in the clean
 counterpart.* → **the longitudinal pair independently supports that the carve scope is
 infection-associated** (counterfactual scope support), **not** scope-completeness (9.16.0 and 9.21.7
-are different versions, not the same base binary). Provenance is verified by signer-cert equality, so
-the clean side is a genuine SKT successor rather than a repackage. Harness: `analysis/goldoson_scopeval.sh`;
-provenance record `research/scope_validation.csv`.
+are different versions, not the same base binary). The clean side shares the SKT **signing identity**
+(signer-cert equal), so there is **no evidence of third-party re-signing / repackaging**. Harness:
+`research/scope_validate.sh` (region present→absent + carve∩clean); provenance record
+`research/scope_validation.csv`. *(Inputs are user-supplied APK/JAR; this repo ships the harness, not
+the samples.)*
 
 ### Second Goldoson host — worldcup: an **R8-renamed** region (the harder, non-circular case)
 TMAP's Goldoson package (`com.smart.sklb` = "SMARTLB") is human-readable, which invites the objection
@@ -333,21 +337,22 @@ TMAP's Goldoson package (`com.smart.sklb` = "SMARTLB") is human-readable, which 
 its Goldoson SDK is **R8-renamed** to the meaningless `com.eltqkdl.sekai.hontoni`, so the region cannot
 be judged "Goldoson" by its name. We therefore fixed the region **independently of the carve** using
 the **Goldoson AES packet-capture blocklist** (the byte-identical anti-analysis guard documented in
-`docs/ANTI_ANALYSIS.md`, decrypted by `analysis/decrypt_blocklist.py`), then checked whether *both* the
+`docs/ANTI_ANALYSIS.md`, decrypted by `research/decrypt_goldoson_blocklist.py`), then checked whether *both* the
 independent guard **and** the carve region disappear across the pair.
 
 | signal | infected 3.0.13 (vc 3000013) | clean 3.1.0 (vc 3001000) |
 |---|--:|--:|
-| **provenance** — signer_sha256 | `c345a694…556200` | `c345a694…556200` (**same key, not repackaged**) |
+| **provenance** — signer_sha256 | `c345a694…556200` | `c345a694…556200` (**same signing identity; no evidence of third-party re-signing**) |
 | **independent anchor** — Goldoson AES blocklist decrypts | **present** (`com.ddm.iptools`, a blocklisted capture app) | **absent (0)** |
-| **carve region** — `com.eltqkdl.sekai.hontoni` classes | **154** | **0** |
+| **carve region** — `com.eltqkdl.sekai.hontoni` classes | **148** | **0** |
 | **carve∩clean** | — | **0** |
 
-Fetched via **apkeep/APKPure**, signer-verified. **Both** the carve-independent guard and the carve
-region vanish together in the clean successor — so the renamed region is tied to Goldoson by evidence
-that does not depend on the carve, and the pair supports that the (R8-renamed) carve scope is
-infection-associated. This reproduces the TMAP result on an obfuscated region, closing the
-"recognizable-name-only" objection. *Note:* the infected decrypt surfaced one documented blocklist app
+Fetched via **apkeep/APKPure**; the clean side shares the infected **signing identity** (no evidence of
+third-party re-signing). **Both** the carve-independent guard and the carve region vanish together in
+the clean successor — so the renamed region is tied to Goldoson by evidence that does not depend on the
+carve, and the pair supports that the (R8-renamed) carve scope is infection-associated. This reproduces
+the TMAP result on an obfuscated region, closing the "recognizable-name-only" objection. Harness:
+`research/scope_validate.sh … --anchor "python3 research/decrypt_goldoson_blocklist.py"`. *Note:* the infected decrypt surfaced one documented blocklist app
 (`com.ddm.iptools`) from the dex2jar'd jar — the present/absent contrast (guard present in infected, 0
 in clean) is what the counterfactual needs, not the full 5-app list.
 
@@ -360,7 +365,7 @@ auto-promoted to a required task — its snapshot contribution is re-evaluated f
 | family | distribution model | pair type | counterfactual | status |
 |---|---|---|---|---|
 | **Necro/Coral** | trojanized app build | B (longitudinal) | Wuta 6.3.2 infected ↔ 6.9.8.161 clean | ✅ **in hand — pilot done** |
-| **Goldoson** | dev-included supply-chain SDK | B (longitudinal) | TMAP 9.16.0↔9.21.7 (clean-named) + worldcup 3.0.13↔3.1.0 (R8-renamed) | ✅ **done — 2 hosts** (apkeep/APKPure, signer-verified, non-circular anchor) |
+| **Goldoson** | dev-included supply-chain SDK | B (longitudinal) | TMAP 9.16.0↔9.21.7 (clean-named) + worldcup 3.0.13↔3.1.0 (R8-renamed) | ✅ **done — 2 hosts** (apkeep/APKPure, same signing identity, non-circular anchor) |
 | **SpinOk** | marketing SDK | B (longitudinal) | infected ↔ SpinOk-removed version (e.g. Zapya) | ⛔ acquisition — infected/removed pair needed |
 | **Konfety** | Play decoy + evil-twin | A (base-matched) | Play decoy ↔ evil-twin | ⛔ acquisition + **matching identification** (twin ↔ decoy) |
 | **MobiDash** | parasite repackaging | A (base-matched) | original legit APK ↔ MobiDash-patched | ⛔ acquisition + **original identification** (which app was repackaged) |

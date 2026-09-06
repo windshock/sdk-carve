@@ -121,5 +121,5 @@ echo -n 'cnCexRUcqgrWpl43fnRUZQ==' | base64 -d | \
     -iv 00000000000000000000000000000000            # -> com.ddm.iptools
 
 # whole blocklist from any carved SDK jar (or full app jar)
-python3 goldoson-samples/analysis/decrypt_blocklist.py <scoped-or-app>.jar
+python3 research/decrypt_goldoson_blocklist.py <scoped-or-app>.jar
 ```
