@@ -10,7 +10,7 @@ W=/tmp/dmbev; rm -rf "$W"; mkdir -p "$W"
 d2j-dex2jar "$APK" -o "$W/dmb.jar" -f >/dev/null 2>&1
 echo "DMB-TV classes: $(unzip -l "$W/dmb.jar"|grep -c '\.class$')"
 jimple2cpg "$W/dmb.jar" --output "$W/wa.cpg" >/dev/null 2>&1; echo "whole-app CPG built"
-CSV=dmb_extval.csv; echo "sdk,carved_classes,methods_wa,methods_cv,internal_edges_wa,internal_shared,recall_pct" > "$CSV"
+CSV=dmb_extval.csv; echo "sdk,carved_classes,methods_wa,methods_cv,method_wa_only,internal_edges_wa,edge_wa_only,edge_cv_only,exact_edge_equality" > "$CSV"
 
 measure(){ local name="$1" dotted="$2" slash="$3"
   python3 - "$W/dmb.jar" "$W/cv.jar" $slash <<'PY'
@@ -25,10 +25,14 @@ PY
   local wm; wm=$(CPG="$W/wa.cpg" ROOTS="$dotted" OUT="$W/wa.txt" joern --script edges.sc 2>/dev/null|grep -oE 'methods=[0-9]+'|grep -oE '[0-9]+')
   local cm; cm=$(CPG="$W/cv.cpg" ROOTS="$dotted" OUT="$W/cv.txt" joern --script edges.sc 2>/dev/null|grep -oE 'methods=[0-9]+'|grep -oE '[0-9]+')
   grep '^E' "$W/wa.txt"|cut -f2-|sort -u>"$W/waE"; grep '^E' "$W/cv.txt"|cut -f2-|sort -u>"$W/cvE"
-  local wae; wae=$(wc -l<"$W/waE"|tr -d ' '); local sh; sh=$(comm -12 "$W/waE" "$W/cvE"|wc -l|tr -d ' ')
-  local rc="NA"; [ "$wae" -gt 0 ] && rc=$(awk "BEGIN{printf \"%.1f\",100*$sh/$wae}")
-  echo "$name,$cc,$wm,$cm,$wae,$sh,$rc" >> "$CSV"
-  echo "[$name] carved=$cc methods $wm/$cm internal-edge recall $sh/$wae = ${rc}%"
+  local wae; wae=$(wc -l<"$W/waE"|tr -d ' ')
+  local wo; wo=$(comm -23 "$W/waE" "$W/cvE"|wc -l|tr -d ' '); local co; co=$(comm -13 "$W/waE" "$W/cvE"|wc -l|tr -d ' ')
+  # method-set WA-only (methods present in whole-app but not carved)
+  grep '^E' "$W/wa.txt"|cut -f2|sort -u>"$W/waM"; grep '^E' "$W/cv.txt"|cut -f2|sort -u>"$W/cvM"
+  local mwo; mwo=$(( wm - cm ))
+  local eq="yes"; { [ "$wo" -ne 0 ] || [ "$co" -ne 0 ]; } && eq="no"
+  echo "$name,$cc,$wm,$cm,$mwo,$wae,$wo,$co,$eq" >> "$CSV"
+  echo "[$name] carved=$cc methods $wm/$cm (WA-only $mwo) | edges WA=$wae WA-only=$wo CV-only=$co exact_equality=$eq"
 }
 
 measure okhttp3            okhttp3,okio                    "okhttp3 okio"

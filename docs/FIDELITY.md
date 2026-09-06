@@ -88,25 +88,40 @@ framework/stdlib. The two largest apps (gomplayerko 59.7k, TMAP 50k) were **not 
 *whole-app* CPG edge-dump exceeds practical joern time/memory on this machine (the carved side dumps
 in seconds — the same cost asymmetry as §RQ2). We do not claim a result for them.
 
-**External validity — the contract holds outside Goldoson, on benign SDKs, in benign hosts, incl. a
-downloaded sample** (`research/dmb_extval.csv`). Internal-edge recall carved-vs-whole-app:
+**External validity — structural fidelity beyond Goldoson.** Internal call-graph edge sets, carved vs
+whole-app, measured **bidirectionally** (WA-only *and* CV-only — set equality, not just recall):
 
-| host (source) | embedded SDK | carved cls | methods WA/CV | internal-edge recall |
-|---|---|--:|--:|--:|
-| DMB-TV `com.project.onair` (in-hand) | okhttp3 + okio | 249 | 2295 / 2295 | **100 %** (3314/3314) |
-| DMB-TV | com.google.android.exoplayer2 | 1421 | 10262 / 10256 | **100 %** (14733/14733) |
-| DMB-TV | com.google.firebase | 576 | 2760 / 2758 | **100 %** (2761/2761) |
-| DMB-TV | com.google.android.gms | 1608 | 8779 / 8779 | **100 %** (15002/15002) |
-| DMB-TV | com.project.onair (the host's *own* code) | 215 | 1137 / 1137 | **100 %** (1338/1338) |
-| **NewPipe** `org.schabi.newpipe` (**downloaded**, F-Droid) | okhttp3 + okio | 199 | 1418 / 1418 | **100 %** (1754/1754) |
+| host (source) | target | edges (WA=CV) | edge WA-only / CV-only | method set |
+|---|---|--:|--:|---|
+| DMB-TV `com.project.onair` (in-hand) | okhttp3+okio | 3314 | **0 / 0** | 2295=2295 exact |
+| DMB-TV | com.google.android.exoplayer2 | 14733 | **0 / 0** | 10262/10256 (**+6 WA**) |
+| DMB-TV | com.google.firebase | 2761 | **0 / 0** | 2760/2758 (**+2 WA**) |
+| DMB-TV | com.google.android.gms | 15002 | **0 / 0** | 8779=8779 exact |
+| DMB-TV | com.project.onair (host's *own* code, **not** an embedded SDK) | 1338 | **0 / 0** | 1137=1137 exact |
+| **NewPipe** (**downloaded**, F-Droid) | okhttp3+okio | 1754 | **0 / 0** | 1418=1418 exact |
 
-Every case: **100 % internal-edge recall, 0 divergence.** Method sets are identical except the two
-largest libraries (exoplayer −6, firebase −2 in the carve = 0.06 %/0.07 %, a negligible scope edge;
-edges still exact). So structural fidelity is **not** a property of Goldoson or of malware — it holds
-for arbitrary embedded SDKs (incl. the host's own code) in unrelated hosts, and for a **downloaded**
-sample fetched + provenance-verified through the resolver (`research/acquisition/resolve.py`, F-Droid
-adapter, sha256 + signer-cert checked). Combined with the 9-app Goldoson result + Necro, external
-validity now spans **5 malware families + 5 benign SDKs across 2 hosts (1 downloaded)**.
+**Internal call-graph edge sets are exactly equal (0 divergence *both directions*) in every case.**
+Method sets are exact **except** exoplayer2 (+6) and firebase (+2) present only in whole-app — and
+those extras are **framework-inherited / interface method entries**, root-caused:
+`PlayerView.{getLayoutParams,getVisibility,setLayoutParams,setSystemUiVisibility}` = `android.view.View.*`;
+`SimpleExoPlayer.stop` = `Player.stop` (interface); `FirebaseMessagingService.{onCreate,onDestroy}` =
+`android.app.Service` lifecycle. Whole-app materializes them on the SDK subclass (full class hierarchy
+present); the carve resolves them to the framework superclass stub. They carry **no SDK-internal
+edges** (hence edge-set still exact) and **no SDK-defined method body is lost** (CV-only method = 0).
+So this is a **framework-hierarchy attribution effect at the boundary, not lost SDK logic** — and it
+is exactly the case **adaptive context expansion** would pull in (add the framework hierarchy, which
+you stub anyway). Under the letter of the preservation contract (method set), these two are *not*
+byte-exact; we say so rather than round it to "negligible."
+
+*Two separate claims, kept apart:*
+- **Structural fidelity (measured, carved-vs-whole-app):** exact internal-CG preservation on Goldoson
+  (9 hosts) + benign libraries okhttp3 (**two** unrelated hosts, one downloaded), exoplayer2, firebase,
+  gms, and the host's own `com.project.onair` code — internal-edge set equal in all.
+- **Broader applicability (a *different*, weaker claim):** sdk-carve has been *applied* to 5 malware
+  families (Goldoson/SpinOk/Konfety/MobiDash/Necro) — i.e. the method *runs* on them — which is **not**
+  the same as verifying the preservation contract against whole-app on each. NewPipe's okhttp3 is a
+  **second host of the same library**, not a new family; `com.project.onair` is **host code**, not an
+  embedded third-party SDK. (Verified on `research/dmb_extval.csv` + edge symmetric-diff.)
 
 **Finding (RQ3).** Across every app measured, the carved CPG reproduces the SDK's **internal
 static call graph with 0 divergence** — same method set, same internal call edges (recall 100 %, no
@@ -147,20 +162,21 @@ carving didn't break dataflow — nothing to break).
 `TaintTracking`** (mature built-in flow models) with **three added within-SDK steps** (method
 arg/qualifier→return, field store→read, and collector-mutation arg→qualifier) — still **0
 source→sink flows on the carved DB**.
-Root cause: the SDK collects into **fields of a collector object** and passes that *object* to the
-sink (`putCol(collector)`); a tainted *field* does not taint the *container argument* in general
-static taint, and the SDK's serialization is obfuscated. So **0 flows is confirmed on two analyzers
-(joern + CodeQL)**, orthogonal to carving. Positive **semantic** (dataflow) equivalence therefore
-needs **per-SDK content/field-object models** (reverse-engineering the collector) — deferred as its
-own subproject. Until then this section claims **structural** (surface) fidelity, not **semantic**
-(dataflow) equivalence; the box in the figure keeps that cell explicitly blank.
+**Observed modeling barrier** (a hypothesis consistent with the data, not a proven root cause): the
+SDK appears to collect into **fields of a collector object** and pass that *object* to the sink
+(`putCol(collector)`), and a tainted *field* does not taint the *container argument* under general
+static taint — compounded by obfuscated serialization. What is *measured*: **0 flows on two analyzers
+(joern + CodeQL)** with reasonable models, orthogonal to carving (a negative control). Positive
+**semantic** (dataflow) equivalence therefore needs **per-SDK content/field-object models** — deferred
+as its own subproject. This section claims **structural** (surface) fidelity only, **not semantic
+(dataflow) equivalence** — the figure keeps that cell explicitly blank.
 
 ## Boundary decomposition — what *kind* of context is cut (RQ5, #2; `research/boundary_classify.sh`)
 
 The boundary (SDK → non-SDK) is the only place fidelity is lost. Deduped by **class** and classified
 (boundary callees are identical carved=whole-app, so the fast carved CPG is used):
 
-| app | boundary classes | framework/stdlib | recognized lib | obfuscated residue | **named host-app pkg** | residue % |
+| app | boundary classes | framework/stdlib | recognized lib | obfuscated residue | **named non-lib pkg** | residue % |
 |---|--:|--:|--:|--:|--:|--:|
 | kr.co.lottecinema.lcm | 167 | 156 | 10 | 0 | **0** | 0 % |
 | kr.co.psynet | 122 | 115 | 6 | 0 | **0** | 0 % |
@@ -174,16 +190,18 @@ The boundary (SDK → non-SDK) is the only place fidelity is lost. Deduped by **
 | mafu.driving.free | 86 | 58 | 0 | 27 | **0** | 31 % |
 | com.appsnine.audiorecorder | 178 | 104 | 0 | 73 | **0** | 41 % |
 
-**Finding.** On **all 11 apps, zero boundary calls target a human-named host-app package**
-(`named host-app pkg = 0`) — the SDK does not call the host application's business logic; its external
-surface is **framework/stdlib + recognized libraries** (retrofit2/okhttp3/picasso/gson — network/
-image/serialization, exactly the deps you'd stub or model). The only ambiguous cut is an
-**R8-obfuscated residue** (short renamed classes like `g4`,`b7`): **0 % on 5/11**, up to 41 %. By name
-it cannot be attributed to host-app vs bundled-library vs *missed-SDK-scope* — but the total absence
-of human-named host packages makes host **business logic** an unlikely component of it. Attributing
-the residue (per-class) is future work and directly motivates **adaptive context expansion** (pull the
-residue's closure into the carve and re-check). *(Answer to "how much app context is needed":
-none of the host's *named* code; at most a small obfuscated residue whose nature is TBD.)*
+**Finding (stated at the strength the measurement supports).** On all 11 apps, **no direct static
+boundary call targets an identifiable host-app namespace**: the classifier checks each app's own
+package prefix (e.g. `com.skt.tmap`, `com.wtwoo`) *and* finds zero human-named non-library callees at
+all (`named non-lib pkg = 0`). The SDK's identifiable external surface is **framework/stdlib +
+recognized libraries** (retrofit2/okhttp3/picasso/gson — network/image/serialization, the deps you'd
+stub or model). **We do not claim the SDK never touches host code**, because an **R8-obfuscated
+residue** remains (short renamed classes like `g4`,`b7`): **0 % on 5/11 apps, up to 41 %** elsewhere.
+By name that residue cannot be attributed to host-app vs bundled-library vs *missed-SDK-scope*, so it
+**could** contain obfuscated host code. Attributing it (per-class) is future work and directly
+motivates **adaptive context expansion** (pull the residue's closure in and re-check). *(Answer to
+"how much app context is needed": none of the host's **identifiable** code; an unresolved obfuscated
+residue of 0–41 % remains to be attributed.)*
 
 ## Preservation contract (what "correct enough" means, made explicit)
 

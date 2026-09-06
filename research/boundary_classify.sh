@@ -7,7 +7,7 @@ export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home
 export _JAVA_OPTIONS="-Xmx12g"; export SL_LOGGING_LEVEL=ERROR
 cd /Users/1004276/Downloads/goldoson-samples/analysis
 CSV=boundary_breakdown.csv; rm -f "$CSV"
-echo "app,total_boundary,framework,recognized_lib,obfuscated_residue,named_other,unresolved,residue_pct" > "$CSV"
+echo "app,total_boundary,framework,recognized_lib,obfuscated_residue,host_app,named_other,unresolved,residue_pct" > "$CSV"
 
 classify(){ python3 - "$1" "$2" <<'PY'
 import sys, re
@@ -29,13 +29,14 @@ def kind(base):
     # obfuscated residue: every package segment is short (<=3 chars, R8 style) e.g. g4.e, b7.c, bg.a
     segs=base.split(".")
     if all(re.fullmatch(r'[a-z][a-z0-9]{0,2}', s) for s in segs[:-1]) and len(segs)>=1: return "obfuscated_residue"
-    return "named_other"   # a real, non-library, human-named package => candidate host-app logic
+    if host and base.startswith(host+"."): return "host_app"   # explicit host-app prefix check
+    return "named_other"   # human-named, non-library, non-host package
 from collections import Counter
 c=Counter(kind(x) for x in uniq)
-tot=len(uniq); fw=c["framework"]; lib=c["recognized_lib"]; obf=c["obfuscated_residue"]; no=c["named_other"]; un=c["unresolved"]
-residue=obf+no
+tot=len(uniq); fw=c["framework"]; lib=c["recognized_lib"]; obf=c["obfuscated_residue"]; ha=c["host_app"]; no=c["named_other"]; un=c["unresolved"]
+residue=obf+ha+no
 rp=(100*residue/tot) if tot else 0
-print(f"{tot},{fw},{lib},{obf},{no},{un},{rp:.0f}")
+print(f"{tot},{fw},{lib},{obf},{ha},{no},{un},{rp:.0f}")
 PY
 }
 
@@ -53,7 +54,7 @@ PY
   CPG="$W/cv.cpg" ROOTS="$rootsdot" OUT="$W/bc.txt" joern --script bcallees.sc >/dev/null 2>&1
   local row; row=$(classify "$W/bc.txt" "$host")
   echo "$app,$row" >> "$CSV"
-  echo "[$app] boundary: $row  (host=$host)"
+  echo "[$app] $row (host=$host)"
   rm -rf "$W"
 }
 

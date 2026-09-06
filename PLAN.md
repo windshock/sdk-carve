@@ -262,13 +262,15 @@ RQ5 boundary quantified (framework 55–92 %), resolver (③, `resolve.py`), Tra
    `host-app / inter-SDK / shared-utility / generated-glue` → answers *which kind* of host context is
    actually needed (and seeds an adaptive-context-expansion idea). `research/edges.sc` already dumps the
    boundary callees; classify them.
-3. **[x] Corpus / external validity — DONE (download authorized + executed).** Resolver
-   download-functional (F-Droid adapter tested end-to-end: fetch + sha256 + signer-cert verify).
-   External validity: **5 benign SDKs in DMB-TV (in-hand) + okhttp3 in NewPipe (DOWNLOADED, F-Droid)
-   all 100 % internal-edge recall**, plus 9-app Goldoson + Necro → 5 malware families + 5 benign SDKs
-   across 2 hosts. `research/dmb_extval.{sh,csv}`, `docs/FIDELITY.md`. (Mirror adapters apkmirror/
-   apkcombo: broken `.bin` shim on this host — documented; F-Droid is the reliable backend. Scaling to
-   a large multi-family corpus = more of the same, per-step per source ToS.)
+3. **[~] Corpus / external validity — evidence added, RQ4 NOT closed.** Resolver download-functional
+   (F-Droid adapter tested end-to-end: fetch + sha256 + signer-cert verify — download authorized+run).
+   *Structural-fidelity evidence (measured, carved-vs-whole-app, edge symmetric-diff):* okhttp3 (2
+   hosts incl. 1 **downloaded**), exoplayer2, firebase, gms, and host-own `com.project.onair` — internal
+   **edge sets equal (0/0) in all**; method sets exact except exoplayer2 +6 / firebase +2 = framework-
+   inherited entries (root-caused, no SDK body lost). *Broader applicability (weaker, separate):*
+   sdk-carve *applied* to 5 malware families (≠ contract-verified on each). Still OPEN for RQ4: more
+   **unrelated SDK families** (okhttp×2 hosts = same lib; onair = host code, not an SDK). Scaling the
+   corpus = more of the same via resolver, per-source ToS. `research/dmb_extval.{sh,csv}`, `docs/FIDELITY.md`.
 
 **Parallel sure-wins (anytime):** land Joern #6257 merge; threat-intel report/blog; ship the tool.
 **Gated (later):** Necro native second stage (ghidra); Phase-D infra correlation (external evidence).
