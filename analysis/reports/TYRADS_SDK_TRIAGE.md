@@ -2,7 +2,7 @@
 
 - **일시**: 2026-09-07 · 계기: 독립 검토의 static-unresolved 3개 중 잔여 항목
 - **대상**: OK캐시락커 `com.skplanet.ocb.locker.apk` 내 `com/tyrads/sdk/*`
-- **등급**: 번들 카브 1차 패스 (Joern/CodeQL 전체 패스 미수행 — 위험 히트 전무)
+- **등급**: 번들 카브 + **CPG source/sink 패스**(2026-09-07 상향; jimple2cpg→joern, 아래 §4.1)
 
 ## 1. 벤더·제품 확정
 
@@ -30,7 +30,7 @@
 | 항목 | 내용 | 평가 |
 |---|---|---|
 | 디바이스 프로파일 | brand/model/manufacturer/tablet 여부/기기 사용기간 + 볼트화된 `Settings.Secure` 문자열(android_id 추정) | 카테고리 표준 |
-| **사용 통계** | `AcmoUsageStatsController` + 전용 동의 액티비티 **`AcmoUsagePermissionActivity`**(modules/legal) — PACKAGE_USAGE_STATS 특수 권한을 사용자에게 **요청하는 동의 플로우 존재** | consent 게이트 존재 — 무동의 수집 아님. CPA 설치 검증용으로 보임. 용도·범위는 벤더 확인 권장 |
+| **사용 통계** | `AcmoUsageStatsController` + 전용 동의 액티비티 **`AcmoUsagePermissionActivity`**(modules/legal) — PACKAGE_USAGE_STATS 특수 권한을 사용자에게 **요청하는 동의 플로우 존재** | consent 게이트 존재(무동의 수집 아님). **단, CPG에 `queryUsageStats`/`UsageStatsManager` 호출부 0 — 능력은 클래스명/권한으로만 지시되고 실제 수집 호출은 정적 미관측(볼트/payload 뒤 추정). 후속 1순위.** 용도·범위 벤더 확인 필수 |
 | 광고ID | 1클래스 | 표준 |
 | 웹뷰 브리지 | `WebAppInterface` — **`postMessage(String)` 단일 진입** | GAD의 다중 브리지보다 좁음 |
 
@@ -44,10 +44,25 @@
 단, 볼트화 문자열은 정규식에 비가시이므로 위 스캔은 "평문 표면 0건"이며,
 UsageStats 내용 등은 구조 참조로만 확인(위 표).
 
+### 4.1 CPG 콜그래프 확인 (2026-09-07 상향 — regex를 넘어선 재검증)
+
+`com/tyrads/sdk` 카브 → `jimple2cpg` → `joern`(`analysis/joern/scripts/tyrads-audit.sc`).
+**메서드 호출 참조는 xShield 문자열 볼트에 가려지지 않으므로** 평문-표면 스캔보다 강한 확인:
+
+| 카테고리 | CPG 콜사이트 |
+|---|---|
+| EXEC / SCRIPT-ENGINE / DYNAMIC-LOAD / DESERIALIZE / REFLECTION | **전부 0** |
+| DEVICE-ID | 1 — `com.google.android.gms.ads.identifier.AdvertisingIdClient.getAdvertisingIdInfo`(표준 adid) |
+| JS-BRIDGE | `WebView.addJavascriptInterface` + `evaluateJavascript`(= WebAppInterface 단일 브리지) |
+| USAGE-STATS(`UsageStatsManager`/`queryUsageStats`) | **0 — §3 참조(호출부 정적 미관측)** |
+| NET(openConnection/okhttp/socket) | 카브 0 — 네트워크는 `NetworkCommons`가 `com.xshield.dc`(볼트) 경유 |
+
+→ **"원격 코드 실행 채널 없음"이 정규식이 아니라 콜그래프로 확정.** (카브 89클래스; CPG typeDecl 352.)
+
 ## 5. 판정 및 잔여
 
 - **판정**: 식별된 상용 리워드 오퍼월, 수집이 카테고리 표준 + 사용통계는 동의
-  게이트 존재 + Play Integrity 도입. 원격 코드 실행 채널 없음. GAD 때와 달리
+  게이트 존재 + Play Integrity 도입. 원격 코드 실행 채널 없음(**CPG 콜그래프 확정, §4.1**). GAD 때와 달리
   **남는 것은 정확한 API 경로 목록뿐**(볼트 뒤) — 이는 (a) 벤더에 SDK 아티팩트/문서
   요청, (b) OKC 봉인 전 빌드 diff 중 하나로 닫힘. 악성 시그니처와는 무관.
 - **GAD 케이스와의 차이**: GAD는 JitPack에 아티팩트가 공개돼 있어 볼트 값을
