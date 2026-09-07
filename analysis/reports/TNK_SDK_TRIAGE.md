@@ -58,26 +58,42 @@
   entry→sink 도달성, CodeQL, scope-closure)는 미수행 — 히트가 전무해 우선순위 낮다고
   판단했으나, 토스 실번들 대상 감사가 필요하면 해당 버전 AAR로 카브+전체 패스 수행.
 
-## 6. 검증 보충 — 자체 ObjectInput 역직렬화면 (풀패스 보정에 대한 2차 검증, 2026-09-07)
+## 6. 검증 보충 — 자체 ObjectInput 역직렬화면 (풀패스 보정에 대한 2차·3차 검증, 2026-09-07)
 
 타 세션 풀패스의 보정("deserialization 0은 오탐 — 자체 ObjectInput `e.f`가
-서버 스트림 클래스명을 `loadClass().newInstance()`")을 바이트코드로 재검증:
+서버 스트림 클래스명을 `loadClass(str).newInstance()`")을 바이트코드로 재검증:
 
 - **확인**: `com.tnkfactory.ad.e.f extends DataInputStream implements ObjectInput` —
-  `readObject()` case 10에서 스트림의 className으로 `loadClass(str).newInstance()`.
-- **보강(풀패스가 언급 안 한 게이트)**: 인스턴스화 직후 **`instanceof Externalizable`
-  검사** — 통과 못 하면 IOException으로 폐기. AAR 664클래스 전체에서 Externalizable
-  구현은 **`e.f`(자신)와 `e.g`(자사 패킷) 단 2개**.
-- **공격 가능성 평가**:
-  - 제3자 공격자: 스트림은 api3.tnkfactory.com TLS(서버가 HSTS max-age 발행)라
-    MITM에 신뢰 CA 필요 → **사실상 불가**.
-  - TNK 백엔드 신뢰 상실 시나리오: (a) 성공 경로 = 자사 패킷 2클래스의 readExternal
-    필드값 조작 — "백엔드가 응답 내용을 정하는" 정상 동작과 동일 신뢰등급, 새 권한
-    아님. (b) 폐기 경로 = 임의 클래스의 no-arg 생성자·정적 초기화 트리거 — 코드
-    실행 아님, 이상 상태 유발 수준. (c) 재귀 파싱(중첩 배열) 스택오버플로·과다
-    할당 — 자기 백엔드가 자기 앱을 DoS하는 시나리오만 성립.
-  - 결론: **CVE-2016-2510류 가젯 구조가 성립 불가**(임의 타입 필드 주입도, 임의
-    readObject 콜백도 없음). "잠복·낮음" 평가가 맞고 Externalizable 게이트로
-    실질 표면은 자사 패킷 2클래스.
+  `readObject()` case 10에서 스트림의 className으로 `loadClass(str).newInstance()`,
+  직후 **`instanceof Externalizable` 검사**, 통과 시 `readExternal(this)` 호출.
+- **스코프 정정(3차 검증, 사용자 지적)**: 공격면은 AAR이 아니라 `f.class.getClassLoader()`
+  = **앱 전체 클래스패스**. 정확한 classfile 파서(초기 파서의 cp 슬롯 버그 수정)로
+  재측정한 Externalizable 구현 클래스:
+
+| 클래스패스 | classes | implements Externalizable | 성격 |
+|---|---|---|---|
+| Android framework (android-33) | 전체 | **0** (참조 자체 0) | — |
+| TNK AAR | 664 | **0** (초기 "2개"는 instanceof 참조를 구현으로 오인한 crude 오탐) | — |
+| OK Cashbag | 111,713 | **8** | kotlin SerializedCollection/SerializedMap, ktor, threetenbp, kotlin.time/uuid |
+| Syrup | 104,029 | **18** | 위 + **INITECH AriaKey/DESKey**, R8-renamed 다수 |
+| OKC Locker | 92,120 | **8** | 위 + **SafeDK PersistableBase** |
+
+  (instanceof는 서브클래스도 만족하므로 실제 후보는 구현자+그 서브클래스)
+
+- **공격 가능성 재평가**: 후보가 "0개"가 아니라 **8~18개+서브클래스**라는 것이
+  정확한 그림. 다만 가젯 성립에는 다음 관문이 남는다:
+  1. 후보의 `readExternal()`이 위험한 부작용(임의 클래스 로드, exec, 타입 컨퓨전)
+     를 가져야 함 — 현재 후보들은 kotlin/ktor/threetenbp/키 컨테이너류
+     **데이터 채움형**으로 알려진 가젯 없음 (AOSP 가젯 연구에서도 Externalizable
+     가젯은 Serializable 대비 극소)
+  2. readExternal이 반환한 객체는 TNK 파서의 메시지 슬롯으로 들어감 — 이질 타입은
+     TNK 코드의 타입 기대와 어긋나 ClassCastException/무시로 귀결
+  3. 도달성: 스트림 = api3.tnkfactory.com TLS(서버 HSTS 발행) — 제3자는 신뢰 CA
+     확보 전까지 도달 불가
+- **결론(정정)**: 이전 "구조적으로 불가"는 과소 서술. 정확한 표현은
+  **"후보 8~18개+서브클래스의 readExternal 전수 감사 결과에 종속 — 알려진 가젯은
+  없으며 데이터 채움형이라 실행 프리미티브로 이어지는 경로가 관측되지 않음.
+  도달성은 백엔드/TLS 신뢰에 묶임"**. 잔여 작업: 후보 18개(Syrup 기준) readExternal
+  감사 — 수작업 1시간 내 완료 가능한 규모.
 - **권고**: TNK에 className 화이트리스트(PacketTypes 등록 클래스 한정) 요청 시
-    이면 완전히 닫힘 — 정리 항목 수준.
+  이면 완전히 닫힘 — 정리 항목 수준.
