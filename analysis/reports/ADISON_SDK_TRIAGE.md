@@ -113,3 +113,22 @@ showNativeAd, availableReward, getSdkVersion, loadAds` — 문서의 웹뷰 JS S
 엔드포인트 제공자는 `Constants.UrlInfo`(dev/stg/prod 3세트 — dev 세트에 apiary-mock
 잔존). 즉 "빈 껍데기"가 아니라 목록→상세→참여→적립→지원→분석의 완전한 오퍼월
 파이프라인이며, 브리지 12메서드가 그 진입점을 여는 구조.
+
+## 9. 웹뷰 공격면 정밀 검토 (사용자 질의 대응 — "공격 포인트가 전혀 없나")
+
+**네이티브 실행·메모리·식별자 공격면은 없음이 확인됐지만, 웹뷰 레이어에 공격
+포인트 후보는 실제로 존재** — "전혀 없다"는 과장이었음을 정정:
+
+| # | 공격 포인트 | 확인 내용 | 등급 |
+|---|---|---|---|
+| 1 | **SharedWeb 브리지** | 일반 웹뷰(`AdisonOfwWebFragment`)+헬프에 부착된 `SharedWebViewJsInterface`는 `close()`/`open(url)`/`openExternal(url)` 3메서드 — **URL 게이트 없음**(`shouldOverrideUrlLoading`이 무조건 loadUrl). 캠페인 랜딩 페이지가 in-app 네비게이션 제어·임의 외부 인텐트 발화 가능 | 낮음-중간 |
+| 2 | **풀 브리지 미노출** | 12메서드 풀 브리지(`setUid`·`impression` 포함)는 3.16.4에서 `addJavascriptInterface` 부착 지점이 **없음** — 웹 콘텐츠가 setUid를 건드릴 경로 없음(호스트 앱 호출 전용). 웹 노출은 3메서드로 한정 | 양호 |
+| 3 | **TLS 피닝 없음** | `Tls12SocketFactory`는 구형 기기 TLSv1.2 활성화 셈틀일 뿐, `CertificatePinner`/TrustManager 커스터마이즈 없음. MITM = 기기에 신뢰 CA 주입 필요(표준 한계) | 표준 |
+| 4 | 리워드 무결성 | 적립은 S2S postback + HMAC(문서) — **클라이언트 민팅 경로 없음** | 양호 |
+| 5 | 서버 말린 필터 | `{}` 정규식 밖 플레이스홀더 → eval 예외가 try 밖으로 전파(fail-closed, 크래시 여지) | 견고성 |
+
+**결론**: 실행 프리미티브(코드 실행·식별자 탈취)는 없음이 유지되지만, 웹뷰
+네비게이션 브리지의 URL 게이트 부재는 실재하는 (낮은 등급의) 공격 포인트 — 캠페인
+랜딩이 곧 신뢰 경계가 되는 구조. 권고: 벤더에 `open/openExternal` 대상 도메인
+검증(allowlist) 요청. 토스·시럽 관점 추가 확인치: 번들 버전의 브리지 노출 범위가
+동일한지(토스는 dex 암호화로 미확인).
