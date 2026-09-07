@@ -58,3 +58,22 @@ showNativeAd, availableReward, getSdkVersion, loadAds` — 문서의 웹뷰 JS S
 - **한계**: 1차 패스(AAR 정적). 시럽 번들에서는 R8으로 `i/`(74클래스)로 변형돼
   식별됐었고 AAR 실명 628클래스와 동일 제품(버전 일치)으로 확인. 전체 카브 패스는
   히트 전무로 미수행.
+
+## 7. 사용자 식별자 — SugarToken (기록, 미완료 확인)
+
+- **운영 정보(매체 연동 문서 인용)**: 사용자 식별자는 **Session > SugarToken 사용
+  (사용자마다 Unique)**. 관련 문서 섹션: Native Ads 가이드
+  ([docs.adison.co/ofw-native-ads](https://docs.adison.co/ofw-native-ads) ·
+  [iOS](https://docs.adison.co/ofw-native-ads/ios-native-ads-1)) + 웹뷰 SDK
+  ([offerwall-webview](https://docs.adison.co/offerwall-webview/oofkW8Cq1tIbXXBXtSIi)).
+- **v5 설정 API 예시**(매체 문서 인용): `AdisonConfig()` — `prepareViewHidden`,
+  `offerwallListTitle`, `navigationHelpButtonType`, `listType`,
+  `enablePopupBannerExtension` 등. v5 스타일 API이며 **시럽이 쓰는 3.16.4에는
+  없는 인터페이스**.
+- **바이너리 확인**: `SugarToken` 문자열은 3.16.4와 5.4.0 AAR 양쪽 모두 0건 —
+  SDK 클래스가 아니라 **서버 세션 개념**이거나 Native Ads 전용 아티팩트(미분석)의
+  요소로 추정. 확정하려면 ofw-native-ads 문서/SDK 별도 확인 필요 → **미완료로 기록**.
+- **v3(시럽) 식별자 흐름은 문서로 확정됨**: `Adison.setUid(...)` — UID는 사용자마다
+  고유·불변(재설치/기기 변경/재로그인 불변), 80자 한도, 매체사가 생성하는 비개인정보
+  난수(생성 로직을 애디슨에 설명하지 않는 것이 문서 요건). 시럽 구현과 정확히 일치:
+  5640 API `uid` → `PREF_ADISON_UID` → `AdisonSdk.setUid()`.
