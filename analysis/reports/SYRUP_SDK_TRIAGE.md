@@ -28,7 +28,7 @@ SDK or SK Planet first-party code. No SMS/contacts/call-log/READ_PHONE_STATE per
 |---|---|---|
 | `com/skplanet/sdk/proximity` (449 cls) | SK Planet proximity/visit SDK, internal name **bb8** | WiFi-survey + location + BLE + applist + persist + network |
 | `ob` (109 cls) | Syrup host modules (R8) | first-party telemetry → `nxt.syrup.co.kr/collect`, WebView |
-| `i` (74 cls) | **Adison** (adison.co) offerwall SDK — 공식 문서 확인: [docs.adison.co/offerwall](https://docs.adison.co/offerwall) (애디슨, 연락처 dev.team@adison.co) | GAID + prefs + network |
+| `i` (74 cls) | **Adison** (adison.co) offerwall SDK — 공식 문서 확인: [docs.adison.co/offerwall](https://docs.adison.co/offerwall) (애디슨, 연락처 dev.team@adison.co). **AAR 트리아지 완료**([ADISON_SDK_TRIAGE](ADISON_SDK_TRIAGE.md)): 동일 버전 3.16.4 원본 확보(repo.nbt.com 공개), 위험 API 전무, 브리지 12메서드 전량 문서화 표면, exp4j 논리평가기는 설계상 샌드박스 | GAID + prefs + network |
 | Pangle (`com/bytedance/sdk/openadsdk`, `com/pgl/ssdk`), Mintegral, IronSource, AppLovin, Vungle, Fyber, PubMatic, Kakao AdFit, Cauly | mainstream ad SDKs | industry-standard adware collection |
 | `com/initech/fido` | FIDO auth (benign identity use) | identity + network |
 | `bsh/` (174 cls) | **BeanShell** Java script interpreter — embedded `eval` engine | *confirmed*: 서버 응답 → eval 체인 **완전 매핑 + 콘텐츠까지 런타임 확보** — `campaign/setup`·`prepare2`·`script/entry`가 Java 소스 문자열을 내려주고 SDK 객체가 주입된 채 `bsh.Interpreter.eval()`로 실행 ([GAD_API_RUNTIME_CAPTURE](GAD_API_RUNTIME_CAPTURE.md)). **Syrup 전용**, 유일 임베더 = `com.gad.sdk` (GPA KOREA GAD 오퍼월 — 아래 딥다이브). 관측 콘텐츠 양성, 채널은 설계된 원격 행위 시스템 |
