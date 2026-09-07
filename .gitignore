@@ -1,4 +1,6 @@
 .DS_Store
+__pycache__/
+*.pyc
 
 # Derived / regenerated artifacts — not tracked (see REPRODUCE.md).
 # The sample corpus and any binaries are obtained/generated locally, never committed.
