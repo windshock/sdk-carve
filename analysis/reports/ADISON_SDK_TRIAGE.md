@@ -95,3 +95,21 @@ showNativeAd, availableReward, getSdkVersion, loadAds` — 문서의 웹뷰 JS S
   고유·불변(재설치/기기 변경/재로그인 불변), 80자 한도, 매체사가 생성하는 비개인정보
   난수(생성 로직을 애디슨에 설명하지 않는 것이 문서 요건). 시럽 구현과 정확히 일치:
   5640 API `uid` → `PREF_ADISON_UID` → `AdisonSdk.setUid()`.
+
+## 8. 기능 실재성 확인 — "오퍼월로서 동작하나"
+
+디컴파일 전체에서 기능 지도를 복원한 결과, **문서가 광고하는 오퍼월 기능이
+클래스·엔드포인트 양쪽에 모두 실재**:
+
+| 기능 | 구현 | 백엔드 |
+|---|---|---|
+| 오퍼월 목록 | `OfwListActivity`, `RenewOfwListFragment`, `BrandListFragment`, 탭/태그 구성(`TabViewItems`·`ViewItemsInfo`) | `api-ao-list.adison.co` |
+| 광고 상세·참여 | `OfwDetailActivity`, `Participate`/`ParticipateCallback`, deeplink/landing 처리, `ao.adison.co` 웹뷰 | `ao.adison.co` |
+| 적립 | `RewardType`/`RewardTypeManager`, reward/points 필드군, 포인트 조회 | `api-points.adison.co` + `postback-ao.adison.co`(S2S) |
+| 고객지원 | `OfwSupportActivity`, `HelpWebViewActivity` | `ao.adison.co/help_requests/new` |
+| 타겟팅 | 연령/성별/OS버전/설치패키지(exp4j 논리식) | 캠페인 `filter` 필드 |
+| 텔레메트리 | lumberjack 이벤트 | `tracking.data.adison.co/topics/ofw_lumberjack` |
+
+엔드포인트 제공자는 `Constants.UrlInfo`(dev/stg/prod 3세트 — dev 세트에 apiary-mock
+잔존). 즉 "빈 껍데기"가 아니라 목록→상세→참여→적립→지원→분석의 완전한 오퍼월
+파이프라인이며, 브리지 12메서드가 그 진입점을 여는 구조.
