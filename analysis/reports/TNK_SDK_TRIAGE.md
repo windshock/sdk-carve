@@ -57,3 +57,27 @@
 - **한계(1차 패스)**: 본 분석은 AAR 정적 표면 스캔. 스킬 기준의 전체 패스(Joern
   entry→sink 도달성, CodeQL, scope-closure)는 미수행 — 히트가 전무해 우선순위 낮다고
   판단했으나, 토스 실번들 대상 감사가 필요하면 해당 버전 AAR로 카브+전체 패스 수행.
+
+## 6. 검증 보충 — 자체 ObjectInput 역직렬화면 (풀패스 보정에 대한 2차 검증, 2026-09-07)
+
+타 세션 풀패스의 보정("deserialization 0은 오탐 — 자체 ObjectInput `e.f`가
+서버 스트림 클래스명을 `loadClass().newInstance()`")을 바이트코드로 재검증:
+
+- **확인**: `com.tnkfactory.ad.e.f extends DataInputStream implements ObjectInput` —
+  `readObject()` case 10에서 스트림의 className으로 `loadClass(str).newInstance()`.
+- **보강(풀패스가 언급 안 한 게이트)**: 인스턴스화 직후 **`instanceof Externalizable`
+  검사** — 통과 못 하면 IOException으로 폐기. AAR 664클래스 전체에서 Externalizable
+  구현은 **`e.f`(자신)와 `e.g`(자사 패킷) 단 2개**.
+- **공격 가능성 평가**:
+  - 제3자 공격자: 스트림은 api3.tnkfactory.com TLS(서버가 HSTS max-age 발행)라
+    MITM에 신뢰 CA 필요 → **사실상 불가**.
+  - TNK 백엔드 신뢰 상실 시나리오: (a) 성공 경로 = 자사 패킷 2클래스의 readExternal
+    필드값 조작 — "백엔드가 응답 내용을 정하는" 정상 동작과 동일 신뢰등급, 새 권한
+    아님. (b) 폐기 경로 = 임의 클래스의 no-arg 생성자·정적 초기화 트리거 — 코드
+    실행 아님, 이상 상태 유발 수준. (c) 재귀 파싱(중첩 배열) 스택오버플로·과다
+    할당 — 자기 백엔드가 자기 앱을 DoS하는 시나리오만 성립.
+  - 결론: **CVE-2016-2510류 가젯 구조가 성립 불가**(임의 타입 필드 주입도, 임의
+    readObject 콜백도 없음). "잠복·낮음" 평가가 맞고 Externalizable 게이트로
+    실질 표면은 자사 패킷 2클래스.
+- **권고**: TNK에 className 화이트리스트(PacketTypes 등록 클래스 한정) 요청 시
+    이면 완전히 닫힘 — 정리 항목 수준.
