@@ -129,9 +129,13 @@ ADAPTERS = {
                            "https://androzoo.uni.lu/api/download", "-o", "{out}"],
                   "note": "needs sha256 (from AndroZoo metadata by package/version); best for citable/reproducible corpus"},
     "apkeep":    {"bin": "apkeep",
-                  "argv": ["apkeep", "-a", "{package}@{version}", "-d", "apk-pure", "{outdir}"],
+                  "argv": ["apkeep", "-a", "{packageAtVersion}", "-d", "apk-pure", "{outdir}"],
                   "note": "EFForg apkeep (Rust) via APKPure backend — NOT Cloudflare-gated. TESTED: "
                           "fetched TMAP clean successor 9.21.7.291923 (signer verified == infected). "
+                          "app@version form BREAKS with an empty version (trailing '@') — use "
+                          "{packageAtVersion} (drops '@' when version is None). Probe availability first "
+                          "with `apkeep --list-versions -a <pkg>` (KR-only apps often have ZERO versions "
+                          "on APKPure — go straight to a user-supplied official APK). "
                           "Emits {package}@{version}.xapk|.apk into {outdir}; caller extracts base + verifies signer."},
     "apkmirror": {"bin": "node",
                   "argv": ["node", "{apkmd_cli}", "download", "{org}", "{repo}", "-v", "{version}",
@@ -187,6 +191,7 @@ def resolve(package: str, version: str | None, order: list[str], corpus: str,
         raise SystemExit(f"[resolve] invalid version (allowed: A-Za-z0-9_.+-): {version!r}")
     fields = dict(package=package, version=version or "", org=package,
                   repo=package.split(".")[-1], sha="<sha256-from-metadata>",
+                  packageAtVersion=f"{package}@{version}" if version else package,
                   outdir=out_dir,
                   apkmd_cli=os.environ.get("APKMD_CLI", ""),   # path to apkmirror-downloader dist/cli.js
                   apkcd_cli=os.environ.get("APKCD_CLI", ""),   # path to apkcombo-downloader  dist/cli.js
