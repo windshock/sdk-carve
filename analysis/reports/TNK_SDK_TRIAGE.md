@@ -95,5 +95,21 @@
   없으며 데이터 채움형이라 실행 프리미티브로 이어지는 경로가 관측되지 않음.
   도달성은 백엔드/TLS 신뢰에 묶임"**. 잔여 작업: 후보 18개(Syrup 기준) readExternal
   감사 — 수작업 1시간 내 완료 가능한 규모.
-- **권고**: TNK에 className 화이트리스트(PacketTypes 등록 클래스 한정) 요청 시
-  이면 완전히 닫힘 — 정리 항목 수준.
+
+## 7. readExternal 전수 감사 (잔여 작업 수행 — 2026-09-07)
+
+대상: 시럽 18 + OKC 8 + OKC락커 8(+SafeDK 서브클래스 4) = **38바디, 실제
+오버라이드 34개**(4개는 PersistableBase.readExternal 상속 — 기본 구현 감사로 커버).
+카브 52클래스 → jadx 디컴파일 → 본문 전수 수동 감사:
+
+| 결과 | 수 | 내용 |
+|---|---|---|
+| 클린(데이터 채움형) | 30 | INITECH 암호 키 10종(Aria/DES/DESede/Lea/RC2/RC4/RC5/Rijndael/Seed/PBE — 키 바이트 채움), kotlin time/uuid, ktor, threetenbp, SafeDK PersistableBase, R8-renamed 유틸 |
+| 루프 존재(검증 후 OK) | 4 | kotlin `SerializedCollection`/`SerializedMap` + 락커의 볼트 처리된 동일본(`rl/h·i`): flags 바이트 검증, **음수 크기 거부**, 루프는 스트림에서 실제 읽은 요소당 1회 |
+| 클래스 로드 / exec / 네트워크 / 파일시스템 / 리플렉션 | **0** | 34개 본문 전체 |
+
+- 유일한 이론 시나리오: kotlin 컬렉션의 **사전할당 OOM** — `createListBuilder(음수가
+  아닌 대용량)`가 큰 배열을 할당. 단 스트림 통제자 = TNK 백엔드(또는 TLS MITM)
+  전용이고, 동일 패턴은 kotlin stdlib이 들은 모든 JVM 앱의 공통 특성(TNK 고유 아님).
+- **감사 결론: readExternal 경로의 가젯 없음 — 이 항목 종결.** 잔여는 "TNK 백엔드
+  신뢰"라는 모든 서버 통신과 공통인 전제뿐. className 화이트리스트 권고는 유지.
