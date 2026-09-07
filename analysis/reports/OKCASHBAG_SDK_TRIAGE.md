@@ -31,7 +31,7 @@ sites**.
 | `com/skplanet/skpad/*`, `com/skt/tid/*` | SKP ad SDK, SKT TID integrated auth | first-party |
 | Pangle (`bytedance/openadsdk`, `pgl/ssdk`), Mintegral, IronSource, AppLovin, Vungle, Fyber, Smaato, Criteo, Tapjoy, Cauly, Kakao AdFit, Naver Ads/GFP | mainstream ad networks | industry-standard adware collection |
 | `com/TouchEn.mVaccine.b2c2c` (manifest `FileScanService`) | TouchEn mVaccine (안랩) mobile AV | standard Korean-app security SDK |
-| `ai/fairytech/moment` (1,611 cls) | **Fairytech Moment reward SDK** (device-token/push/webview/usage-stats; BOOT+package receivers; protobuf wire) | *corrected per review* — earlier mislabeled "protobuf internals"; endpoints string-obfuscated behind the app-wide AppSealing vault → **static-unresolved**, see [REVIEW_FINDINGS](../review/REVIEW_FINDINGS.md) |
+| `ai/fairytech/moment` (1,692 cls) | **Fairytech Moment reward SDK** — "MomentSDK" 캐시백 제품 확정(arsc 평문: `fairy_moment_activity_full_webview`, `momentCashbackStatusBarColor`, "MomentSDK is not initialized."). 구성: protobuf wire(`proto/CashbackPlatforms`, `GetConfigResponse` — 검토의 "golang.org=protobuf 디스크립터 URL" 정정과 일치), http 클라이언트, androidx.credentials, WorkManager, TouchEn 공존 | *corrected per review* → **1차 보강 완료(2026-09-07)**: 공개 표면 전무(fairytech 도메인 DNS 실패, GitHub/Maven 부재) = **SDK 비공개 배포**. 엔드포인트는 볼트 뒤 유지 → 아래 [Fairytech 사내 요청 메모](#fairytech-moment-사내-요청-메모) |
 | `com/anick/sdk`, `com/avatye/pointhome`, `com/igaworks/ssp`, `com/mobwith/*` | Korean adtech/reward SDKs (Anick, Avatye PointHome, IGAWorks AdPopcorn SSP, MobWith) surfaced by the review's obfuscation pass | identified legit; endpoints plaintext except Avatye dev-LAN `192.168.0.81` leftover |
 
 ## Sensitive-permission usage attribution (declared → actual)
@@ -110,3 +110,24 @@ classified lib. Everything else is boundary-as-designed.
   completeness-claiming bb8 carve must include `c3po/*` and re-run closure.
 - Reflection / runtime-string-decryption paths remain outside static name-matching
   (RQ5 failure boundary).
+
+## Fairytech Moment 사내 요청 메모
+
+**상태**(2026-09-07): 제품 정체 확정("MomentSDK", Fairytech 캐시백) / 구성 확정
+(protobuf wire `CashbackPlatforms`·`GetConfigResponse`, http 클라이언트,
+androidx.credentials, WorkManager) / **엔드포인트 미확정** — SDK가 비공개 배포라
+공개 아티팩트로 볼트 값을 복원할 수 없음(GAD는 JitPack 공개 덕에 종결).
+
+**요청 사항 (빌드파이프라인 소유자 → 보안팀)**:
+
+1. OK캐시락커 빌드에 주입되는 **Fairytech Moment AAR 원본**(Nexus 좌표 포함 —
+   group/artifact/version) 확보 → AAR 평문 문자열에서 베이스 URL·API 경로·
+   권한 요구사항 추출 (GAD 때와 동일 절차, `analysis/bsh-sandbox`도 준비됨)
+2. 불가 시 **봉인 전 빌드 APK** 확보 → 배포판과 diff (AppSealing 볼트 질문과
+   동일 작업 스트림에서 처리 가능)
+3. 벤더 계약서/연동 문서에서 **수집 항목·서버 도메인·usage-stats 사용 여부** 확인
+   (구성상 WorkManager·BOOT 리시버가 백그라운드 작업을 수행하므로 트리거 조건 확인)
+
+**검증 기준**: 위 1~2로 확보한 엔드포인트가 회사 통제 도메인인지/제3자 도메인인지,
+권한·수집이 문서화된 목적과 일치하는지. 일치하면 static-unresolved → resolved로
+갱신하고 본 리포트의 해당 행을 닫는다.
