@@ -8,7 +8,11 @@ description: >-
   fails on scale or on decompiled/obfuscated syntax. Use for:
   embedded third-party SDK/adware/spyware analysis, isolating a small target inside a
   huge codebase, decompiled or obfuscated JVM bytecode, and source→sink / reachability
-  / capability questions. Triggers — "analyze this SDK embedded in the app", "scope a
+  / capability questions, AND for the upstream triage of a whole host app: "does this
+  app contain a malicious SDK", "is this app infected / does it phone home", "find and
+  behavior-analyze embedded spyware/adware SDKs in <app> — family-agnostic, or against
+  known families (Goldoson, SpinOk, Konfety, MobiDash)", "acquire an APK
+  and verify its signer for analysis". Triggers — "analyze this SDK embedded in the app", "scope a
   target out of a huge decompiled app", "whole-app CPG/CodeQL OOMed / never finalized /
   2GB cpg.bin.tmp", "build a scoped CPG", "jimple2cpg / build-mode=none", "decompiled
   Android static analysis", "which data does this SDK collect and where does it send it".
@@ -42,9 +46,84 @@ boundary, and cross-verify** — then prove the scope was complete.
   the **pre-carve** stage first (see below); a bytecode carve on the raw APK finds only the
   decoy.
 
-## Pre-carve (stage 0 — container normalization & payload discovery)
+## Triage a new host app (acquire → generic sweep → carve decision)
 
-If `aapt`/`apktool` say the manifest is "corrupt", or `classes.dex` is tiny/decoy, the APK
+For "does app X have a malicious SDK, and what does it do" the carve is the *deep* pass
+that produces the behavior verdict. The sweep steps only decide WHERE to carve; they are
+family-agnostic until a family is actually identified.
+
+1. **Acquire + verify.** `python3 research/acquisition/resolve.py <package>
+   [--allow-download]` — the `apkeep`/APKPure adapter is the tested path; it emits a
+   normalized record with sha256 + signer SHA-256. Compare the signer against the app's
+   other versions (mismatch = repackaged mirror). Downloads are auth-gated: never pass
+   `--allow-download` without the user's OK; a user-supplied official-channel APK beats
+   a mirror.
+2. **Generic behavior sweep (no family knowledge needed).** `d2j-dex2jar app.apk` then
+   `scripts/behavior-sweep.py app-dex2jar.jar` — clusters un-renameable capability-API
+   hits per package root and flags collector+sink shapes. Known ad/analytics SDKs are
+   annotated `~`; sharp small roots (1–2 packages, 4+ categories) are usually
+   R8-scattered pieces of ONE SDK — reassemble them with step 3's structural detection.
+3. **Known-family checks (one signal, not the answer).** `scripts/ioc-sweep.sh` (hardcoded
+   Goldoson C2 hosts across the whole bytecode) + `scripts/detect.py` (exact renamed
+   Goldoson root, with a structural WiFi∩BT fallback). If the container looks packed
+   (`aapt` says "corrupt", tiny decoy dex), run the pre-carve stage below FIRST.
+4. **Carve every non-`~` flagged root and run the FULL Method below — no tiering.**
+   "It's an identified commercial SDK" is NOT a reason to skip analyzers: every carve
+   gets Joern inventory + entry→sink reachability, CodeQL source DB, Semgrep, and
+   scope-closure. The behavior report MUST contain a cross-verification table
+   (analyzer × root) and the closure result. Slow steps (reachability on big CPGs,
+   CodeQL DB) run in background — a report issued before they finish is *provisional*
+   and must say so, then be amended. Never call an app "clean" from the sweeps alone:
+   the sweeps find collection/exfil *shapes*; a negative means "no flagged shape", and
+   the report must say so under the evidence rules.
+
+Example in flight: OK캐시백 `com.skmc.okcashbag.home_google`, 시럽
+`com.skt.skaf.OA00026910` (SK Planet host apps, pending acquisition).
+
+### Field notes (validated on a 104k-class KR commercial app, 2026-09)
+
+- **dex2jar OOMs at default heap on big apps** → `_JAVA_OPTIONS=-Xmx6g d2j-dex2jar …`.
+- **apkeep**: probe `apkeep --list-versions -a <pkg>` BEFORE downloading; KR-only apps
+  often have zero versions on APKPure/Uptodown/apkcombo — don't rabbit-hole, ask the
+  user for an official-channel APK into `research/acquisition/corpus/targets/`.
+- **Fast deep pass first, but never last**: after carve, `scripts/class-map.py` maps
+  per-class APIs+endpoints in seconds — use it to steer, not to conclude. The FULL
+  analyzer set (Joern + CodeQL + Semgrep + scope-closure) is mandatory per carve; see
+  triage step 4.
+- **Joern**: run each carve's `joern --script` from THAT carve's directory — concurrent
+  runs sharing a cwd collide on the workspace project name and cross-load CPGs.
+  `repeat(_.callee)` reachability on a ~4k-method CPG can take 10+ min → background it.
+- **CodeQL**: decompile the scoped JAR directly (`jadx --no-res -d src scoped.jar`);
+  qlpack.yml needs modern syntax `dependencies: { codeql/java-all: ^9.x }` (version via
+  `codeql resolve packs`); `codeql query run` prints a TABLE — match `\| SRC`/`\| SINK`,
+  not `^(SRC|SINK)`.
+- **Semgrep scoped works** on jadx output (it was whole-tree scans that historically
+  broke on decompiler syntax). Regex rules see through runtime string decryption that
+  name-matching analyzers miss — treat analyzer disagreement as a lead, root-cause it.
+
+## Pre-carve (stage 0 — packer ID, container normalization & payload discovery)
+
+**First, identify the protector — a bytecode carve on a packed/shielded app silently
+under-scopes.** `scripts/packer-detect.py <app.apk>` fingerprints the packer / app-shielder /
+obfuscator (native `.so` names, asset paths, dex package markers; merges APKiD if installed)
+against a catalog derived from [awakewiki.org/packers](https://awakewiki.org/packers/) + APKiD
++ first-party reverse findings, and — crucially — reports the **carve-impact**:
+
+- exit `0`  — no packer / obfuscation-only → **carve is VALID** (proceed).
+- exit `10` — strings encrypted (e.g. DexGuard) → carve **structure** now; IOC/endpoint sweep is
+  **unreliable** until unpacked/dynamically dumped.
+- exit `20` — real code is in a runtime-decrypted **payload DEX** (e.g. NSHC xShield/DxShield,
+  AppSealing, 360 Jiagu, Bangcle, Tencent Legu) → a bytecode carve of `classes.dex` is **BLIND**;
+  recover the payload first (pre-sealed build or sanctioned dynamic dump), then carve *that*.
+- exit `30` — **UNKNOWN/suspicious** packer indicators (stub dex over an encrypted payload) → a
+  custom/malware packer; identify + unpack before trusting any verdict.
+
+This closes the gap `apk-normalize.py` can't see: a commercial shielder repackages into a *valid*
+ZIP (aapt/apktool are happy) yet encrypts strings and/or hides the real code in a runtime DEX —
+so the app looks carveable but the carve is a false negative. Worked example: OK Cashbag /
+xShield in [`docs/PACKER_DETECT.md`](../../../docs/PACKER_DETECT.md).
+
+Then, if `aapt`/`apktool` say the manifest is "corrupt", or `classes.dex` is tiny/decoy, the APK
 container is tampered. `scripts/apk-normalize.py` generically repairs the ZIP (fake
 encryption flag, bogus compression method, size lies) so standard tools parse it, and flags
 high-entropy `assets/*` as candidate packed payloads. Then recover the hidden DEX (e.g.
@@ -166,6 +245,9 @@ differences:
 
 ## Files
 
+- `scripts/packer-detect.py` — pre-carve stage 0: identify the packer/app-shielder/obfuscator
+  (AWAKE catalog + APKiD + first-party sigs) and report carve-impact (VALID / strings-encrypted /
+  payload-DEX-blind / unknown-packer); gates whether a bytecode carve can be trusted
 - `scripts/apk-normalize.py` — pre-carve: repair a tampered/evasive APK ZIP (fake enc flag,
   bogus method, size lies) so tools parse it; flags decoy dex + packed assets
 - `scripts/konfety-unpack.py` — pre-carve payload stage (Konfety family): inflate + XOR
@@ -174,6 +256,12 @@ differences:
   SQLCipher passphrase → bootstrap DEX + XOR-decrypted module jars (multi-layer example)
 - `scripts/detect.py` — auto-locate an R8-renamed SDK root (method-name anchors +
   size/depth/denylist guards + structural fallback); prints carve globs
+- `scripts/behavior-sweep.py` — family-agnostic triage: capability-API clusters per
+  package root, flags spyware-shaped collector+sink roots; `~` = known ad/analytics prefix
+- `scripts/ioc-sweep.sh` — multi-family sweep (Goldoson/SpinOk/Konfety/MobiDash/
+  NecroCoral): C2 hosts + package anchors + structural markers (known-family signal)
+- `scripts/class-map.py` — per-class capability-API + endpoint mapping on a carved
+  mini-JAR (seconds; the fast deep pass before Joern/CodeQL)
 - `scripts/carve.sh` — mini-JAR + `jimple2cpg` (parameterized by package globs); builds the
   jar in-memory so obfuscated `j.class`/`J.class` siblings survive a case-insensitive FS
 - `scripts/source-sink.sc` — Joern source/sink inventory + entry→sink reachability
