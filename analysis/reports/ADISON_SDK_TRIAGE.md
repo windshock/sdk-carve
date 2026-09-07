@@ -62,7 +62,9 @@ showNativeAd, availableReward, getSdkVersion, loadAds` — 문서의 웹뷰 JS S
 - 용도 추정: 서버 배포 타겟팅 규칙 평가(문서의 "성별 연령 타겟팅" 페이지와 정합).
 - exp4j의 문법은 수치·논리 연산만 허용 — **메서드 호출·객체 접근이 문법적으로
   불가능**하므로, "서버가 로직을 내려보낸다"는 점에서 GAD의 bsh와 동일 카테고리의
-  채널이지만 **설계상 샌드박스**. 임의 실행 경로 아님.
+  채널이지만 **설계상 샌드박스**. 임의 실행 경로 아님. → **엔진 기술 분석·실증
+  테스트 완료**: [EXP4J_ENGINE_ANALYSIS](EXP4J_ENGINE_ANALYSIS.md) (반복형
+  shunting-yard/RPN, 리플렉션·IO·네트워크 0, 10만 중첩·1MB식 실증 무해, fail-closed)
 
 ## 6. 판정
 
