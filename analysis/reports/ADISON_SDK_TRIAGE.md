@@ -1,7 +1,7 @@
 # Adison Offerwall SDK 트리아지 — AAR 원본 분석 (시럽 동일 버전)
 
 - **일시**: 2026-09-07 · 계기: 오퍼월 3사(GAD·TNK·Tyrads)에 이은 마지막 미분석 SDK
-- **등급**: 1차 패스(벤더 아티팩트 정적 분석 + 브리지/수식 엔진 감사)
+- **등급**: 벤더 아티팩트 분석 + **CPG source/sink 패스**(2026-09-07 상향; jimple2cpg→joern, §3.1)
 
 ## 1. 벤더·제품·아티팩트
 
@@ -31,6 +31,22 @@ prod `ao.adison.co`(웹뷰) · `api-ao.adison.co`(API) · `api-ao-list.adison.co
 | exec 히트 1건 | **오탐** — `LruBitmapCache`: `Runtime.getRuntime().maxMemory()` 캐시 크기 산정 |
 | 광고ID | 1클래스(`AdisonParameters$GetAdvertisingId`) — 문서화된 표준 수집 |
 
+### 3.1 CPG 콜그래프 확인 (2026-09-07 상향 — regex를 넘어선 재검증)
+
+`classes.jar` → `jimple2cpg` → `joern`(`analysis/joern/scripts/adison-audit.sc`). 정규식이 아니라
+콜그래프 기준:
+
+| 카테고리 | CPG |
+|---|---|
+| EXEC / 스크립트엔진 / 동적로드(loadClass·DexClassLoader·System.load) / 역직렬화 | **전부 0** — **자체 `ObjectInput`면도 없음**(TNK와의 차이) |
+| DEVICE-ID | **0** |
+| `Class.forName`(2) / `newInstance`(19) | **표준 UI/프레임워크 팩토리** — `init`/`onCreate`/`showNetworkErrorView`/`replaceWebFragment` 등의 뷰·프래그먼트 생성; **서버 통제 클래스명 아님**(TNK식 wire→loadClass 채널 부재) |
+| NET | okhttp `newCall` + TLS12 소켓 — 표준 |
+
+→ **실행/역직렬화/동적로드 프리미티브 부재가 콜그래프로 확정.** 서버가 내리는 exp4j 식은 산술·논리
+double 평가라 문법상 실행 불가(§5). (`forName/newInstance` 19건은 서버 미통제 프레임워크 reflection —
+미래 리뷰어의 TNK식 재의심 방지용으로 명기.)
+
 ## 4. 웹뷰 브리지 — 전량 문서화된 JS SDK 표면
 
 `AdisonWebViewJsInterface`의 `@JavascriptInterface` 메서드 12개:
@@ -52,7 +68,7 @@ showNativeAd, availableReward, getSdkVersion, loadAds` — 문서의 웹뷰 JS S
 
 - **판정**: 식별된 상용 오퍼월, 문서화된 표준 연동, 위험 API 전무, 수집은 광고ID
   문서화 항목뿐. 오퍼월 3사 비교에서 **가장 깨끗한 표면** — GAD(bsh 원격 실행 채널)
-  / TNK(잠복 자체 역직렬화면)와 달리 실행 프리미티브 자체가 없음.
+  / TNK(잠복 자체 역직렬화면)와 달리 실행 프리미티브 자체가 없음(**§3.1 CPG 확정**).
 - **위생**: Apiary 목서버 잔존, dev/stg 엔드포인트 전면 출하, 시럽의 v3.16.4는
   문서 기준 구버전(5.4.0) — 벤더에 버전 업그레이드 검토 권고 가능.
 - **한계**: 1차 패스(AAR 정적). 시럽 번들에서는 R8으로 `i/`(74클래스)로 변형돼
