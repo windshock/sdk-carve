@@ -1,0 +1,31 @@
+{
+ "file": "cmtm2j58309y8srvvzfoch4c1.bsh",
+ "js_injections": 7,
+ "navigations": [
+  "",
+  "",
+  ""
+ ],
+ "events": [
+  "console: observeClick()",
+  "XPATH: //button[contains(@class, \"btnAccept\")]",
+  "console: button exist!",
+  "BRIDGE: GAD.recursiveScript(start())",
+  "DOM-HANDLER-SET: xnode.onclick (handler attached; not a click)",
+  "XPATH: _P",
+  "console: 상태 = true",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.recursiveScript(setParticipation(\"true\"))",
+  "XPATH: _P",
+  "console: nodes [object Object]",
+  "JS-ERR: object is not a function",
+  "BRIDGE: GAD.setValid(true)",
+  "XPATH: _P",
+  "console: 상태 = true",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.setValid(true)",
+  "DOM-MUT: body.setAttribute(style=filter:blur(_Ppx);)",
+  "setTimeout: _P",
+  "XPATH: _P"
+ ]
+}

@@ -1,0 +1,11 @@
+{
+ "file": "cmti39g3s31pku6v00wjmqy90.bsh",
+ "js_injections": 1,
+ "navigations": [
+  "",
+  ""
+ ],
+ "events": [
+  "BRIDGE: GAD.setValid(true)"
+ ]
+}

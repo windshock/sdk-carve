@@ -1,0 +1,28 @@
+{
+ "file": "cmtqcut6a080tobebrylwu8an.bsh",
+ "js_injections": 6,
+ "navigations": [
+  "",
+  "",
+  "https://my.musinsa.com/login/v1/login",
+  ""
+ ],
+ "events": [
+  "XPATH: _P",
+  "console: 상태 = true",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.recursiveScript(setParticipation(\"true\"))",
+  "XPATH: _P",
+  "BRIDGE: GAD.recursiveScript(setLogin(\"true\"))",
+  "XPATH: _P",
+  "DOM-READ: xnode.getAttribute(style)",
+  "DOM-MUT: xnode.setAttribute(style=border:solid red;)",
+  "XPATH: _P",
+  "console: 상태 = true",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.setValid(true)",
+  "DOM-MUT: body.setAttribute(style=filter:blur(_Ppx);)",
+  "setTimeout: _P",
+  "XPATH: _P"
+ ]
+}

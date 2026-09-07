@@ -1,0 +1,23 @@
+{
+ "file": "cmtmqvj7o051820clw4fgqy63.bsh",
+ "js_injections": 4,
+ "navigations": [
+  "",
+  "",
+  ""
+ ],
+ "events": [
+  "XPATH: _P",
+  "console: 상태 = true",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.recursiveScript(setParticipation(\"true\"))",
+  "XPATH: _P",
+  "DOM-SCROLL: xnode",
+  "DOM-MUT: xnode.setAttribute(style=border:solid red;)",
+  "XPATH: _P",
+  "console: 상태 = true",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.setValid(true)",
+  "JS-ERR: _Pdocument is not defined"
+ ]
+}

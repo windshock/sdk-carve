@@ -1,0 +1,31 @@
+{
+ "file": "cmtkn3a6v0a01119oxw6xlyiu.bsh",
+ "js_injections": 7,
+ "navigations": [
+  "",
+  "",
+  "",
+  ""
+ ],
+ "events": [
+  "XPATH: _P",
+  "JS-ERR: object is not a function",
+  "XPATH: _P",
+  "BRIDGE: GAD.log(canceltrue)",
+  "BRIDGE: GAD.recursiveScript(setParticipation(\"true\"))",
+  "XPATH: _P",
+  "JS-ERR: object is not a function",
+  "XPATH: _P",
+  "DOM-READ: xnode.getAttribute(style)",
+  "DOM-MUT: xnode.setAttribute(style=border:solid red;)",
+  "XPATH: _P",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.setValid(true)",
+  "DOM-GETID: ct",
+  "DOM-MUT: #ct.setAttribute(style=filter:blur(_Ppx);)",
+  "DOM-GETID: rego_cover",
+  "DOM-MUT: #rego_cover.setAttribute(style=filter:blur(_Ppx);)",
+  "setTimeout: _P",
+  "XPATH: _P"
+ ]
+}

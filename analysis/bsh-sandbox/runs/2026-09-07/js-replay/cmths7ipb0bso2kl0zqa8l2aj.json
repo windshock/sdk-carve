@@ -1,0 +1,26 @@
+{
+ "file": "cmths7ipb0bso2kl0zqa8l2aj.bsh",
+ "js_injections": 5,
+ "navigations": [
+  "",
+  "",
+  "",
+  ""
+ ],
+ "events": [
+  "XPATH: _P",
+  "DOM-READ: xnode.textContent",
+  "BRIDGE: GAD.log()",
+  "DOM-READ: xnode.textContent",
+  "BRIDGE: GAD.log(false)",
+  "BRIDGE: GAD.recursiveScript(setParticipation(\"false\"))",
+  "JS-ERR: Unexpected identifier '친구'",
+  "XPATH: _P",
+  "DOM-READ: xnode.textContent",
+  "BRIDGE: GAD.log(false)",
+  "BRIDGE: GAD.setValid(false)",
+  "JS-ERR: _Pdocument is not defined",
+  "setTimeout: _P",
+  "XPATH: _P"
+ ]
+}

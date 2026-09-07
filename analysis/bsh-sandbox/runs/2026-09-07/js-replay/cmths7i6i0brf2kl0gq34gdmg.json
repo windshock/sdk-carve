@@ -1,0 +1,31 @@
+{
+ "file": "cmths7i6i0brf2kl0gq34gdmg.bsh",
+ "js_injections": 7,
+ "navigations": [
+  "https://accounts.google.com/signin/v2/identifier?continue=",
+  "",
+  "https://accounts.google.com/signin/v2/identifier?continue=",
+  "https://accounts.google.com/signin/v2/identifier?continue=",
+  "https://m.youtube.com/logout",
+  "https://accounts.google.com/signin/v2/identifier?continue=",
+  ""
+ ],
+ "events": [
+  "JS-ERR: updateSignInStatus is not defined",
+  "XPATH: _P",
+  "console: 상태 = _v",
+  "BRIDGE: GAD.log(_v)",
+  "BRIDGE: GAD.recursiveScript(setParticipation(\"_v\"))",
+  "JS-ERR: updateSignInStatus is not defined",
+  "XPATH: _P",
+  "DOM-READ: xnode.getAttribute(style)",
+  "DOM-MUT: xnode.setAttribute(style=border:solid red;)",
+  "XPATH: _P",
+  "console: 상태 = _v",
+  "BRIDGE: GAD.log(_v)",
+  "BRIDGE: GAD.setValid(_v)",
+  "DOM-MUT: body.setAttribute(style=filter:blur(_Ppx);)",
+  "setTimeout: _P",
+  "XPATH: _P"
+ ]
+}

@@ -1,0 +1,26 @@
+{
+ "file": "cmtoxet1t13yf20cl0n4ndxgn.bsh",
+ "js_injections": 5,
+ "navigations": [
+  "_P",
+  "",
+  ""
+ ],
+ "events": [
+  "XPATH: _P",
+  "DOM-READ: xnode.value",
+  "BRIDGE: GAD.log()",
+  "BRIDGE: GAD.recursiveScript(setParticipation(\"\"))",
+  "XPATH: _P",
+  "DOM-SCROLL: xnode",
+  "DOM-READ: xnode.getAttribute(style)",
+  "DOM-MUT: xnode.setAttribute(style=border:solid red;)",
+  "XPATH: _P",
+  "DOM-READ: xnode.value",
+  "BRIDGE: GAD.log()",
+  "BRIDGE: GAD.setValid()",
+  "JS-ERR: _Pdocument is not defined",
+  "setTimeout: _P",
+  "XPATH: _P"
+ ]
+}

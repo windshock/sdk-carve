@@ -1,0 +1,20 @@
+{
+ "file": "cmtqlwci716afobeb07ribcas.bsh",
+ "js_injections": 5,
+ "navigations": [
+  "",
+  ""
+ ],
+ "events": [
+  "XPATH: _P",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.recursiveScript(setParticipation(\"true\"))",
+  "JS-ERR: Unexpected token 'if'",
+  "XPATH: _P",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.setValid(true)",
+  "JS-ERR: _Pdocument is not defined",
+  "setTimeout: _P",
+  "XPATH: _P"
+ ]
+}

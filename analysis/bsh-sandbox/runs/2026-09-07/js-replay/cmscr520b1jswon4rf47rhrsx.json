@@ -1,0 +1,34 @@
+{
+ "file": "cmscr520b1jswon4rf47rhrsx.bsh",
+ "js_injections": 6,
+ "navigations": [
+  "",
+  "",
+  "",
+  ""
+ ],
+ "events": [
+  "XPATH: _P",
+  "console: 가입 = true",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.recursiveScript(setParticipation(\"true\"))",
+  "XPATH: _P",
+  "DOM-READ: xnode.getAttribute(style)",
+  "DOM-MUT: xnode.setAttribute(style=border:solid red;)",
+  "BRIDGE: GAD.setValid(true)",
+  "XPATH: _P",
+  "console: 가입 = true",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.setValid(true)",
+  "DOM-GETID: hd",
+  "DOM-MUT: #hd.setAttribute(style=filter:blur(_Ppx);)",
+  "DOM-GETID: cafeGate",
+  "DOM-MUT: #cafeGate.setAttribute(style=filter:blur(_Ppx);)",
+  "DOM-GETID: topBar",
+  "DOM-MUT: #topBar.setAttribute(style=filter:blur(_Ppx);)",
+  "DOM-GETID: ct",
+  "DOM-MUT: #ct.setAttribute(style=filter:blur(_Ppx);)",
+  "setTimeout: _P",
+  "XPATH: _P"
+ ]
+}

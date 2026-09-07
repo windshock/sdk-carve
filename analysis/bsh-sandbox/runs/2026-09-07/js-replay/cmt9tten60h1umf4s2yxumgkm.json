@@ -1,0 +1,23 @@
+{
+ "file": "cmt9tten60h1umf4s2yxumgkm.bsh",
+ "js_injections": 5,
+ "navigations": [
+  "",
+  "",
+  ""
+ ],
+ "events": [
+  "XPATH: _P",
+  "console: 상태 = true",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.recursiveScript(setParticipation(\"true\"))",
+  "JS-ERR: Unexpected end of input",
+  "XPATH: _P",
+  "console: 상태 = true",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.setValid(true)",
+  "JS-ERR: _Pdocument is not defined",
+  "setTimeout: _P",
+  "XPATH: _P"
+ ]
+}

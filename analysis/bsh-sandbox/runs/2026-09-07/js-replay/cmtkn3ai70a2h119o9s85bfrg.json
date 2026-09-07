@@ -1,0 +1,27 @@
+{
+ "file": "cmtkn3ai70a2h119o9s85bfrg.bsh",
+ "js_injections": 5,
+ "navigations": [
+  "",
+  "",
+  ""
+ ],
+ "events": [
+  "XPATH: _P",
+  "DOM-READ: xnode.getAttribute(aria-pressed)",
+  "console: 상태 = false",
+  "BRIDGE: GAD.log(false)",
+  "BRIDGE: GAD.recursiveScript(setParticipation(\"false\"))",
+  "XPATH: _P",
+  "DOM-MUT: xnode.setAttribute(style=border:solid red;)",
+  "XPATH: _P",
+  "DOM-READ: xnode.getAttribute(aria-pressed)",
+  "console: 상태 = false",
+  "BRIDGE: GAD.log(false)",
+  "BRIDGE: GAD.setValid(false)",
+  "DOM-GETTAG: body",
+  "DOM-MUT: body.setAttribute(style=filter:blur(_Ppx);)",
+  "setTimeout: _P",
+  "XPATH: _P"
+ ]
+}

@@ -1,0 +1,25 @@
+{
+ "file": "cmtjpxmzj02p5elcktt00uejq.bsh",
+ "js_injections": 5,
+ "navigations": [
+  "",
+  "",
+  ""
+ ],
+ "events": [
+  "XPATH: _P",
+  "console: 상태 = true",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.recursiveScript(setParticipation(\"true\"))",
+  "XPATH: _P",
+  "DOM-READ: xnode.getAttribute(style)",
+  "DOM-MUT: xnode.setAttribute(style=border:solid red;)",
+  "XPATH: _P",
+  "console: 상태 = true",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.setValid(true)",
+  "DOM-MUT: body.setAttribute(style=filter:blur(_Ppx);)",
+  "setTimeout: _P",
+  "XPATH: _P"
+ ]
+}

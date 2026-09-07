@@ -1,0 +1,22 @@
+{
+ "file": "cmth0ng2t7zgpzz0anik1pofv.bsh",
+ "js_injections": 5,
+ "navigations": [
+  "",
+  ""
+ ],
+ "events": [
+  "XPATH: _P",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.recursiveScript(setParticipation(\"true\"))",
+  "XPATH: _P",
+  "DOM-READ: xnode.getAttribute(style)",
+  "DOM-MUT: xnode.setAttribute(style=border:solid red;)",
+  "XPATH: _P",
+  "BRIDGE: GAD.log(true)",
+  "BRIDGE: GAD.setValid(true)",
+  "JS-ERR: _Pdocument is not defined",
+  "setTimeout: _P",
+  "XPATH: _P"
+ ]
+}
