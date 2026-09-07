@@ -43,6 +43,15 @@ triage의 위험스캔은 `ObjectInputStream.readObject` 시그니처만 봐서 
   부재는 CVE 절과 동일 조건). 입력은 `api3.tnkfactory.com` 응답(HttpsURLConnection/SSLFactory =
   TLS) → **전제조건은 백엔드/TLS 무결성**. GAD BeanShell 채널과 **같은 위협 클래스(서버신뢰=인프로세스
   행위)이나 훨씬 좁음**(코드 eval 아님, 무인자 생성자 인스턴스화만).
+- **정밀화(2026-09-07 바이트코드 검증; zcode `80ce9ef` 반영):** `newInstance()`(offset 487) 직후
+  **`instanceof java/io/Externalizable` 게이트**(501)가 있어 데이터 구동 `readExternal(ObjectInput)`
+  (513)은 Externalizable 구현체에만 실행됨. **AAR 664클래스 중 Externalizable 구현체는 0개**
+  — `e.f`/`e.g`는 Externalizable을 *구현*하는 게 아니라 각각 `DataInputStream implements ObjectInput`
+  / `DataOutputStream implements ObjectOutput` 리더·라이터로 이 게이트를 **참조**할 뿐(= zcode의
+  "e.f/e.g가 Externalizable 구현" 표현은 "구현 0, 게이트 참조 2"로 보정). → **CVE-2016-2510식
+  readExternal 가젯 경로는 in-package 死(dead)**. 잔여는 게이트 이전의 `loadClass().newInstance()`
+  (임의 classpath 클래스의 무인자 생성자/정적초기화) 원시행위뿐 — 위험 무인자-생성자 가젯 미식별 +
+  TLS MITM(HSTS api3) 전제 → **실사용 리스크 사실상 nil**.
 
 ## 3. 식별자 텔레메트리 — 구조적 exfil 경로 확정
 
@@ -60,7 +69,8 @@ triage의 위험스캔은 `ObjectInputStream.readObject` 시그니처만 봐서 
 - **triage 핵심 결론 유지·강화**: **원격 코드 실행 채널 없음**(EXEC 0 · SCRIPT-ENGINE 0 CPG 확정) —
   GAD BeanShell과 근본적으로 다름. 행위는 웹뷰 오퍼월 + 표준 광고 API로 수렴.
 - **보정 1건**: "deserialization 0" → **자체 `ObjectInput`(`e.f`)의 loadClass+newInstance 잠복면
-  존재**(백엔드 무결성 의존, 무인자 생성자 한정 → 낮음).
+  존재**(백엔드 무결성 의존, 무인자 생성자 한정) → **후속 검증: `instanceof Externalizable` 게이트 +
+  AAR 내 Externalizable 구현체 0개로 readExternal 가젯 경로 死 → 실사용 nil**(§2 정밀화).
 - **프라이버시**: adid + 레거시 `getDeviceId`(3+) 가 `api3.tnkfactory.com`으로 전송(구조 확정),
   Adiscope(dev 엔드포인트 잔존)/Tenqube 3자 연동 — triage §2·§3와 일치.
 - **위생 항목(유지)**: v7 문자열 암호화 vs v8 평문, Adiscope **dev** URL 잔존, 레거시 IMEI 호출.
