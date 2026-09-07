@@ -123,3 +123,21 @@ void checkValid() {}
   채널 자체는 **서버가 앱 프로세스 안에서 임의 Java 코드를 실행할 수 있는
   설계된 원격 행위 시스템**. 서버 무결성(또는 중간자)이 곧 앱 코드 실행 권한.
 - 본 캡처만으로 악성 판단 소재는 없음. 리스크는 "설계"에 대한 것 (아래 리포트 참조).
+
+## 공개 소스 (2026-09-07 기록 — 미대조, 후속용)
+
+GPA KOREA는 GitHub org를 2개 운영(스킬 vendor-attribution 노트의 "2-org" 패턴 확인):
+- **`koreagpa-dev`** — JitPack 배포용(= gradle 좌표 `com.github.koreagpa-dev:gad`가 가리킴)
+- **`GPA-KOREA`** — 샘플/문서용
+
+- **AOS**: `implementation 'com.github.koreagpa-dev:gad:syrup-0.8.0-rc.4'` (repo `jitpack.io`),
+  가이드 `https://github.com/GPA-KOREA/gad-sample-android/tree/syrup`
+- **iOS SDK 존재(크로스플랫폼)**: `https://github.com/GPA-KOREA/gad-ios-sdk-syrup`,
+  CocoaPods `pod 'GadSDK', '~> 0.1.3'` / SPM. (iOS 측 BeanShell/스크립트 채널 유무 미확인.)
+- **버전 skew**: 통합 스니펫 = `syrup-0.8.0-rc.4` vs 본 분석 AAR/런타임 캡처 = `rc.12`
+  — triage에 핀된 RC 명확화 필요(동일 라인이나 RC별 엔드포인트/스크립트 차이 가능).
+
+**후속(미실행)**: `gad-sample-android@syrup`의 README/api-doc을 본 캡처 엔드포인트
+(`gad.api.gpakorea.com` `/campaign/{setup,prepare2,list,script/entry}`, 미문서 `type=5` CPS,
+`x-tdi-client-secret` 헤더)와 **1:1 대조**하면 "볼트 뒤 정확한 API 경로" 미결을 **공개 문서로 종결**
+가능(봉인 전 diff 불요). — 사용자 지시로 현재는 기록만.
