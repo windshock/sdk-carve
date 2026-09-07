@@ -1,0 +1,10 @@
+{
+  "script": "cmsiocva42pq4nosw9875suqk.bsh",
+  "sha256": "9b307973cdc01fc7c6476395b9608f3c0e96ebc0e83125e54dfde9500ebfd492",
+  "eval_ok": true,
+  "hook_results": ["shouldOverrideUrlLoading(\"https://gad.api.gpakorea.invalid/page/mission.html?email=replay%40test.invalid&gad_tracking_id=REPLAYTEST\") -> true", "onPageFinished(\"https://gad.api.gpakorea.invalid/page/mission.html?email=replay%40test.invalid&gad_tracking_id=REPLAYTEST\") -> true", "onPageFinished(\"https://accounts.google.com/ServiceLogin/signinchooser?continue=x\") -> true", "onPageFinished(\"https://m.youtube.com/watch?v=REPLAY\") -> true", "isValidUrl() -> true"],
+  "file_reads": 104,
+  "denied": 0,
+  "labels": {"TYPE_PARTICIPATION": "", "TYPE_INSTALL": "", "TYPE_CPS": ""},
+  "events": ["[CLASS] java.lang", "[CLASS] bsh", "[CLASS] java.security", "[CLASS] java.net", "[CLASS] java.io", "[CLASS] android.content", "[CLASS] android.webkit", "[CLASS] android.os", "[CLASS] com.gad.sdk.model", "[CLASS] com.gad.sdk.viewmodel", "[CLASS] com.gad.sdk.ui.fragment", "[CLASS] androidx.appcompat.app", "[CLASS] AlertDialog", "[CLASS] DialogInterface", "[STUB] context.getSharedPreferences(com.gad.sdk)", "[CLASS] com.gad.sdk.databinding", "[CLASS] java.lang.constant", "[CLASS] java.lang.reflect", "[CLASS] java.util", "[CLASS] android.net", "[STUB] uri.getQueryParameter(gad_tracking_id)", "[CLASS] bsh.commands", "[STUB] wind.loadUrl(javascript:function getElementsByXpath(path) {\n    return document.evaluate(path, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, nu…)", "[STUB] wind.loadUrl(headers=[referer, x-requested-with])", "[STUB] wind.loadUrl(https://gad.api.gpakorea.invalid/page/mission.html?email=replay%40test.invalid&gad_tracking_id=REPLAYTEST)", "[STUB] handler.postDelayed(delay=500)", "[STUB] handler.removeCallbacksAndMessages"]
+}

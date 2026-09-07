@@ -1,0 +1,33 @@
+/** 모듈 로드 실패 시 서버가 대신 전달하는 에러용 스크립트
+ *  - 트래픽 SDK: onPageLoaded → abortSession → 로컬 완료 + 종료 + 재참여 차단
+ *  - 오퍼월 SDK: prepare → flag.quit() 즉시 종료
+ *  - 빈 텍스트 응답으로 인한 BeanShell 로드 실패/크래시 방지용 */
+
+// ── 트래픽 SDK 진입점 ──
+void onPageLoaded(String url) {
+    abortSession("error", "module_not_found");
+}
+
+// ── 오퍼월 SDK 진입점 ──
+//   flag(GadPerformFragment) 주입돼 있으면 오퍼월 SDK 로 판정 → 메인 스레드에서 quit()
+//   prepare() == true 반환 → SDK 가 advertisement.url 로드하지 않도록 차단
+boolean prepare() {
+    try {
+        if (flag != null && hold != null) {
+            hold.post(new Runnable() {
+                public void run() {
+                    try { flag.quit(); } catch (Exception e) {}
+                }
+            });
+            return true;
+        }
+    } catch (Exception e) {}
+    return false;
+}
+
+// ── 오퍼월 SDK 라이프사이클 no-op (Command not found 노이즈 차단) ──
+boolean shouldOverrideUrlLoading(String url) { return false; }
+void onPageStarted(String url) {}
+void onLoadResource(String url) {}
+Object onPageFinished(String url) { return null; }
+void checkValid() {}

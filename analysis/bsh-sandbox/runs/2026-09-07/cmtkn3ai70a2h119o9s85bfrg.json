@@ -1,0 +1,10 @@
+{
+  "script": "cmtkn3ai70a2h119o9s85bfrg.bsh",
+  "sha256": "62d07c9407009685ac14107e59d17d676d3f25b340f32afe0a13cac256e46275",
+  "eval_ok": true,
+  "hook_results": ["prepare() -> true", "shouldOverrideUrlLoading(\"https://gad.api.gpakorea.invalid/page/mission.html?email=replay%40test.invalid&gad_tracking_id=REPLAYTEST\") -> false", "onPageFinished(\"https://gad.api.gpakorea.invalid/page/mission.html?email=replay%40test.invalid&gad_tracking_id=REPLAYTEST\") -> true", "onPageFinished(\"https://accounts.google.com/ServiceLogin/signinchooser?continue=x\") -> true", "onPageFinished(\"https://m.youtube.com/watch?v=REPLAY\") -> true", "isValidUrl() -> true"],
+  "file_reads": 102,
+  "denied": 0,
+  "labels": {"TYPE_PARTICIPATION": "", "TYPE_INSTALL": "", "TYPE_CPS": ""},
+  "events": ["[CLASS] java.lang", "[CLASS] bsh", "[CLASS] java.security", "[CLASS] java.net", "[CLASS] java.io", "[CLASS] android.content", "[CLASS] android.webkit", "[CLASS] android.os", "[CLASS] com.gad.sdk.model", "[CLASS] com.gad.sdk.viewmodel", "[CLASS] com.gad.sdk.ui.fragment", "[CLASS] androidx.appcompat.app", "[CLASS] AlertDialog", "[CLASS] DialogInterface", "[STUB] context.getSharedPreferences(com.gad.sdk)", "[CLASS] com.gad.sdk.databinding", "[CLASS] java.lang.reflect", "[CLASS] java.util", "[STUB] wind.loadUrl(headers=[referer, x-requested-with])", "[STUB] wind.loadUrl(https://gad.api.gpakorea.invalid/page/mission.html?email=replay%40test.invalid&gad_tracking_id=REPLAYTEST)", "[CLASS] bsh.commands", "[CLASS] java.lang.constant", "[STUB] wind.loadUrl(javascript:\nfunction getElementsByXpath(path) {\n    return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null…)", "[CLASS] android.util", "[LOG] GPADEV_: onPageFinished() https://gad.api.gpakorea.invalid/page/mission.html?email=replay%40test.invalid&gad_tracking_id=REPLAYTEST", "[STUB] handler.postDelayed(delay=1500)", "[LOG] GPADEV_: onPageFinished() https://accounts.google.com/ServiceLogin/signinchooser?continue=x", "[LOG] GPADEV_: onPageFinished() https://m.youtube.com/watch?v=REPLAY", "[STUB] handler.removeCallbacksAndMessages"]
+}

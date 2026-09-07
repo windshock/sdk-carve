@@ -1,0 +1,10 @@
+{
+  "script": "cmqyqcna403yd78zgizxh7e3s.txt",
+  "sha256": "2f1298943343c3676d7f0bcff075c37bb872efa664eeec6e7efd6d293ca2fc78",
+  "eval_ok": true,
+  "hook_results": ["prepare() -> true", "shouldOverrideUrlLoading(\"https://gad.api.gpakorea.invalid/page/mission.html?email=replay%40test.invalid&gad_tracking_id=REPLAYTEST\") -> false"],
+  "file_reads": 71,
+  "denied": 0,
+  "labels": {"TYPE_PARTICIPATION": "", "TYPE_INSTALL": "", "TYPE_CPS": ""},
+  "events": ["[CLASS] java.lang", "[CLASS] bsh", "[CLASS] java.security", "[CLASS] java.net", "[CLASS] java.io", "[CLASS] com.gad.sdk.ui.fragment", "[STUB] context.getSharedPreferences(com.gad.sdk)", "[CLASS] android.content", "[CLASS] androidx.appcompat.app", "[CLASS] com.gad.sdk.databinding", "[STUB] handler.post(Runnable)", "[STUB] fragment.quit()", "[CLASS] bsh.commands"]
+}

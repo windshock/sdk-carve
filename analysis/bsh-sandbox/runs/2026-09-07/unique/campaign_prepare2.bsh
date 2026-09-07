@@ -1,0 +1,35 @@
+import android.os.Handler;
+import android.util.Log;
+import com.gad.sdk.databinding.GadFragmentAdListInnerBinding;
+import com.gad.sdk.ui.fragment.GadAdListFragment;
+import com.gad.sdk.util.Utils$Names;
+import com.gad.sdk.viewmodel.GadViewModel;
+
+    GadAdListFragment flag;
+    Utils$Names name;
+    GadFragmentAdListInnerBinding ball;
+    Handler hold;
+    GadViewModel medal;
+
+    public boolean prepare() {
+        flag.hideProgress();
+        name.TYPE_PARTICIPATION = "참여형";
+        name.TYPE_INSTALL = "경험하기";
+        name.TYPE_LAUNCH = "경험하기";
+        name.TYPE_MISSION = "미션형";
+        name.TYPE_ACTION = "액션형";
+        try {
+            Utils$Names.class.getDeclaredField("TYPE_CPS");
+            name.TYPE_CPS = "쇼핑적립";
+        } catch (Exception e) {
+            //
+        }
+        return true;
+    }
+
+    public void destroy() {
+        if (hold != null) {
+            hold.removeCallbacksAndMessages(null);
+        }
+        hold = null;
+    }

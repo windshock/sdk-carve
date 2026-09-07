@@ -1,0 +1,332 @@
+import android.content.Context;
+import android.content.ContextWrapper;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.Uri;
+import android.widget.Toast;
+import android.webkit.WebView;
+import android.util.Log;
+import android.os.Handler;
+import android.text.TextUtils;
+import androidx.appcompat.app.AlertDialog;
+import com.gad.sdk.model.Advertisement;
+import com.gad.sdk.ui.fragment.GadPerformFragment;
+import com.gad.sdk.viewmodel.GadViewModel;
+
+import java.util.HashMap;
+import java.util.Map;
+
+    Context cat;
+    WebView wind;
+    Handler hold;
+    Advertisement apple;
+    GadViewModel vibe;
+    GadPerformFragment flag;
+    AlertDialog mDialog;
+    SharedPreferences mPref;
+    boolean isFirst = true;
+    boolean isInvited;
+    boolean isCompleted;
+    Map map;
+    String lUrl;
+
+    // 초기화 함수로 멤버변수가 설정된 후 호출된다. true 리턴시 광고 url을 로딩하지 않는다.
+    public boolean prepare() {
+        if ("밴드회원가입".equals(apple.mission)) {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(apple.getUrl()));
+            flag.startActivity(intent);
+            flag.requireActivity().finish();
+            return true;
+        }
+        mPref = cat.getSharedPreferences("com.gad.sdk", ContextWrapper.MODE_PRIVATE);
+        map = new HashMap();
+        map.put("x-requested-with", "");
+        map.put("referer", "https://m.facebook.com/choisungda/");
+        wind.loadUrl(apple.getUrl(), map);
+        lUrl = apple.getUrl();
+        return true;
+    }
+
+    public boolean shouldOverrideUrlLoading(String url) {
+//        Log.d("GPADEV_", "shouldOverrideUrlLoading() " + url);
+        if (url.startsWith("intent:") || url.startsWith("nidlogin:")) return false;
+        if (!TextUtils.isEmpty(url) && url.contains("bandapp://")) {
+            toast("\"브라우저로 계속하기\"를 선택해 주세요.");
+            return true;
+        }
+        if (!url.equals(lUrl)) {
+            map.put("referer", wind.getUrl());
+            wind.loadUrl(url, map);
+            lUrl = url;
+            return true;
+        }
+        return false;
+    }
+
+    public Object onPageStarted(String url) {
+//        Log.d("GPADEV_", "onPageStarted() " + url);
+        if (isValidUrl()) {
+            flag.showProgress();
+        }
+        return null;
+    }
+
+    public Object onLoadResource(String url) {
+//        Log.d("GPADEV_", "onLoadResource() " + url);
+        if (isValidUrl()) {
+            if (!TextUtils.isEmpty(url) && url.contains("get_band_notices?") && !isInvited) {
+                blur(true);
+                checkParticipation();
+            }
+        } else if (url.contains("join_band?")) {
+            isCompleted = true;
+        }
+        return null;
+    }
+
+    public Object onPageFinished(String url) {
+//        Log.d("GPADEV_", "onPageFinished() " + url);
+
+        if (isInviteUrl()) {
+            execute(new Runnable() {
+                public void run() {
+                    observeInvite();
+                }
+            }, 2000);
+            return true;
+        }
+        return null;
+    }
+
+    public void observeInvite() {
+        wind.loadUrl("javascript:\n" +
+                "function getElementByXpath(path) {\n" +
+                "    return document.evaluate(path, window.document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;\n" +
+                "}\n" +
+                "\n" +
+                "var retry = 3;\n" +
+                "\n" +
+                "function observeClick() {\n" +
+                "    console.log(\"observeClick()\");\n" +
+                "    var button = getElementByXpath('//button[contains(@class, \"btnAccept\")]');\n" +
+                "    if (button) {\n" +
+                "        console.log(\"button exist!\");\n" +
+                "        GAD.recursiveScript('start()');\n" +
+                "        button.onclick = function () {\n" +
+                "            GAD.recursiveScript('setInvited()');\n" +
+                "        };\n" +
+                "    } else if (retry-- > 0) {\n" +
+                "        console.log(\"button not exist!\");\n" +
+                "        setTimeout(function () {\n" +
+                "            observeClick();\n" +
+                "        }, 2000);\n" +
+                "    }\n" +
+                "}\n" +
+                "\n" +
+                "observeClick();"
+        );
+    }
+
+    public void start() {
+        flag.hideProgress();
+        popupGuide();
+    }
+
+    public void setInvited() {
+//        Log.d("GPADEV_", "setInvited()");
+        isInvited = true;
+    }
+
+    public void checkParticipation() {
+//        Log.d("GPADEV_", "checkParticipation() ");
+        wind.loadUrl("javascript:\n" +
+                "function getElementsByXpath(path) {\n" +
+                "    return document.evaluate(path, document, null, XPathResult.NUMBER_TYPE, null);\n" +
+                "}\n" +
+                "var 상태 = getElementsByXpath('" + CHECK_ELEMENT + "').numberValue > 0;\n" +
+                "console.log(\"상태 =\", 상태);\n" +
+                "GAD.log(\"\" + 상태);\n" +
+                "GAD.recursiveScript('setParticipation(\"' + 상태 + '\")');");
+    }
+
+    public void setParticipation(String participated) {
+//        Log.d("GPADEV_", "setParticipation " + participated);
+        if ("true".equals(participated)) {
+            vibe.completeLocally(apple.getKey());
+            if (mDialog != null && mDialog.isShowing()) {
+                mDialog.dismiss();
+            }
+            mDialog = buildDialog("", "이미 가입하신 밴드입니다. 광고를 종료 합니다.", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+//                    Log.d("GPADEV_", "finish");
+                    execute(new Runnable() {
+                        public void run() {
+                            flag.requireActivity().finish();
+                        }
+                    }, 0);
+
+                }
+            }).show();
+        } else {
+            drawRect();
+            popupGuide();
+            flag.hideProgress();
+        }
+    }
+
+    final static String RECT_ELEMENT = "//button[contains(@class, \"btnJoin\")]|//button[contains(@class, \"_btnAccept\")]";
+    public void drawRect() {
+//        Log.d("GPADEV_", "drawRect() ");
+        wind.loadUrl("javascript:\n" +
+                "function getElementsByXpath(path) {\n" +
+                "    return document.evaluate(path, document, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null);\n" +
+                "}\n" +
+                "var nodes = getElementsByXpath('" + RECT_ELEMENT + "');\n" +
+                "console.log(\"nodes\", nodes);\n" +
+                "var count = nodes.snapshotLength;\n" +
+                "while (count--) {\n" +
+                "    var node = nodes.snapshotItem(count);\n" +
+                "    console.log(\"node\", nodes.snapshotItem(count));\n" +
+                "    node.setAttribute(\"style\", \"border:solid red;\" + node.getAttribute(\"style\"));\n" +
+                "}\n"
+        );
+    }
+
+    final static String CHECK_ELEMENT = "count(//a[contains(@class, \"uIconSearch\")]|//a[contains(@class, \"buttonSearch\")])";
+    public void checkValid() {
+        if (isCompleted) {
+            wind.loadUrl("javascript:GAD.setValid(true);");
+            return;
+        }
+
+        if (!isValidUrl()) {
+            toast("잘못된 페이지 입니다. 광고 페이지로 돌아 갑니다.");
+            wind.loadUrl(apple.getUrl());
+            return;
+        }
+
+        wind.loadUrl("javascript:\n" +
+                "function getElementsByXpath(path) {\n" +
+                "    return document.evaluate(path, document, null, XPathResult.NUMBER_TYPE, null);\n" +
+                "}\n" +
+                "var 상태 = getElementsByXpath('" + CHECK_ELEMENT + "').numberValue > 0;\n" +
+                "console.log(\"상태 =\", 상태);\n" +
+                "GAD.log(\"\" + 상태);\n" +
+                "GAD.setValid(상태);");
+    }
+
+    /**
+     * 각 스크립트에서 공통으로 사용하는 함수들로 변경시 모두 찾아 바꾸기를 사용하도록 한다.
+     */
+    public void execute(Runnable runnable, long delay) {
+        if (delay > 0) {
+            hold.postDelayed(runnable, delay);
+        } else {
+            hold.post(runnable);
+        }
+    }
+
+    public void popupGuide() {
+        final String key = apple.getSubtype() + "_GUIDE";
+        if (mPref.getBoolean(key, true)) {
+            if (mDialog != null && mDialog.isShowing()) {
+                return;
+            }
+            mDialog = buildDialog("", "광고적립을 위해 다음과 같이 진행해주세요.\n\n1. (로그인 필요시) 밴드 로그인\n2. 밴드 초대장 수락\n3. 광고적립 후 완료", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                    blur(false);
+                }
+            }).setNegativeButton("다시보지않기", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                    blur(false);
+                    mPref.edit().putBoolean(key, false).apply();
+                }
+            }).show();
+        } else {
+            blur(false);
+        }
+    }
+
+    public AlertDialog.Builder buildDialog(String title, String message, DialogInterface.OnClickListener listener) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(cat);
+        builder.setTitle(title);
+        builder.setMessage(message);
+        builder.setPositiveButton("확인", listener);
+        builder.setCancelable(false);
+        return builder;
+    }
+
+    public void toast(String message) {
+        Toast.makeText(cat, message, Toast.LENGTH_SHORT).show();
+    }
+
+    public void blur(boolean enable) {
+//        Log.d("GPADEV_", "blur()" + enable);
+        wind.loadUrl("javascript:\n" +
+                "document.body.setAttribute(\"style\", \"filter:blur(" + (enable ? 2 : 0) + "px);\");\n" +
+                "\n");
+    }
+
+    public void fadeOut(String xpath, int offset) {
+        wind.loadUrl("javascript:\n" +
+                "function getElementsByXpath(path) {\n" +
+                "    return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;\n" +
+                "}\n" +
+                "\n" +
+                "function fadeOut(el) {\n" +
+                "    el.style.opacity = 1;\n" +
+                "    (function fade() {\n" +
+                "        if ((el.style.opacity -= .02) < 0) {\n" +
+                "            el.style.display = \"none\";\n" +
+                "            document.body.setAttribute(\"style\", \"filter:blur(0px);\");\n" +
+                "        } else {\n" +
+                "            requestAnimationFrame(fade);\n" +
+                "        }\n" +
+                "    })();\n" +
+                "}\n" +
+                "\n" +
+                "setTimeout(function () {\n" +
+                "    fadeOut(getElementsByXpath('" + xpath + "'));\n" +
+                "}, " + offset + ");" +
+                "\n");
+    }
+
+    public boolean isInviteUrl() {
+        String currentUrl = wind.getUrl() != null ? wind.getUrl()
+                .replace("http://", "")
+                .replace("https://", "")
+                .replace("www.", "")
+                : "currentUrl";
+        String adUrl = apple.getUrl() != null ? apple.getUrl()
+                .replace("http://", "")
+                .replace("https://", "")
+                .replace("www.", "")
+                : "adUrl";
+//        Log.d("GPADEV_", "isValidUrl() " + currentUrl + ", " + adUrl);
+        return currentUrl.startsWith(adUrl);
+    }
+
+    public boolean isValidUrl() {
+        String currentUrl = wind.getUrl() != null ? wind.getUrl()
+                .replace("http://", "")
+                .replace("https://", "")
+                .replace("www.", "")
+                : "currentUrl";
+        String adUrl = apple.getDetail().getData4() != null ? apple.getDetail().getData4()
+                .replace("http://", "")
+                .replace("https://", "")
+                .replace("www.", "")
+                : "adUrl";
+//        Log.d("GPADEV_", "isValidUrl() " + currentUrl + ", " + adUrl);
+        return currentUrl.equals(adUrl);
+    }
+
+    public void destroy() {
+        cat = null;
+        wind = null;
+        if (hold != null) {
+            hold.removeCallbacksAndMessages(null);
+        }
+        hold = null;
+    }

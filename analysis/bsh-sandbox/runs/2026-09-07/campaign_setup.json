@@ -1,0 +1,10 @@
+{
+  "script": "campaign_setup.bsh",
+  "sha256": "710cf1d485cc44f005d474545d071418b4e2853f8ac424d2361f2fa430d7e184",
+  "eval_ok": true,
+  "hook_results": [],
+  "file_reads": 107,
+  "denied": 0,
+  "labels": {"TYPE_PARTICIPATION": "", "TYPE_INSTALL": "", "TYPE_CPS": ""},
+  "events": ["[CLASS] java.lang", "[CLASS] bsh", "[CLASS] java.security", "[CLASS] java.net", "[CLASS] java.io", "[CLASS] androidx.appcompat.app", "[CLASS] android.os", "[CLASS] com.gad.sdk.viewmodel", "[CLASS] AlertDialog", "[CLASS] DialogInterface", "[CLASS] android.content", "[CLASS] com.gad.sdk.ui.fragment", "[STUB] context.getSharedPreferences(com.gad.sdk)", "[CLASS] com.gad.sdk.databinding", "[CLASS] bsh.commands", "[STUB] handler.removeCallbacksAndMessages"]
+}

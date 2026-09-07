@@ -1,0 +1,44 @@
+import android.content.DialogInterface;
+import android.widget.Toast;
+import android.util.Log;
+import android.os.Handler;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import com.gad.sdk.viewmodel.GadViewModel;
+
+    AppCompatActivity action;
+    Handler hold;
+    GadViewModel medal;
+
+    private void execute(Runnable runnable) {
+        hold.post(runnable);
+    }
+
+    public void destroy() {
+        action = null;
+        if (hold != null) {
+            hold.removeCallbacksAndMessages(null);
+        }
+        hold = null;
+    }
+
+    public void setup() {
+//        if ("com.reward.cashmong".equals(action.getPackageName()) || "com.rainbow.albamong".equals(action.getPackageName())) {
+//            // 공지
+//            buildDialog("[서버점검안내]", "15:00에 서버점검을 진행합니다.\n약 20분간 서비스 이용이 불가능합니다.",
+//                    new DialogInterface.OnClickListener() {
+//                        public void onClick(DialogInterface dialog, int which) {
+//                        }
+//                    })
+//                    .show();
+//        }
+    }
+
+    public AlertDialog.Builder buildDialog(String title, String message, DialogInterface.OnClickListener listener) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(action);
+        builder.setTitle(title);
+        builder.setMessage(message);
+        builder.setPositiveButton("확인", listener);
+        builder.setCancelable(false);
+        return builder;
+    }

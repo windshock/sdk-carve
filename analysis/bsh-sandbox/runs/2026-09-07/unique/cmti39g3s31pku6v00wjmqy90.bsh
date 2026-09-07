@@ -1,0 +1,134 @@
+import android.content.Context;
+import android.content.ContextWrapper;
+import android.content.DialogInterface;
+import android.content.SharedPreferences;
+import android.os.Handler;
+import android.view.View;
+import android.webkit.WebView;
+import android.widget.Toast;
+import androidx.appcompat.app.AlertDialog;
+import com.gad.sdk.model.Advertisement;
+import com.gad.sdk.ui.fragment.GadPerformFragment;
+import com.gad.sdk.viewmodel.GadViewModel;
+
+import java.util.HashMap;
+import java.util.Map;
+
+    Context cat;
+    WebView wind;
+    Handler hold;
+    Advertisement apple;
+    GadViewModel vibe;
+    GadPerformFragment flag;
+    AlertDialog mDialog;
+    SharedPreferences mPref;
+    Map map;
+    String lUrl;
+
+    // 초기화 함수로 멤버변수가 설정된 후 호출된다. true 리턴시 광고 url을 로딩하지 않는다.
+    public boolean prepare() {
+        if (apple.getUrl().startsWith("https://gad.api.gpakorea.com/")
+                || apple.getUrl().startsWith("https://gpa.jp.ngrok.io/")) {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(apple.getUrl()));
+            flag.startActivity(intent);
+            flag.requireActivity().finish();
+            return true;
+        }
+        mPref = cat.getSharedPreferences("com.gad.sdk", ContextWrapper.MODE_PRIVATE);
+        map = new HashMap();
+        map.put("x-requested-with", "");
+        map.put("referer", "");
+        wind.setVisibility(View.INVISIBLE);
+        wind.loadUrl(apple.getUrl(), map);
+        lUrl = apple.getUrl();
+        return true;
+    }
+
+    public boolean shouldOverrideUrlLoading(String url) {
+        if (url.startsWith("intent:") || url.startsWith("nidlogin:")) return false;
+        if (!url.equals(lUrl)) {
+            map.put("referer", wind.getUrl());
+            wind.loadUrl(url, map);
+            lUrl = url;
+            return true;
+        }
+        return false;
+    }
+
+    public Object onLoadResource(String url) {
+        return null;
+    }
+
+    public Object onPageStarted(String url) {
+        return null;
+    }
+
+    public Object onPageFinished(String url) {
+        flag.hideProgress();
+        popupGuide();
+        execute(new Runnable() {
+            public void run() {
+                if (mDialog != null && mDialog.isShowing()) {
+                    mDialog.dismiss();
+                }
+                wind.loadUrl("javascript:\nGAD.setValid(true);");
+            }
+        }, 10000);
+        return true;
+    }
+
+    public void checkValid() {
+        toast("기다려주세요. 자동으로 적립되는 광고 입니다.");
+    }
+
+    /**
+     * 각 스크립트에서 공통으로 사용하는 함수들로 변경시 모두 찾아 바꾸기를 사용하도록 한다.
+     */
+    public void execute(Runnable runnable, long delay) {
+        hold.removeCallbacksAndMessages(null);
+        if (delay > 0) {
+            hold.postDelayed(runnable, delay);
+        } else {
+            hold.post(runnable);
+        }
+    }
+
+    public void popupGuide() {
+        final String key = apple.getSubtype() + "_GUIDE";
+        if (mPref.getBoolean(key, true)) {
+            if (mDialog != null && mDialog.isShowing()) {
+                return;
+            }
+            mDialog = buildDialog("", "잠시 기다려주시면 자동으로 적립 됩니다.", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                }
+            }).setNegativeButton("다시보지않기", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                    mPref.edit().putBoolean(key, false).apply();
+                }
+            }).show();
+        } else {
+        }
+    }
+
+    public AlertDialog.Builder buildDialog(String title, String message, DialogInterface.OnClickListener listener) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(cat);
+        builder.setTitle(title);
+        builder.setMessage(message);
+        builder.setPositiveButton("확인", listener);
+        builder.setCancelable(false);
+        return builder;
+    }
+
+    public void toast(String message) {
+        Toast.makeText(cat, message, Toast.LENGTH_SHORT).show();
+    }
+
+    public void destroy() {
+        cat = null;
+        wind = null;
+        if (hold != null) {
+            hold.removeCallbacksAndMessages(null);
+        }
+        hold = null;
+    }

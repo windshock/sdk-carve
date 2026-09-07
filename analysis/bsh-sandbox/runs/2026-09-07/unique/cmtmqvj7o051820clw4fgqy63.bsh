@@ -1,0 +1,239 @@
+import android.content.*;
+import android.net.Uri;
+import android.os.Handler;
+import android.util.Log;
+import android.webkit.WebView;
+import android.widget.Toast;
+import androidx.appcompat.app.AlertDialog;
+import com.gad.sdk.model.Advertisement;
+import com.gad.sdk.ui.fragment.GadPerformFragment;
+import com.gad.sdk.viewmodel.GadViewModel;
+
+import java.util.HashMap;
+import java.util.Map;
+
+    Context cat;
+    WebView wind;
+    Handler hold;
+    Advertisement apple;
+    GadViewModel vibe;
+    GadPerformFragment flag;
+    AlertDialog mDialog;
+    SharedPreferences mPref;
+    Map map;
+    String lUrl;
+    boolean isChecked;
+
+    // 초기화 함수로 멤버변수가 설정된 후 호출된다. true 리턴시 광고 url을 로딩하지 않는다.
+    public boolean prepare() {
+        if ("와디즈알림신청".equals(apple.mission)) {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(apple.getUrl()));
+            flag.startActivity(intent);
+            flag.requireActivity().finish();
+            return true;
+        }
+        mPref = cat.getSharedPreferences("com.gad.sdk", ContextWrapper.MODE_PRIVATE);
+        map = new HashMap();
+        map.put("x-requested-with", "");
+        map.put("referer", "https://blog.daum.net/m/");
+        wind.loadUrl(apple.getUrl(), map);
+        lUrl = apple.getUrl();
+        return true;
+    }
+
+    public boolean shouldOverrideUrlLoading(String url) {
+//        Log.d("GPADEV_", "shouldOverrideUrlLoading() " + url);
+        if (url.startsWith("nidlogin:")) return false;
+        if (url.startsWith("intent:")) {
+            toast("앱 안에서 광고를 진행해주세요.");
+            return true;
+        }
+        if (!url.equals(lUrl)) {
+            map.put("referer", wind.getUrl());
+            wind.loadUrl(url, map);
+            lUrl = url;
+            return true;
+        }
+        return false;
+    }
+
+    public Object onLoadResource(String url) {
+//        Log.d("GPADEV_", "onLoadResource() " + url);
+        return null;
+    }
+
+    public Object onPageStarted(String url) {
+//        Log.d("GPADEV_", "onPageStarted() " + url);
+        return null;
+    }
+
+    public Object onPageFinished(String url) {
+//        Log.d("GPADEV_", "onPageFinished() " + url);
+        if (isValidUrl() && !isChecked) {
+            blur(true);
+            isChecked = true;
+            execute(new Runnable() {
+                public void run() {
+                    checkParticipation();
+                }
+            }, 2000);
+            return true;
+        }
+        return null;
+    }
+
+    public void checkParticipation() {
+//        Log.d("GPADEV_", "checkParticipation() ");
+        wind.loadUrl("javascript:\n" +
+                "function getElementsByXpath(path) {\n" +
+                "    return document.evaluate(path, document, null, XPathResult.NUMBER_TYPE, null);\n" +
+                "}\n" +
+                "var node = getElementsByXpath('" + CHECK_ELEMENT + "').numberValue;\n" +
+                "var 상태 = node > 0;\n" +
+                "console.log(\"상태 =\", 상태);\n" +
+                "GAD.log(\"\" + 상태);\n" +
+                "GAD.recursiveScript('setParticipation(\"' + 상태 + '\")');");
+    }
+
+    public void setParticipation(String participated) {
+//        Log.d("GPADEV_", "setParticipation " + participated);
+        if ("true".equals(participated)) {
+            vibe.completeLocally(apple.getKey());
+            if (mDialog != null && mDialog.isShowing()) {
+                return;
+            }
+            mDialog = buildDialog("", "이미 참여하신 광고입니다. 광고를 종료 합니다.", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+//                    Log.d("GPADEV_", "finish");
+                    execute(new Runnable() {
+                        public void run() {
+                            flag.requireActivity().finish();
+                        }
+                    }, 0);
+
+                }
+            }).show();
+        } else {
+            drawRect();
+            popupGuide();
+            flag.hideProgress();
+        }
+    }
+
+    final static String RECT_ELEMENT = "//button[contains(@class, \"btn-notify\")]|//p[text()=\"오픈 알림 신청\"]/ancestor::div[1]";
+    public void drawRect() {
+//        Log.d("GPADEV_", "drawRect() ");
+        wind.loadUrl("javascript:\n" +
+                "function getElementsByXpath(path) {\n" +
+                "    return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;\n" +
+                "}\n" +
+                "var node = getElementsByXpath('" + RECT_ELEMENT + "');\n" +
+                "if (node) {\n" +
+                "    node.scrollIntoViewIfNeeded();\n" +
+                "    node.setAttribute(\"style\", \"border:solid red;\");\n" +
+                "}\n");
+    }
+
+    final static String CHECK_ELEMENT = "count(//button[@id=\"notification-cancel-button\" and contains(@style, \"block\")]|//p[text()=\"알림 신청 완료\"])";
+    public void checkValid() {
+        if (!isValidUrl()) {
+            toast("잘못된 페이지 입니다. 광고 페이지로 돌아 갑니다.");
+            wind.loadUrl(apple.getUrl());
+            return;
+        }
+
+        wind.loadUrl("javascript:\n" +
+                "function getElementsByXpath(path) {\n" +
+                "    return document.evaluate(path, document, null, XPathResult.NUMBER_TYPE, null);\n" +
+                "}\n" +
+                "var node = getElementsByXpath('" + CHECK_ELEMENT + "').numberValue;\n" +
+                "var 상태 = node > 0;\n" +
+                "console.log(\"상태 =\", 상태);\n" +
+                "GAD.log(\"\" + 상태);\n" +
+                "GAD.setValid(상태);");
+    }
+
+    /**
+     * 각 스크립트에서 공통으로 사용하는 함수들로 변경시 모두 찾아 바꾸기를 사용하도록 한다.
+     */
+    public void execute(Runnable runnable, long delay) {
+        if (delay > 0) {
+            hold.postDelayed(runnable, delay);
+        } else {
+            hold.post(runnable);
+        }
+    }
+
+    public void popupGuide() {
+        final String key = apple.getSubtype() + "_GUIDE";
+        if (mPref.getBoolean(key, true)) {
+            if (mDialog != null && mDialog.isShowing()) {
+                return;
+            }
+            mDialog = buildDialog("", "광고적립을 위해 다음과 같이 진행해주세요.\n\n1. 빨간 사각형을 클릭하여 광고참여\n2. 하단 노란버튼 '적립요청'을 클릭\n3. 광고적립 후 완료", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                    blur(false);
+                }
+            }).setNegativeButton("다시보지않기", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                    blur(false);
+                    mPref.edit().putBoolean(key, false).apply();
+                }
+            }).show();
+        } else {
+            blur(false);
+        }
+    }
+
+    public AlertDialog.Builder buildDialog(String title, String message, DialogInterface.OnClickListener listener) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(cat);
+        builder.setTitle(title);
+        builder.setMessage(message);
+        builder.setPositiveButton("확인", listener);
+        builder.setCancelable(false);
+        return builder;
+    }
+
+    public void toast(String message) {
+        Toast.makeText(cat, message, Toast.LENGTH_SHORT).show();
+    }
+
+    public void blur(boolean enable) {
+//        Log.d("GPADEV_", "blur()" + enable);
+//        wind.loadUrl("javascript:\n" +
+//                "document.getElementsByTagName('body')[0].setAttribute(\"style\", \"filter:blur(" + (enable ? 2 : 0) + "px);\");\n" +
+//                "\n");
+    }
+
+    // 2026-09-01 와디즈 도메인 변경(wadiz.kr → wadiz.io, kr 접속 시 io 로 리다이렉트).
+    // 등록은 kr, 실제 도착은 io 가 되는 광고가 있어 비교 전에 도메인을 통일한다.
+    public boolean isValidUrl() {
+        String currentUrl = wind.getUrl() != null ? wind.getUrl()
+                .replace("http://", "")
+                .replace("https://", "")
+                .replace("campaign/detail/", "")
+                .replace("wcomingsoon/rwd/", "")
+                .replace("www.", "")
+                .replace("wadiz.io/", "wadiz.kr/")
+                : "currentUrl";
+        String adUrl = apple.getUrl() != null ? apple.getUrl()
+                .replace("http://", "")
+                .replace("https://", "")
+                .replace("campaign/detail/", "")
+                .replace("wcomingsoon/rwd/", "")
+                .replace("www.", "")
+                .replace("wadiz.io/", "wadiz.kr/")
+                .split("\\?gad_tracking_id")[0]
+                : "adUrl";
+//        Log.d("GPADEV_", "isValidUrl() " + currentUrl + ", " + adUrl);
+        return currentUrl.startsWith(adUrl);
+    }
+
+    public void destroy() {
+        cat = null;
+        wind = null;
+        if (hold != null) {
+            hold.removeCallbacksAndMessages(null);
+        }
+        hold = null;
+    }

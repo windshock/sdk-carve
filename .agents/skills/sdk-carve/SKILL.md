@@ -77,8 +77,9 @@ family-agnostic until a family is actually identified.
    the sweeps find collection/exfil *shapes*; a negative means "no flagged shape", and
    the report must say so under the evidence rules.
 
-Example in flight: OK캐시백 `com.skmc.okcashbag.home_google`, 시럽
-`com.skt.skaf.OA00026910` (SK Planet host apps, pending acquisition).
+Example: OK캐시백 `com.skmc.okcashbag.home_google` (7.1.9), 시럽
+`com.skt.skaf.OA00026910` (5.8.16_M) — both acquired + fully analyzed 2026-09
+(see `analysis/reports/OKCASHBAG_SDK_TRIAGE.md`, `SYRUP_SDK_TRIAGE.md`).
 
 ### Field notes (validated on a 104k-class KR commercial app, 2026-09)
 
@@ -100,6 +101,49 @@ Example in flight: OK캐시백 `com.skmc.okcashbag.home_google`, 시럽
 - **Semgrep scoped works** on jadx output (it was whole-tree scans that historically
   broke on decompiler syntax). Regex rules see through runtime string decryption that
   name-matching analyzers miss — treat analyzer disagreement as a lead, root-cause it.
+
+### Vendor attribution & server-script triage (validated on GPA GAD/BeanShell in Syrup 5.8.16, 2026-09)
+
+1. **Attribute the vendor before judging behavior** — "obfuscated KR adtech" is not an
+   identity. Chain: log tags / resource prefixes (`GPADEV`, `gad_sdk_*`) → host-app
+   Gradle coordinates (`libs.versions.toml`, private forks: `com.github.<org>:<repo>:<tag>`)
+   → GitHub orgs (vendor may keep TWO orgs: one for JitPack deploy, one for samples/docs) →
+   **JitPack leaks**: `https://jitpack.io/api/builds/com.github.<org>/<repo>` lists every
+   built tag publicly, and `.aar` + `build.log` stay downloadable for tags built while the
+   repo was public — even after the repo went private (GitHub 404). The AAR gives
+   pre-host-R8 code with real names; **base URLs usually live in string resources**
+   (`res/values/values.xml`: `…_url_live`/`…_url_dev`), not class constants. POM = declared
+   deps (e.g. `org.beanshell:bsh:2.0b5`); build.log = internal publication coords + R8 mode.
+2. **Cross-check binary ↔ public spec 1:1** (docs site, sample repo's `api-doc.md`):
+   Retrofit paths, param names, identifier collection (widevine/android_id/imei), and note
+   version skew (app pins v3.x line, docs describe v5). Separate same-function SDKs by
+   **cross-reference counts** (com/gad ↔ adison hosts: 0 refs = different vendors); a
+   copy-pasted comment in host code (`PREF_GAD_UID // Adison UID`) is red herring, not lineage.
+3. **Server-controlled script channels: capture → dedupe → replay.** With explicit user OK
+   (AGENTS.md domain rule): GET-only documented read endpoints, app/media key only (no
+   uid/adid/identifiers), no state-changing POST/DELETE, cap retries. Dedupe by sha256
+   (848 → 38 here) — replay output is a pure function of script content, so cluster
+   representatives are full coverage; prove it once with a 3-member dup-check. Capture
+   provenance (dates, request counts, codes, no-identifier pledge) in a corpus README.
+   Expect undeliberated surprises: multi-tenant script channels (other client apps'
+   package names in comments), undocumented enum values, shipped dev-tunnel URLs.
+4. **Dynamic replay without an emulator** — `analysis/bsh-sandbox/`: JDK 17 only
+   (SecurityManager is dead in 24) + the SDK's OWN interpreter artifact (match the APK's
+   class count to the Maven jar) + real-package stub classes that log every call.
+   Order matters: `eval(script)` THEN bind (top-level typed declarations like
+   `Context cat;` reset variables — the SDK sources first, sets after), then invoke the
+   observed hooks; rewrite captured domains `.invalid`. Record NET/EXEC/EXIT/FILE-W/
+   LINK denies + `checkPackageAccess` + SM-tamper + stub-call events as JSON; keep
+   rawlogs (bsh EvalError messages are truncated — stack traces go in the rawlog).
+   Reusable beyond BeanShell for any server-supplied script channel.
+5. **"Vulnerable version pinned" ≠ "reachable".** For CVEs on embedded libs
+   (CVE-2016-2510 / bsh ≤2.0b5), verify attack preconditions across the WHOLE app:
+   deserialization sinks (XStream/XMLDecoder/Kryo/ScriptEngineManager/Jackson
+   defaultTyping), known gadget-chain libraries, external refs to the gadget class.
+   All-zero → report as hygiene/latent-amplifier, and state the direct path separately
+   (a server-driven eval channel IS arbitrary-exec-by-design; its risk framing is
+   vendor-backend integrity, not the CVE).
+
 
 ## Pre-carve (stage 0 — packer ID, container normalization & payload discovery)
 
@@ -262,6 +306,11 @@ differences:
   NecroCoral): C2 hosts + package anchors + structural markers (known-family signal)
 - `scripts/class-map.py` — per-class capability-API + endpoint mapping on a carved
   mini-JAR (seconds; the fast deep pass before Joern/CodeQL)
+- `analysis/bsh-sandbox/` (workspace) — JVM replay harness for captured server-side
+  BeanShell/scripts: JDK 17 + SecurityManager (NET/EXEC/EXIT/FILE-W deny + class-load
+  log) + real-package stub classes; `eval → bind → hook replay` in the SDK's own bsh
+  version, domains rewritten `.invalid`. Run: `java -cp classes:bsh-<ver>.jar
+  BshSandbox <script.bsh> <out.json>`. See analysis/reports/GAD_BSH_SANDBOX_RUN.md
 - `scripts/carve.sh` — mini-JAR + `jimple2cpg` (parameterized by package globs); builds the
   jar in-memory so obfuscated `j.class`/`J.class` siblings survive a case-insensitive FS
 - `scripts/source-sink.sc` — Joern source/sink inventory + entry→sink reachability

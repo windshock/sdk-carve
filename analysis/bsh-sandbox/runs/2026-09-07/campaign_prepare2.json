@@ -1,0 +1,10 @@
+{
+  "script": "campaign_prepare2.bsh",
+  "sha256": "a2f99f9d7049267924e2a421b86e1bea26e037cd66a1a5006d5c360d6da6326a",
+  "eval_ok": true,
+  "hook_results": ["prepare() -> true"],
+  "file_reads": 98,
+  "denied": 0,
+  "labels": {"TYPE_PARTICIPATION": "참여형", "TYPE_INSTALL": "경험하기", "TYPE_CPS": "쇼핑적립"},
+  "events": ["[CLASS] java.lang", "[CLASS] bsh", "[CLASS] java.security", "[CLASS] java.net", "[CLASS] java.io", "[CLASS] com.gad.sdk.ui.fragment", "[CLASS] com.gad.sdk.util", "[CLASS] com.gad.sdk.databinding", "[CLASS] android.os", "[CLASS] com.gad.sdk.viewmodel", "[STUB] context.getSharedPreferences(com.gad.sdk)", "[CLASS] android.content", "[CLASS] androidx.appcompat.app", "[STUB] fragment.hideProgress()", "[CLASS] bsh.reflect", "[CLASS] java.lang.reflect", "[CLASS] java.lang.invoke", "[CLASS] java.lang.constant", "[CLASS] bsh.commands", "[STUB] handler.removeCallbacksAndMessages"]
+}

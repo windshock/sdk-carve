@@ -1,0 +1,7 @@
+[CLASS] java.lang
+[CLASS] bsh
+[CLASS] java.security
+[CLASS] java.net
+[CLASS] java.io
+[EVAL-ERR] ParseException: In file: inline evaluation of: ``{"code":0,"message":"OK","script":"import android.os.Handler;\nimport android.ut . . . '' Encountered ":" a…
+[CLASS] bsh.commands

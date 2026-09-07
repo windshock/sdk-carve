@@ -1,0 +1,10 @@
+{
+  "script": "cmti39g3s31pku6v00wjmqy90.bsh",
+  "sha256": "bd2286b34dabb5d91cf4eb63d3b47c704db80bd081a159008bdd6b99e5b9c541",
+  "eval_ok": true,
+  "hook_results": ["prepare() -> true", "shouldOverrideUrlLoading(\"https://gad.api.gpakorea.invalid/page/mission.html?email=replay%40test.invalid&gad_tracking_id=REPLAYTEST\") -> false"],
+  "file_reads": 111,
+  "denied": 0,
+  "labels": {"TYPE_PARTICIPATION": "", "TYPE_INSTALL": "", "TYPE_CPS": ""},
+  "events": ["[CLASS] java.lang", "[CLASS] bsh", "[CLASS] java.security", "[CLASS] java.net", "[CLASS] java.io", "[CLASS] android.content", "[CLASS] android.webkit", "[CLASS] android.os", "[CLASS] com.gad.sdk.model", "[CLASS] com.gad.sdk.viewmodel", "[CLASS] com.gad.sdk.ui.fragment", "[CLASS] androidx.appcompat.app", "[CLASS] AlertDialog", "[CLASS] DialogInterface", "[STUB] context.getSharedPreferences(com.gad.sdk)", "[CLASS] com.gad.sdk.databinding", "[CLASS] java.lang.constant", "[CLASS] java.lang.reflect", "[CLASS] java.util", "[CLASS] android.view", "[STUB] view.setVisibility(4)", "[STUB] wind.loadUrl(headers=[referer, x-requested-with])", "[STUB] wind.loadUrl(https://gad.api.gpakorea.invalid/page/mission.html?email=replay%40test.invalid&gad_tracking_id=REPLAYTEST)", "[CLASS] bsh.commands", "[CLASS] android.widget", "[STUB] toast.makeText(기다려주세요. 자동으로 적립되는 광고 입니다.)", "[STUB] toast.show()", "[STUB] fragment.hideProgress()", "[STUB] handler.removeCallbacksAndMessages"]
+}

@@ -1,0 +1,314 @@
+import android.content.Context;
+import android.content.ContextWrapper;
+import android.content.DialogInterface;
+import android.content.SharedPreferences;
+import android.os.Handler;
+import android.util.Log;
+import android.webkit.WebView;
+import android.widget.Toast;
+import androidx.appcompat.app.AlertDialog;
+import com.gad.sdk.model.Advertisement;
+import com.gad.sdk.ui.fragment.GadPerformFragment;
+import com.gad.sdk.viewmodel.GadViewModel;
+
+import java.util.HashMap;
+import java.util.Map;
+
+    Context cat;
+    WebView wind;
+    Handler hold;
+    Advertisement apple;
+    GadViewModel vibe;
+    GadPerformFragment flag;
+    AlertDialog mDialog;
+    SharedPreferences mPref;
+    Map map;
+    String lUrl;
+    String mLastFinishedUrl = "";
+    boolean mParticipationChecked = false;
+
+    // 초기화 함수로 멤버변수가 설정된 후 호출된다. true 리턴시 광고 url을 로딩하지 않는다.
+    public boolean prepare() {
+        mPref = cat.getSharedPreferences("com.gad.sdk", ContextWrapper.MODE_PRIVATE);
+        map = new HashMap();
+        map.put("x-requested-with", "");
+        map.put("referer", "https://www.google.com/search");
+        wind.loadUrl(apple.getUrl(), map);
+        lUrl = apple.getUrl();
+        return true;
+    }
+
+    public boolean shouldOverrideUrlLoading(String url) {
+//        Log.d("GPADEV_", "shouldOverrideUrlLoading() " + url);
+        if (url.startsWith("intent:") || url.startsWith("nidlogin:")) return false;
+        if (!url.equals(lUrl)) {
+            map.put("referer", wind.getUrl());
+            wind.loadUrl(url, map);
+            lUrl = url;
+            return true;
+        }
+        return false;
+    }
+
+    public Object onLoadResource(String url) {
+//        Log.d("GPADEV_", "onLoadResource() " + url);
+        return null;
+    }
+
+    public Object onPageStarted(String url) {
+//        Log.d("GPADEV_", "onPageStarted() " + url);
+        if (!LOGIN && isHome(url)) {
+            mDialog = buildDialog("", "사용자 정보가 확인 됐습니다.\n광고를 다시 참여해주시기 바랍니다.", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                    execute(new Runnable() {
+                        public void run() {
+                            flag.requireActivity().finish();
+                        }
+                    }, 0);
+                }
+            }).show();
+            return true;
+        }
+        return null;
+    }
+
+    public Object onPageFinished(String url) {
+//        Log.d("GPADEV_", "onPageFinished() " + url);
+        if (isValidUrl()) {
+            String normalized = url == null ? "" : url.split("[?#]")[0];
+            // 같은 URL 재발화 + 이미 체크됨 → 찜 클릭 후 DOM 재렌더 케이스라 스킵
+            if (normalized.equals(mLastFinishedUrl) && mParticipationChecked) {
+                return null;
+            }
+            mLastFinishedUrl = normalized;
+            mParticipationChecked = true;
+
+            blur(true);
+            execute(new Runnable() {
+                public void run() {
+                    checkParticipation();
+                }
+            }, 2000);
+            return true;
+        }
+        return null;
+    }
+
+    public void checkParticipation() {
+//        Log.d("GPADEV_", "checkParticipation() ");
+        wind.loadUrl("javascript:\n" +
+                "function getElementValue(path) {\n" +
+                "    return document.evaluate(path, document, null, XPathResult.NUMBER_TYPE, null);\n" +
+                "}\n" +
+                "var count = getElementValue('" + CHECK_ELEMENT + "').numberValue;\n" +
+                "var 상태 = count > 0;\n" +
+                "console.log(\"상태 =\", 상태);\n" +
+                "GAD.log(\"\" + 상태);\n" +
+                "GAD.recursiveScript('setParticipation(\"' + 상태 + '\")');");
+    }
+
+    boolean mParticipated;
+    public void setParticipation(String participated) {
+//        Log.d("GPADEV_", "setParticipation " + participated);
+        if ("true".equals(participated)) {
+            vibe.completeLocally(apple.getKey());
+            if (mDialog != null && mDialog.isShowing()) {
+                if (!mParticipated) {
+                    mParticipated = true;
+                    mDialog.dismiss();
+                } else {
+                    return;
+                }
+            }
+            mDialog = buildDialog("", "이미 찜 된 상품입니다. 광고에 참여할 수 없습니다.", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+//                    Log.d("GPADEV_", "finish");
+                    execute(new Runnable() {
+                        public void run() {
+                            flag.requireActivity().finish();
+                        }
+                    }, 0);
+
+                }
+            }).show();
+        } else {
+            drawRect();
+            popupGuide();
+            flag.hideProgress();
+        }
+    }
+
+    final static String LOGIN_ELEMENT = "count(//div[@class=\"category-top-log\"]/a[contains(@data-ga-label, \"mypage\")])";
+    public void checkLogin() {
+//        Log.d("GPADEV_", "checkLogin");
+        wind.loadUrl("javascript:\n" +
+                "function getElementValue(path) {\n" +
+                "    return document.evaluate(path, document, null, XPathResult.NUMBER_TYPE, null);\n" +
+                "}\n" +
+                "var count = getElementValue('" + LOGIN_ELEMENT + "').numberValue;\n" +
+                "var 로그인 = count > 0;\n" +
+                "GAD.recursiveScript('setLogin(\"' + 로그인 + '\")');");
+    }
+
+    boolean LOGIN = false;
+    public void setLogin(String login) {
+        LOGIN = "true".equals(login);
+        if (!LOGIN) {
+            wind.loadUrl("https://my.musinsa.com/login/v1/login");
+        } else {
+            checkParticipation();
+        }
+    }
+
+    public boolean isHome(String url) {
+        return url.contains("store.musinsa.com/app/?")
+                || url.endsWith("store.musinsa.com/app/")
+                || url.endsWith("store.musinsa.com/app");
+    }
+
+    // 상품찜 버튼만 대상. Like__Container-sc-d92b3d9a = PDP 하단 구매바의 상품 찜 버튼 컨테이너.
+    // 브랜드찜 버튼(LikeBrand__BrandLikeButton / UIButtons__BrandLikeButton)은 제외해야 한다.
+    final static String RECT_ELEMENT = "//div[contains(@class, \"gtm-add-to-wishlist\")]|//div[contains(@class, \"Like__Container-sc-d92b3d9a\")]";
+    public void drawRect() {
+//        Log.d("GPADEV_", "drawRect() ");
+        wind.loadUrl("javascript:\n" +
+                "function getElementsByXpath(path) {\n" +
+                "    return document.evaluate(path, document, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null);\n" +
+                "}\n" +
+                "var nodes = getElementsByXpath('" + RECT_ELEMENT + "');\n" +
+                "var count = nodes.snapshotLength;\n" +
+                "while (count--) {\n" +
+                "    var node = nodes.snapshotItem(count);\n" +
+                "    node.setAttribute(\"style\", \"border:solid red;\" + node.getAttribute(\"style\"));\n" +
+                "}\n");
+    }
+
+    // 찜 완료 판정: 상품 찜 버튼 안의 "채워진 하트"만 센다.
+    // IcBoldLikeFilled 는 브랜드찜 버튼/상품카드 하트도 동일하게 쓰므로 전역으로 세면
+    // 브랜드만 찜한 유저가 "이미 찜 된 상품"으로 오판정된다(2026-09-07 GP54066 이슈).
+    // NewIcLike 는 찜 여부와 무관하게 항상 같은 이름으로 렌더되므로(색만 변경) 판정 근거가 못 된다.
+    final static String CHECK_ELEMENT = "count(//div[contains(@class, \"gtm-remove-from-wishlist\")]|//div[contains(@class, \"Like__Container-sc-d92b3d9a\")]//*[local-name()=\"svg\" and @data-mds=\"IcBoldLikeFilled\"])";
+    public void checkValid() {
+        if (!isValidUrl()) {
+            toast("잘못된 페이지 입니다. 광고 페이지로 돌아 갑니다.");
+            wind.loadUrl(apple.getUrl());
+            return;
+        }
+
+        wind.loadUrl("javascript:\n" +
+                "function getElementValue(path) {\n" +
+                "    return document.evaluate(path, document, null, XPathResult.NUMBER_TYPE, null);\n" +
+                "}\n" +
+                "var count = getElementValue('" + CHECK_ELEMENT + "').numberValue;\n" +
+                "var 상태 = count > 0;\n" +
+                "console.log(\"상태 =\", 상태);\n" +
+                "GAD.log(\"\" + 상태);\n" +
+                "GAD.setValid(상태);");
+    }
+
+    /**
+     * 각 스크립트에서 공통으로 사용하는 함수들로 변경시 모두 찾아 바꾸기를 사용하도록 한다.
+     */
+    public void execute(Runnable runnable, long delay) {
+        hold.removeCallbacksAndMessages(null);
+        if (delay > 0) {
+            hold.postDelayed(runnable, delay);
+        } else {
+            hold.post(runnable);
+        }
+    }
+
+    public void popupGuide() {
+        final String key = apple.getSubtype() + "_GUIDE";
+        if (mPref.getBoolean(key, true)) {
+            if (mDialog != null && mDialog.isShowing()) {
+                return;
+            }
+            mDialog = buildDialog("", "광고적립을 위해 다음과 같이 진행해주세요.\n\n1. 빨간 사각형을 클릭하여 광고참여\n2. 하단 노란버튼 '적립요청'을 클릭\n3. 광고적립 후 완료", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                    blur(false);
+                }
+            }).setNegativeButton("다시보지않기", new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                    blur(false);
+                    mPref.edit().putBoolean(key, false).apply();
+                }
+            }).show();
+        } else {
+            blur(false);
+        }
+    }
+
+    public AlertDialog.Builder buildDialog(String title, String message, DialogInterface.OnClickListener listener) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(cat);
+        builder.setTitle(title);
+        builder.setMessage(message);
+        builder.setPositiveButton("확인", listener);
+        builder.setCancelable(false);
+        return builder;
+    }
+
+    public void toast(String message) {
+        Toast.makeText(cat, message, Toast.LENGTH_SHORT).show();
+    }
+
+    public void blur(boolean enable) {
+//        Log.d("GPADEV_", "blur()" + enable);
+        wind.loadUrl("javascript:\n" +
+                "document.body.setAttribute(\"style\", \"filter:blur(" + (enable ? 2 : 0) + "px);\");\n" +
+                "\n");
+    }
+
+    public void fadeOut(String xpath, int offset) {
+        wind.loadUrl("javascript:\n" +
+                "function getElementsByXpath(path) {\n" +
+                "    return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;\n" +
+                "}\n" +
+                "\n" +
+                "function fadeOut(el) {\n" +
+                "    el.style.opacity = 1;\n" +
+                "    (function fade() {\n" +
+                "        if ((el.style.opacity -= .02) < 0) {\n" +
+                "            el.style.display = \"none\";\n" +
+                "            document.body.setAttribute(\"style\", \"filter:blur(0px);\");\n" +
+                "        } else {\n" +
+                "            requestAnimationFrame(fade);\n" +
+                "        }\n" +
+                "    })();\n" +
+                "}\n" +
+                "\n" +
+                "setTimeout(function () {\n" +
+                "    fadeOut(getElementsByXpath('" + xpath + "'));\n" +
+                "}, " + offset + ");" +
+                "\n");
+    }
+
+    public boolean isValidUrl() {
+//        String currentUrl = wind.getUrl() != null ? wind.getUrl()
+//                .replace("http://m.", "")
+//                .replace("http://", "")
+//                .replace("https://m.", "")
+//                .replace("https://", "")
+//                .replace("www.", "")
+//                : "currentUrl";
+//        String adUrl = apple.getUrl() != null ? apple.getUrl()
+//                .replace("http://m.", "")
+//                .replace("http://", "")
+//                .replace("https://m.", "")
+//                .replace("https://", "")
+//                .replace("www.", "")
+//                .split("\\?gad_tracking_id")[0]
+//                : "adUrl";
+//        Log.d("GPADEV_", "isValidUrl() " + currentUrl + ", " + adUrl);
+//        return currentUrl.equals(adUrl);
+        return true;
+    }
+
+    public void destroy() {
+        cat = null;
+        wind = null;
+        if (hold != null) {
+            hold.removeCallbacksAndMessages(null);
+        }
+        hold = null;
+    }

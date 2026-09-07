@@ -1,0 +1,10 @@
+{
+  "script": "cmtkwss8l3k6vilj7ag941si5.bsh",
+  "sha256": "32a12c0462bff5f904a716e6b9bb7865e45fe48916df4d50abc300941f185217",
+  "eval_ok": true,
+  "hook_results": ["prepare() -> true", "shouldOverrideUrlLoading(\"https://gad.api.gpakorea.invalid/page/mission.html?email=replay%40test.invalid&gad_tracking_id=REPLAYTEST\") -> false", "isValidUrl() -> true"],
+  "file_reads": 97,
+  "denied": 0,
+  "labels": {"TYPE_PARTICIPATION": "", "TYPE_INSTALL": "", "TYPE_CPS": ""},
+  "events": ["[CLASS] java.lang", "[CLASS] bsh", "[CLASS] java.security", "[CLASS] java.net", "[CLASS] java.io", "[CLASS] android.content", "[CLASS] android.webkit", "[CLASS] android.os", "[CLASS] com.gad.sdk.model", "[CLASS] com.gad.sdk.viewmodel", "[CLASS] com.gad.sdk.ui.fragment", "[CLASS] androidx.appcompat.app", "[CLASS] AlertDialog", "[CLASS] DialogInterface", "[STUB] context.getSharedPreferences(com.gad.sdk)", "[CLASS] com.gad.sdk.databinding", "[CLASS] java.lang.reflect", "[CLASS] android.net", "[STUB] new Intent(android.intent.action.VIEW, https://gad.api.gpakorea.invalid/page/mission.html?email=replay%40test.invalid&gad_tracking_id=REPLAYTEST)", "[STUB] fragment.startActivity(Intent(stub))", "[STUB] activity.finish()", "[CLASS] bsh.commands", "[STUB] handler.removeCallbacksAndMessages"]
+}

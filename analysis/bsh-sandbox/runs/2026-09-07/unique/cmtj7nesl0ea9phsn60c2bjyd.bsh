@@ -1,0 +1,98 @@
+import android.content.*;
+import android.net.Uri;
+import android.widget.Toast;
+import android.webkit.WebView;
+import android.os.Handler;
+import androidx.appcompat.app.AlertDialog;
+import com.gad.sdk.model.Advertisement;
+import com.gad.sdk.ui.fragment.GadPerformFragment;
+import com.gad.sdk.viewmodel.GadViewModel;
+
+    Context cat;
+    WebView wind;
+    Handler hold;
+    Advertisement apple;
+    GadViewModel vibe;
+    GadPerformFragment flag;
+    AlertDialog mDialog;
+    SharedPreferences mPref;
+
+    // 초기화 함수로 멤버변수가 설정된 후 호출된다. true 리턴시 광고 url을 로딩하지 않는다.
+    public boolean prepare() {
+        mPref = cat.getSharedPreferences("com.gad.sdk", ContextWrapper.MODE_PRIVATE);
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(apple.getUrl()));
+        flag.startActivity(intent);
+        flag.requireActivity().finish();
+        return true;
+    }
+
+    public boolean shouldOverrideUrlLoading(String url) {
+        return false;
+    }
+
+    public Object onPageStarted(String url) {
+        return null;
+    }
+
+    public Object onLoadResource(String url) {
+        return null;
+    }
+
+    public Object onPageFinished(String url) {
+        return null;
+    }
+
+    public void checkParticipation() {
+    }
+
+    public void setParticipation(String participated) {
+    }
+
+    final static String RECT_ELEMENT = "//button[contains(@class, \"btnJoin\")]";
+    public void drawRect() {
+    }
+
+    final static String CHECK_ELEMENT = "count(//div[@class=\"btns_area\"]//button[@class=\"btn_write\"])";
+    public void checkValid() {
+    }
+
+    /**
+     * 각 스크립트에서 공통으로 사용하는 함수들로 변경시 모두 찾아 바꾸기를 사용하도록 한다.
+     */
+    public void execute(Runnable runnable, long delay) {
+    }
+
+    public void popupGuide() {
+    }
+
+    public AlertDialog.Builder buildDialog(String title, String message, DialogInterface.OnClickListener listener) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(cat);
+        builder.setTitle(title);
+        builder.setMessage(message);
+        builder.setPositiveButton("확인", listener);
+        builder.setCancelable(false);
+        return builder;
+    }
+
+    public void toast(String message) {
+        Toast.makeText(cat, message, Toast.LENGTH_SHORT).show();
+    }
+
+    public void blur(boolean enable) {
+    }
+
+    public void fadeOut(String xpath, int offset) {
+    }
+
+    public boolean isValidUrl() {
+        return true;
+    }
+
+    public void destroy() {
+        cat = null;
+        wind = null;
+        if (hold != null) {
+            hold.removeCallbacksAndMessages(null);
+        }
+        hold = null;
+    }

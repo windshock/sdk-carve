@@ -1,0 +1,11 @@
+{
+  "script": "campaign_prepare2.txt",
+  "sha256": "5c4d8d17926e51fee3ac736c66965ed3b62e7e0693c428cb48d26e99a64ab673",
+  "eval_ok": false,
+  "eval_error": "ParseException: In file: inline evaluation of: ``{\"code\":0,\"message\":\"OK\",\"script\":\"import android.os.Handler;\\nimport android.ut . . . '' Encountered \":\" a…",
+  "hook_results": [],
+  "file_reads": 67,
+  "denied": 0,
+  "events": ["[CLASS] java.lang", "[CLASS] bsh", "[CLASS] java.security", "[CLASS] java.net", "[CLASS] java.io", "[EVAL-ERR] ParseException: In file: inline evaluation of: ``{\"code\":0,\"message\":\"OK\",\"script\":\"import android.os.Handler;\\nimport android.ut . . . '' Encountered \":\" a…", "[CLASS] bsh.commands"],
+  "labels": {"TYPE_PARTICIPATION": "", "TYPE_INSTALL": "", "TYPE_CPS": ""}
+}
