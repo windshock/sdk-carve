@@ -48,10 +48,26 @@ triage의 위험스캔은 `ObjectInputStream.readObject` 시그니처만 봐서 
   (513)은 Externalizable 구현체에만 실행됨. **AAR 664클래스 중 Externalizable 구현체는 0개**
   — `e.f`/`e.g`는 Externalizable을 *구현*하는 게 아니라 각각 `DataInputStream implements ObjectInput`
   / `DataOutputStream implements ObjectOutput` 리더·라이터로 이 게이트를 **참조**할 뿐(= zcode의
-  "e.f/e.g가 Externalizable 구현" 표현은 "구현 0, 게이트 참조 2"로 보정). → **CVE-2016-2510식
-  readExternal 가젯 경로는 in-package 死(dead)**. 잔여는 게이트 이전의 `loadClass().newInstance()`
-  (임의 classpath 클래스의 무인자 생성자/정적초기화) 원시행위뿐 — 위험 무인자-생성자 가젯 미식별 +
-  TLS MITM(HSTS api3) 전제 → **실사용 리스크 사실상 nil**.
+  "e.f/e.g가 Externalizable 구현" 표현은 "구현 0, 게이트 참조 2"로 보정).
+- **재보정(2026-09-07, Externalizable 취약점 레퍼런스 반영 — "in-package dead / nil"은 과소평가):**
+  바이트코드 추가 확인 결과 표면은 TNK AAR이 아니라 **앱 런타임 classpath 전체**다.
+  (1) 인스턴스화할 **클래스명은 스트림에서 읽은 `PacketTypes$Traits.className`**(서버 통제) —
+  `462 length/465 ifne`의 **비어있지 않음 검사만, 화이트리스트/프리픽스 필터 없음**;
+  (2) 로더는 `478 ldc e.f.class → 480 getClassLoader` = **앱 클래스로더** → 프레임워크+호스트앱+
+  번들된 모든 SDK 클래스를 로드 가능(TNK 패키지 한정 아님);
+  (3) `487 newInstance`가 **게이트(501) 이전**에 실행 → 임의 앱-classpath 클래스의 무인자 생성자/
+  정적초기화가 무조건 실행;
+  (4) e.f는 **표준 `ObjectInputStream`이 아닌 자체 `ObjectInput`** → **JEP-290 `ObjectInputFilter`가
+  이 경로를 보호하지 못함**(플랫폼 역직렬화 필터 우회). 따라서 `readExternal` 가젯 표면 =
+  **피해 앱 classpath 상의 Externalizable+악용가능 readExternal 구현체 집합**(TNK AAR=0이 상한이 아님;
+  레퍼런스 §2/§3의 앱·3rd-party readExternal 가젯 지점과 동일). 표준 Intent/Bundle/ObjectInputStream
+  진입점(CVE-2014-7911/2015-3825)은 **미해당**(데이터는 api3 HTTP 프로토콜로 유입) — 원리만 동일.
+  - **판정 재조정: nil 아님 → 실사용 "낮음"(설계결함은 "중").** 실 익스플로잇은
+    (a) HSTS api3 **TLS MITM/백엔드 침해** 전제 + (b) 앱 classpath 내 악용가능 readExternal 가젯 필요
+    (2025 arXiv: AOSP엔 심각 가젯 희소 → 앱·SDK 의존)로 게이트되어 낮음. 다만 **화이트리스트 부재 +
+    자체 ObjectInput(JEP-290 우회) + 앱 로더 + 서버 통제 클래스명**은 실질 역직렬화 설계결함 →
+    **TNK 하드닝 요청: (i) loadClass 전 클래스명 allow-list(자사 패킷 클래스), (ii) 자체 ObjectInput
+    폐기하고 타입안전 포맷(protobuf 등), (iii) 서버 응답 무결성(cert pinning) 확인.**
 
 ## 3. 식별자 텔레메트리 — 구조적 exfil 경로 확정
 
@@ -69,8 +85,10 @@ triage의 위험스캔은 `ObjectInputStream.readObject` 시그니처만 봐서 
 - **triage 핵심 결론 유지·강화**: **원격 코드 실행 채널 없음**(EXEC 0 · SCRIPT-ENGINE 0 CPG 확정) —
   GAD BeanShell과 근본적으로 다름. 행위는 웹뷰 오퍼월 + 표준 광고 API로 수렴.
 - **보정 1건**: "deserialization 0" → **자체 `ObjectInput`(`e.f`)의 loadClass+newInstance 잠복면
-  존재**(백엔드 무결성 의존, 무인자 생성자 한정) → **후속 검증: `instanceof Externalizable` 게이트 +
-  AAR 내 Externalizable 구현체 0개로 readExternal 가젯 경로 死 → 실사용 nil**(§2 정밀화).
+  존재** → **재보정(§2)**: `instanceof Externalizable` 게이트는 있으나 클래스명 화이트리스트 없음 +
+  **앱 클래스로더**(런타임 classpath 전체) + 자체 ObjectInput(**JEP-290 필터 우회**) → 표면은
+  AAR(구현체 0)이 아니라 **피해 앱 classpath 전체**. 실사용 **낮음**(TLS-MITM/백엔드 + 가젯 가용 전제),
+  **설계결함 "중" → TNK 하드닝 요청**(allow-list / 타입안전 포맷 / cert pinning).
 - **프라이버시**: adid + 레거시 `getDeviceId`(3+) 가 `api3.tnkfactory.com`으로 전송(구조 확정),
   Adiscope(dev 엔드포인트 잔존)/Tenqube 3자 연동 — triage §2·§3와 일치.
 - **위생 항목(유지)**: v7 문자열 암호화 vs v8 평문, Adiscope **dev** URL 잔존, 레거시 IMEI 호출.
