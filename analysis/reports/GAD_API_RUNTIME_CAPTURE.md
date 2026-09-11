@@ -137,7 +137,34 @@ GPA KOREA는 GitHub org를 2개 운영(스킬 vendor-attribution 노트의 "2-or
 - **버전 skew**: 통합 스니펫 = `syrup-0.8.0-rc.4` vs 본 분석 AAR/런타임 캡처 = `rc.12`
   — triage에 핀된 RC 명확화 필요(동일 라인이나 RC별 엔드포인트/스크립트 차이 가능).
 
-**후속(미실행)**: `gad-sample-android@syrup`의 README/api-doc을 본 캡처 엔드포인트
-(`gad.api.gpakorea.com` `/campaign/{setup,prepare2,list,script/entry}`, 미문서 `type=5` CPS,
-`x-tdi-client-secret` 헤더)와 **1:1 대조**하면 "볼트 뒤 정확한 API 경로" 미결을 **공개 문서로 종결**
-가능(봉인 전 diff 불요). — 사용자 지시로 현재는 기록만.
+## 공개 문서 1:1 대조 (2026-09-11 완료 — ROADMAP C-P1)
+
+`gad-sample-android@syrup`의 공개 문서 3종(README.md / api-doc.md / guide_cpa.md)을 본 캡처와 대조했다.
+
+**공개 문서가 명시하는 것 (정상 오퍼월 CRUD):**
+- 호스트 `https://gad.api.gpakorea.com` — 캡처 호스트와 **일치**.
+- 엔드포인트: `/campaign/{list, join, status, complete}`, 레거시 `/advertisement`, `/advertisement/comp`.
+- `type` 파라미터 = **0~4만 문서화** (0 참여/1 설치/2 실행/3 미션/4 액션).
+- 파라미터: media/adKey/uid/adid/adid/udid/android_id/imei 등. **헤더 문서화 없음.**
+- 버전: README = `syrup-0.8.0-rc.12` → **본 분석 런타임 캡처(rc.12)와 일치** (rc.4 skew는 통합 스니펫의 구버전 표기였을 뿐, 샘플 repo 기준은 rc.12로 종결).
+
+**공개 문서 어디에도 없는 것 (= 캡처된 은닉 채널 표면):**
+- 엔드포인트 `/campaign/setup`, `/campaign/prepare2`, `/campaign/script/entry` — 미문서.
+- `type=5` (CPS) — 미문서 (문서는 0~4까지만).
+- `x-tdi-client-secret` 헤더 — 미문서.
+- **BeanShell / script / eval / 서버구동 코드 채널** — 3종 문서 전부 **0회 언급**.
+
+**결론(공개 문서로 종결):** 개발자 대상 공개 API는 표준 오퍼월 CRUD(list/join/status/complete, type 0~4)에
+불과하다. 런타임에서 관측된 `setup/prepare2/script/entry` 라이프사이클 + `type=5` + `x-tdi-client-secret`
++ BeanShell eval 채널은 **통합사(매체)에게 전혀 공개되지 않은 내부 표면**이다. 즉 "볼트 뒤 정확한 API 경로"
+미결은 봉인 전 diff 없이 **공개 문서 부재로 확정**된다 — 문서화된 표면과 실제 표면의 격차 자체가 은닉 채널이다.
+
+**남은 후속**: iOS SDK(`gad-ios-sdk-syrup`, `GadSDK ~>0.1.3`)의 BeanShell/스크립트 채널 유무(크로스플랫폼 대칭성 확인용).
+
+## 공개 소스 (2026-09-07 기록)
+
+GPA KOREA는 GitHub org를 2개 운영(스킬 vendor-attribution 노트의 "2-org" 패턴 확인):
+- **`koreagpa-dev`** — JitPack 배포용(= gradle 좌표 `com.github.koreagpa-dev:gad`가 가리킴)
+- **`GPA-KOREA`** — 샘플/문서용
+- **AOS**: `com.github.koreagpa-dev:gad:syrup-0.8.0-rc.12` (repo `jitpack.io`), 가이드 `GPA-KOREA/gad-sample-android/tree/syrup`
+- **iOS**: `GPA-KOREA/gad-ios-sdk-syrup`, CocoaPods `pod 'GadSDK', '~> 0.1.3'` / SPM.

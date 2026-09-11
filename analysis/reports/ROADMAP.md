@@ -42,8 +42,13 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped/blocked. 
   (chart data only vs account context); hygiene flag → vendor.
 
 ## C. Offerwall — resume (xShield deobf gate now cleared; skp-xshield-assessment is a separate session)
-- [ ] **P1 — GAD api-doc ↔ capture cross-check** (`GPA-KOREA/gad-sample-android@syrup`): closes the
-  vaulted-endpoint item without a pre-seal diff. (See GAD_API_RUNTIME_CAPTURE.md §공개 소스.)
+- [x] **P1 — GAD api-doc ↔ capture cross-check** (`GPA-KOREA/gad-sample-android@syrup`). DONE. Public
+  README/api-doc/guide_cpa document only the standard offerwall CRUD (`/campaign/{list,join,status,
+  complete}` + `/advertisement`, type **0–4**, no headers). The captured `setup`/`prepare2`/`script/entry`
+  lifecycle, `type=5` CPS, `x-tdi-client-secret`, and the BeanShell/eval channel are **absent from all
+  public docs** → the covert channel is undocumented-to-integrators; item closed by public-doc absence.
+  Bonus: README pins `syrup-0.8.0-rc.12` = my runtime capture → rc.4/rc.12 skew resolved.
+  *Remaining: iOS SDK (`gad-ios-sdk-syrup`) script-channel symmetry check.*
 - [ ] **P1 — TNK `SSLFactory` cert-pinning check** — the low↔medium decider for the deser surface
   (TNK_FULLPASS.md §5). HSTS ≠ pinning.
 - [ ] **P2 — Adison SugarToken confirm** (Native-Ads SDK/docs) + `open/openExternal` domain allowlist
