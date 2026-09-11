@@ -83,24 +83,32 @@ loadScript(String) / include(String)  →  ScriptEngine.a(String)  →  org.mozi
   write, so no local-cache tamper vector). Kept per name with a 10-digit version for delta updates.
 
 ## Attack path — how a payload gets injected (updateScript bytecode, javap)
-The channel that delivers the (arbitrary-code) script has **no transport TLS, no script signature, and an
-app-derived static AES key** — so it is forgeable with a low barrier:
+The channel that delivers the (arbitrary-code) script has **no transport TLS and no script signature**, so
+authenticity rests entirely on AES-key secrecy — with no signature to forge:
 | defense | measured | consequence |
 |---|---|---|
 | transport TLS | **none** (raw `Socket`, no SSL) | on-path attacker intercepts **without a CA** (plain TCP) |
-| script signature/MAC | **none** (no `Signature.verify`/`Mac`/`WithRSA` in `updateScript`; the `SHA-256` present is an unkeyed hash — SHA256WithRSA exists only in the algorithm map) | **no authenticity** — forgery blocked only by AES-key secrecy |
-| AES key | `AESCipher.setKey(StringByByte.makeString(<internal consts>, static fields f/g/h).getBytes())`, set **before** the socket read, no server nonce | key derived from **app-internal static material → recoverable by reversing the app** (likely a fixed key) |
+| script signature/MAC | **none** (no `Signature.verify`/`Mac`/`WithRSA` in `updateScript`; the `SHA-256` present is an unkeyed hash — SHA256WithRSA exists only in the algorithm map) | **no authenticity** — a correctly-keyed AES blob is accepted verbatim |
+| AES key | `AESCipher.setKey(<local>)` at two stages (handshake + script); the byte-code (dex2jar register-mangled) shows the key built from app/device/version material + socket data, **not** a server-signed value. *`StringByByte.makeString` is fixed-length REQUEST-field padding, not the key (earlier note corrected).* | key derivation carries **no authenticity**; whether it's network-recoverable is the open dynamic item (below) |
 | disk cache | **none** | no local-file tamper path |
 
-**① On-path network injection (primary, low barrier):** plain TCP → intercept on any shared/rogue network
-(no CA needed) → recover the app-static AES key once → decrypt the fetched script, swap in a malicious one,
-re-encrypt with the same key → the app evals it → **arbitrary in-process code** (no ClassShutter, PoC-confirmed).
-No TLS, no CA, no signature forgery required — only a one-time AES-key extraction.
+**① On-path network injection (primary):** plain TCP → intercept on any shared/rogue network (no CA needed).
+Because there is **no signature**, the only thing standing between an on-path attacker and code execution is
+the AES key; recover/derive it once → swap the script → the app evals it → **arbitrary in-process code**
+(no ClassShutter, PoC-confirmed). No TLS, no CA, no signature forgery — the barrier reduces to the AES key.
 **② `devel.mode`/`local.ip` source redirect (secondary/supply-chain):** in-process code (a malicious co-bundled
 SDK) or a leftover devel build sets the system property → script server points at an attacker host.
 **Not applicable:** local cache tamper (scripts are memory-only).
+
+**Confidence / open dynamic item (honest):** *confirmed statically* — no TLS, no signature, AES/CBC+GZip,
+memory-only, no-ClassShutter→RCE (PoC). *Confirmed dynamically* — the forge→AES-decrypt→GZip→`eval` chain
+executes on the app's REAL `AESCipher`+`GZip`+`ScriptEngine` given a valid key (PoC, `~/Downloads/coocon/poc/`).
+*Not yet nailed* — the **exact AES key + whether it is network-recoverable** (the two-stage handshake key
+derivation is too register-mangled to reverse reliably from dex2jar); confirming it needs a **runtime
+`AESCipher.setKey` hook** (device/Frida or a mock-server run). Until then the network-injection severity is
+"no-signature + plain-TCP → forgeable *if* the key is recoverable," not a demonstrated full network exploit.
 → Fixes (VENDOR_HARDENING_REQUESTS.md §4): TLS+pinning, **RSA-sign the script** (SHA256WithRSA already in the
-map), session-derive the AES key (drop the app-static key), engine **ClassShutter** (contain any executed payload).
+map), session-derive the AES key, engine **ClassShutter** (contain any executed payload).
 
 ## Capability surface (carved CPG)
 - JS-EVAL: `ScriptEngine` (Rhino) **and** `V8ScriptEngine` (Google V8) — two interchangeable engines.
