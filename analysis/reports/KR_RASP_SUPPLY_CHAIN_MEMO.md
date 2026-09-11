@@ -13,8 +13,10 @@ Multiple widely-installed KR apps (banks, brokers, adtech) ship **server-driven 
 — a server can push code (BeanShell/JS) that runs inside the app. None observed doing anything malicious,
 but each collapses app security to *the vendor's server + transport integrity*. Two independent instances,
 same class as [[gpa-gad-beanshell]]:
-1. **GPA GAD** (Syrup adtech) — server **BeanShell** eval, in many Syrup-bundled apps. Android-only
-   (iOS SDK ships no interpreter — asymmetric).
+1. **GPA GAD** (Syrup adtech) — server **BeanShell** eval. **Binary-confirmed in 3 apps: Syrup, 캐시몽
+   (`com.reward.cashmong`), 알바몽 (`com.rainbow.albamong`)** — same `com.gad.sdk` + `bsh.Interpreter` +
+   `gad.api.gpakorea.com` + the `campaign/{setup,prepare2,script}` lifecycle. Android-only (iOS SDK ships
+   no interpreter — asymmetric).
 2. **Coocon SASAPI** — server **JavaScript** (Rhino/V8) scraping engine, in 4 financial apps.
 These are **RCE-by-design dependencies**, not bugs. Govern them like any "server can run code in our app"
 supply-chain surface: vendor server integrity, script signing, endpoint pinning, least-privilege scope.

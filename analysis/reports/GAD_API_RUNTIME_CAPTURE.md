@@ -137,6 +137,20 @@ GPA KOREA는 GitHub org를 2개 운영(스킬 vendor-attribution 노트의 "2-or
 - **버전 skew**: 통합 스니펫 = `syrup-0.8.0-rc.4` vs 본 분석 AAR/런타임 캡처 = `rc.12`
   — triage에 핀된 RC 명확화 필요(동일 라인이나 RC별 엔드포인트/스크립트 차이 가능).
 
+## GAD 탑재 앱 — 바이너리 확정 (2026-09-11)
+
+시럽 캡처의 서버 BeanShell 스크립트에 하드코딩돼 있던 두 앱을 직접 내려받아 검증(로컬, 미커밋):
+
+| 앱 | package | com.gad.sdk | bsh.Interpreter | gpakorea | 채널 증거 |
+|---|---|---|---|---|---|
+| **시럽 (Syrup)** | (SK플래닛) | ✅ | ✅ | ✅ | 런타임 캡처(본 리포트) — 완전 |
+| **캐시몽** | com.reward.cashmong | ✅ (166+ refs) | ✅ (20) | ✅ | `campaign/{setup,prepare2,list,join,complete}` 전부 + `ScriptResponse`+`bsh` 동일 dex 공존 |
+| **알바몽** | com.rainbow.albamong | ✅ (69+ refs) | ✅ (3) | ✅ `gad.api.gpakorea.com` | `/script/` + `ScriptResponse`+`bsh` 동일 dex 공존 |
+
+→ **시럽만이 아니라 캐시몽·알바몽도 동일 GAD SDK(`com.gad.sdk`) + 동일 BeanShell 서버-스크립트 채널**을
+탑재. 캐시몽은 setup/prepare2/script/list/join/complete 라이프사이클 엔드포인트가 리터럴로 전부 확인돼 채널이
+가장 완전. "서버 스크립트가 언급한 앱" 정황 → **바이너리 확정**으로 승격. (샘플은 로컬 유지, 미커밋.)
+
 ## 공개 문서 1:1 대조 (2026-09-11 완료 — ROADMAP C-P1)
 
 `gad-sample-android@syrup`의 공개 문서 3종(README.md / api-doc.md / guide_cpa.md)을 본 캡처와 대조했다.
