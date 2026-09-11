@@ -54,8 +54,11 @@ executing top-down, recommendation-first. `[x]`=done this session.
   SEED-decrypted JS → Rhino/V8. No pin observed. Folded into COOCON_SASAPI_TRIAGE.md.
 - [ ] **P3 — what the scraping scripts collect/exfil** — needs the server-supplied JS (dynamic run or
   captured module). Same "server code channel" risk framing as GAD BeanShell.
-- [ ] **P3 — drfn/chart plain-HTTP (218.38.18.171/smartPhone/*.php)** — confirm payload of upload.php
-  (chart data only vs account context); hygiene flag → vendor.
+- [x] **P3 — drfn/chart plain-HTTP (218.38.18.171/smartPhone/*.php)** — DONE. `upload.php` multipart sends
+  the chart image + `userId`/`userIp`/`deviceID` + charted `symbol`/`codeName`/`lcode` + `title`/`detail`
+  memo; `delete.php` sends `deviceID` in the query. Cleartext HTTP to a hardcoded 3rd-party IP inside a
+  brokerage app. Not creds/orders (it's the 공유차트 share feature) but identifiers+watchlist in plaintext
+  = confirmed privacy/hygiene flag. Written up in COOCON_SASAPI_TRIAGE.md.
 
 ## C. Offerwall — resume (xShield deobf gate now cleared; skp-xshield-assessment is a separate session)
 - [x] **P1 — GAD api-doc ↔ capture cross-check** (`GPA-KOREA/gad-sample-android@syrup`). DONE. Public

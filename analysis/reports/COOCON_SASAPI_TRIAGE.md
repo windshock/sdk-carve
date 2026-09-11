@@ -95,10 +95,22 @@ loadScript(String) / include(String)  →  ScriptEngine.a(String)  →  org.mozi
 - **Same threat class as GPA GAD BeanShell** (server → in-process code eval). Not malware; a supply-chain
   surface a bank/broker should govern (vendor server integrity, script signing, scope of scraped data).
 
-## Second finding in the same dexes (hygiene, not malicious)
-`drfn/chart` (charting SDK) `LoadChartController`/`SaveChartController`/`COMUtil` sync user chart configs
-over **plain HTTP to a bare IP**: `http://218.38.18.171/smartPhone/{upload,dnload,dnloadPro,delete}.php`.
-Unencrypted + hardcoded IP in a securities app = a hygiene/privacy flag (recommend HTTPS + review payload).
+## Second finding in the same dexes (hygiene/privacy — payload confirmed 2026-09-11)
+`drfn/chart` (third-party charting SDK, `drfn.chart.base.{Save,Load}ChartController` + `COMUtil`) is a
+**"공유차트" (shared-chart) community feature** that syncs over **plain HTTP to a hardcoded bare IP**:
+`http://218.38.18.171/smartPhone/{upload,dnload,dnloadPro,delete}.php`.
+- **`upload.php`** (multipart POST, `SaveChartController.HttpFileUpload`): the chart **image** (`userfile`,
+  `ipodfile.jpg`) **plus form fields** `saveDate, userId, userIp, verInfo, title, detail, chartMode,
+  divideInfo, apCode, graphList, **deviceID**, analInfo, codeName, **symbol, lcode**, dataTypeName, count,
+  viewCount, valueOfMin`.
+- **`delete.php?uid=…&deviceID=…`** sends the **device identifier** in the query string (cleartext).
+- Downloaded records carry `deviceID, userId, userIp` alongside the chart config.
+- **So the payload is NOT "chart data only"**: it ships **three identifiers (userId / userIp / deviceID)**,
+  the **charted security (`symbol`/`codeName`/`lcode`)** (reveals watchlist/interest), and user-entered
+  `title`/`detail` (memo) — all **cleartext HTTP to a hardcoded third-party IP** inside a brokerage app.
+- **Not credentials/orders**, and chart-share is opt-in-by-design, but: plaintext transport + device/user
+  identifiers + a bundled chart vendor's own bare-IP server = a real privacy/hygiene flag. Recommend HTTPS,
+  drop/deviceID-minimize the shared-chart upload (or explicit consent), and review the third-party server.
 
 ## Follow-ups
 - Recover Coocon's `updateScript` server endpoint/protocol (behind SEED + likely the payload/config).
