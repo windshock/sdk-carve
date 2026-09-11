@@ -11,8 +11,8 @@ All P1 + the recommended-next-3 are done. Remaining P2/P3 are sequenced below so
 executing top-down, recommendation-first. `[x]`=done this session.
 1. [x] **C** — Adison SugarToken + allowlist → **C** vendor hardening docs (GAD/TNK/Adison) → **C** issue #5 writeup.
 2. [~] **B** — [x] Coocon version diff (4 apps) → [ ] Coocon `updateScript` server endpoint/protocol → [ ] drfn plain-HTTP payload.
-3. [~] **A/D** — [x] find_decryptor 32-bit + arg-recon (arm64 6.9.20.x 0→104 str; arm32 locates+len/key,
-   full dump=func-entry-emu limit) → [ ] app string vault (Phase 3) → [ ] packer-detect Toss case.
+3. [x] **A/D** — [x] find_decryptor 32-bit + arg-recon (arm64 6.9.20.x 0→104 str; arm32 locates+len/key)
+   → [x] app string vault (Phase 3, reproducible unidbg recipe) → [x] packer-detect Toss string-enc heuristic.
 4. [ ] **E/F** — consolidated KR-RASP memo (+ GAD iOS symmetry) → draft vendor notifications → Goldoson-TDI.
 > Blocked-on-dynamic (parked, needs runtime/server JS): B "what scraping scripts collect/exfil"; outbound
 > vendor *sends* need explicit user auth (drafts only).
@@ -109,8 +109,11 @@ executing top-down, recommendation-first. `[x]`=done this session.
   component classes.dex → SDK-root inventory + Rhino/Coocon/AV/PKI auto-flags. Compiles a throwaway C
   brute for the 2^32 seed. Complements payload_triage (no-decrypt) with the actual decrypt.
 - [ ] **P1 — find_decryptor 32-bit + arg-recon** (see A). 
-- [ ] **P2 — packer-detect: add the Toss in-house obfuscator case** (packer-detect blind → arsc fallback;
-  already noted in sdk-carve SKILL field notes, wire a signature/heuristic).
+- [x] **P2 — packer-detect: add the Toss in-house obfuscator case** — DONE. Added a signature-free
+  readable-string-density heuristic (`string_encryption_indicators`): large real-code dex + near-zero
+  readable strings (words/desc per-MB ~50× below normal) → verdict DEGRADED (exit 10), "In-house DEX
+  string encryption (Toss-class)". Validated: Toss 5.276.0 → flagged (7.9 words/MB, 313MB dex); plaintext
+  control not false-positived (50× margin). In packer-detect.py + SKILL.md field note.
 
 ## E. Reporting / outbound
 - [ ] **P2 — consolidated KR-RASP supply-chain memo** (fleet + Coocon + AV/PKI patterns). Note: the SKP

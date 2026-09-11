@@ -154,8 +154,16 @@ def collect(apk):
         try:
             with z.open(n) as f: pkgblob += f.read(4*1024*1024)
         except Exception: pass
+    # readable-string density (in-dex string-encryption tell): normal apps have thousands of long
+    # words + hundreds of type descriptors per MB; a string-encrypted app (e.g. Toss) has ~none.
+    mb = max(len(pkgblob) / 1e6, 1e-6)
+    readable = dict(
+        mb=round(len(pkgblob) / 1e6, 1),
+        words_per_mb=round(len(re.findall(rb"[a-z]{5,}", pkgblob)) / mb, 1),
+        desc_per_mb=round(len(re.findall(rb"L(?:com|java|android|kotlin|org)/", pkgblob)) / mb, 1),
+        http_per_mb=round(len(re.findall(rb"https?://", pkgblob)) / mb, 2))
     return dict(names=names, libs=libs, assets=assets, dexinfo=dexinfo,
-                big_assets=big_assets, pkgblob=u(pkgblob))
+                big_assets=big_assets, pkgblob=u(pkgblob), readable=readable)
 
 def match(sig, ctx):
     hits = []
@@ -204,6 +212,24 @@ def unknown_indicators(ctx):
                          f"inspect for a runtime DEX loader")
     return flags
 
+def string_encryption_indicators(ctx):
+    """Signature-free tell of an in-house DEX string-encryption obfuscator (e.g. Toss 5.276.0).
+
+    No packer .so / asset marker fires, the dex is a full real-code app (not a stub), yet the readable
+    string density is ~0 — class descriptors and long words that every normal (even R8'd) app carries by
+    the thousand/MB are absent because the string constants are encrypted in-dex. Calibrated 3 orders of
+    magnitude apart: plaintext ~15,000 words/MB & ~1,000 descriptors/MB vs Toss ~9 words/MB & ~0/MB.
+    Conservative thresholds (well below any normal app) so this cannot fire on legit/obfuscated apps.
+    """
+    r = ctx.get("readable") or {}
+    total_dex = sum(s for _, s in ctx["dexinfo"])
+    if total_dex < 2 * 1024 * 1024 or r.get("mb", 0) < 1:
+        return None                      # too small to judge / no dex scanned
+    if r["words_per_mb"] < 300 and r["desc_per_mb"] < 100:
+        return dict(words_per_mb=r["words_per_mb"], desc_per_mb=r["desc_per_mb"], http_per_mb=r["http_per_mb"],
+                    total_dex_mb=round(total_dex / 1e6, 1))
+    return None
+
 def main():
     args = [a for a in sys.argv[1:] if a != "--json"]
     as_json = "--json" in sys.argv
@@ -220,6 +246,16 @@ def main():
                               impact=sig["impact"], note=sig.get("note",""), evidence=h))
     apkid = run_apkid(apk)
     unknown = unknown_indicators(ctx) if not any(f["category"] in ("shielder","packer","malware") for f in found) else []
+    strenc = string_encryption_indicators(ctx)
+    if strenc and not any(f["impact"].get("strings") for f in found if f["category"] in ("shielder","packer","malware")):
+        found.append(dict(name="In-house DEX string encryption (Toss-class)", vendor="in-house obfuscator",
+                          category="shielder", impact=dict(strings=True, dex=False, rasp=False),
+                          note=f"No packer .so/asset, full real-code dex ({strenc['total_dex_mb']}MB) but readable "
+                               f"strings ~0 ({strenc['words_per_mb']} words/MB, {strenc['desc_per_mb']} descriptors/MB, "
+                               f"{strenc['http_per_mb']} url/MB — normal apps carry thousands/MB). String constants are "
+                               f"encrypted in-dex: IOC/endpoint '0 hits' is a FALSE NEGATIVE. Structure still carveable; "
+                               f"recover strings via the SDK's own decrypt routine or a dynamic dump. Ref case: Toss 5.276.0.",
+                          evidence=[f"readable-density: {strenc['words_per_mb']} words/MB (normal ~15000)"]))
 
     # verdict: worst carve-impact across shielders/packers/malware (obfuscators don't degrade carve)
     prot = [f for f in found if f["category"] in ("shielder","packer","malware")]

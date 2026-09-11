@@ -101,13 +101,15 @@ Example: OK캐시백 `com.skmc.okcashbag.home_google` (7.1.9), 시럽
 - **Semgrep scoped works** on jadx output (it was whole-tree scans that historically
   broke on decompiler syntax). Regex rules see through runtime string decryption that
   name-matching analyzers miss — treat analyzer disagreement as a lead, root-cause it.
-- **Custom string encryption evades packer-detect** (Toss 5.276.0, 2026-09): valid dex
-  magic + no known-packager signature, yet per-10MB-dex `Lcom/` descriptor counts of
-  1–10 (normal: tens of thousands) and a near-empty AndroidManifest string pool = full
-  DEX+manifest string encryption by an in-house obfuscator. Before trusting a "0 hits"
-  IOC sweep, ALWAYS run a positive control (grep `androidx`/`Landroid`/the host's own
-  name) on the exact artifacts you scanned. When dex is void, fall back to surfaces
-  string-encryption doesn't cover: `resources.arsc` (SDK resource-name prefixes are
+- **Custom string encryption** (Toss 5.276.0, 2026-09): valid dex magic + no known-packager
+  signature, yet per-MB `Lcom/` descriptor counts near 0 (normal: ~1,000/MB) and long-word
+  density ~8/MB (normal ~15,000/MB) = full DEX+manifest string encryption by an in-house
+  obfuscator. **`packer-detect.py` now DETECTS this** via a readable-string-density heuristic
+  (`string_encryption_indicators`, calibrated 50× below normal) → verdict DEGRADED (exit 10),
+  "In-house DEX string encryption (Toss-class)". Still, before trusting a "0 hits" IOC sweep,
+  run a positive control (grep `androidx`/`Landroid`/the host's own name) on the exact
+  artifacts you scanned. When dex is void, fall back to surfaces string-encryption doesn't
+  cover: `resources.arsc` (SDK resource-name prefixes are
   mandatory for library SDKs — a positive control there, e.g. the host's own strings,
   makes a zero-hit for the target SDK's prefix strong negative evidence) and confirm
   with the vendor's docs what components/resources an integration must ship.
