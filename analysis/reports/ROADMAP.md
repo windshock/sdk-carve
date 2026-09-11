@@ -13,7 +13,8 @@ executing top-down, recommendation-first. `[x]`=done this session.
 2. [~] **B** — [x] Coocon version diff (4 apps) → [ ] Coocon `updateScript` server endpoint/protocol → [ ] drfn plain-HTTP payload.
 3. [x] **A/D** — [x] find_decryptor 32-bit + arg-recon (arm64 6.9.20.x 0→104 str; arm32 locates+len/key)
    → [x] app string vault (Phase 3, reproducible unidbg recipe) → [x] packer-detect Toss string-enc heuristic.
-4. [ ] **E/F** — consolidated KR-RASP memo (+ GAD iOS symmetry) → draft vendor notifications → Goldoson-TDI.
+4. [x] **E/F** — [x] consolidated KR-RASP memo (+ GAD iOS symmetry) → [x] vendor notification drafts →
+   [x] Goldoson-TDI notii service/view carve. **All ROADMAP items complete.**
 > Blocked-on-dynamic (parked, needs runtime/server JS): B "what scraping scripts collect/exfil"; outbound
 > vendor *sends* need explicit user auth (drafts only).
 
@@ -121,10 +122,17 @@ executing top-down, recommendation-first. `[x]`=done this session.
   actions. Includes the **GAD iOS symmetry** resolution: iOS SDK (v0.1.9 XCFramework) is asymmetric — shares
   API host + TDI but ships no script interpreter (WKWebView evaluateJavaScript only, no JSContext/BeanShell)
   → the RCE-by-design channel is Android-only. Folded into GAD_API_RUNTIME_CAPTURE.md too.
-- [ ] **P3 — vendor notifications**: NSHC (xShield), Coocon (server-code channel govern), drfn (plain-HTTP).
+- [x] **P3 — vendor notifications (DRAFTED, not sent)**: `VENDOR_NOTIFICATION_DRAFTS.md` — ready-to-send
+  coordinated-disclosure notices for NSHC, Coocon(+host banks), drfn(+Mirae), GPA GAD, TNK/Adison. Sends
+  remain gated on explicit sign-off (recipient/channel/timeline); no samples in first contact.
 
 ## F. Low
-- [ ] **P3 — Goldoson-TDI notii** service/view behavior + `tdi9.com` endpoint carve.
+- [x] **P3 — Goldoson-TDI notii** service/view behavior + `tdi9.com` endpoint carve — DONE (local
+  workspace `goldoson-samples/analysis/TDI_NOTII_FINDING.md §8`). notii = full geo-targeted push/overlay
+  ad engine: `NotiIForegroundService` (foreground svc + location) + `view/` (push/overlay via
+  SYSTEM_ALERT_WINDOW, consent, weather cover) + network (Campaign/Impression/Adx) → /config→/campaign→
+  /impression on tdi9.com/notii.net/appservice9.com. Bundled under the Goldoson root; behavior = ad
+  delivery, not Goldoson-core C2. (Local finding — samples never committed.)
 
 ---
 
