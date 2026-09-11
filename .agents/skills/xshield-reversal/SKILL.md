@@ -113,14 +113,23 @@ xShield는 앱/버전마다 **다른 `libdxbase` 빌드** → 주소는 전부 �
   **파일 바이트 `grep 0x914dbacf`는 0 나온다 → 반드시 디스어셈에서 확인.** (이걸로 "다른 cipher"라 2회 오판함.)
 - 페이로드 섹션 = MSVC-LCG `s*0x343FD+0x269EC3`, 키=`s>>16` (앱 불변).
 
-**새 빌드에서 문자열 복호기 자동 특정 + 볼트 덤프**: **`scripts/find_decryptor.py <libdxbase.so>`** — 아래
-1~3을 자동 수행(검증: PASS→0x5c78, OK캐시백→0x1eca0을 하드코딩 0으로 각각 탐지). 원리:
+**새 빌드에서 문자열 복호기 자동 특정 + 볼트 덤프**: **`scripts/find_decryptor.py <libdxbase.so>`** —
+**arm64 + armeabi-v7a(THUMB2) 아키 자동 감지**. 아래 1~3을 자동 수행. 원리:
 1. **seed 상수 0x86817231을 인자로 세팅하는 `bl` 사이트들** 집계 → 최다 타깃 = 복호기(콜트리 불필요).
-   (보강: `.init_array`는 정적 0x0 → RELA addend에서 실제 ctor; strcpy는 seed 안 넘겨 자동 배제됨.)
+   arm64=`mov/movk`, arm32=`movw/movt` 즉값으로 seed 로드. (보강: `.init_array`는 정적 0x0 → RELA
+   addend에서 실제 ctor; strcpy는 seed 안 넘겨 자동 배제됨.)
 2. 세그먼트 매핑 → 복호기 첫 `bl`(=memset@plt) **스텁**(코드훅 PC=LR).
-3. 모든 `bl dec` 사이트에서 (buf=adrp+add, len=w4, key=w5) 역산 → `x0..x5=(s1,s2,s3,buf,len,key)` →
-   `emu_start(dec,RET)` → buf 평문. **한계**: buf/len/key를 동적으로 받는 사이트는 정적 역산 불가 →
-   정적으론 RASP 정적-버퍼 세트만(수십 개). 앱 문자열 볼트 전량은 Phase 2/3(unidbg d() 후 테이블 덤프).
+3. 모든 `bl dec` 사이트에서 인자 역산 → `emu_start(dec,RET)` → buf 평문.
+   - **arm64**: `(buf=adrp+add, len=w4, key=w5)` → `x0..x5=(s1,s2,s3,buf,len,key)`. **검증**: PASS 0x5c78,
+     OK캐시백 0x1eca0, bithumb 0x1eadc(21 str), IBK 0x5dfc(34 str: `/sys/fs/selinux/policy`·`Debugger
+     detected`·`--oat-fd=` 등 안티분석 IOC), myhyundai 0x24124, woori 0xd868 — 전부 하드코딩 0.
+   - **arm32(v7a)**: AAPCS라 len/key는 **스택 전달**(`strd rL,rH,[sp]`), 암호문은 **pc-상대 소스**를 NEON
+     `vld1`로 로컬 버퍼에 복사 후 in-place 복호. 툴은 THUMB `movw/movt/add rX,pc/addw/ldr[pc]` 역산 +
+     `strd`/`str[sp]`에서 len/key 회수. **검증**: M-STOCK v7a → 복호기 0x14a00(308 사이트) + len/key 회수 OK.
+   - **arm32 한계(정직)**: 암호문 소스가 **함수 스코프 PIC 앵커**(`add rX,pc` / `ldr rX,[sp,#..]`)라 콜사이트
+     로컬 창 밖에서 세팅 → 정적 소스 해석 불가 → v7a 전량 문자열 덤프는 **함수-엔트리 에뮬레이션** 필요(후속).
+     복호기 주소 자동 특정은 되므로 수동/동적 작업의 진입점은 확보됨.
+   - **공통 한계**: buf/len/key를 동적으로 받는 사이트는 정적 역산 불가 → 앱 문자열 볼트 전량은 Phase 2/3(unidbg d()).
 
 **정적 복호기 특정이 어려우면 "정적=에뮬 포함"으로 우회 후 되먹임**: unidbg로 `.so` JNI_OnLoad 완주 →
 libdxbase 메모리 스캔으로 자기복호된 문자열 덤프 → (평문 vaddr) ↔ 정적 `.so`(암호문 vaddr) known-plaintext

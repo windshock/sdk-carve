@@ -23,11 +23,15 @@ executing top-down, recommendation-first. `[x]`=done this session.
 > full SDK inventory *without* the native vault (app dexes are plaintext), so the native-decryptor
 > items drop from P1→P2 — they now only add native-side string IOCs (extra anti-analysis constants,
 > any native-embedded URLs), not the primary supply-chain picture.
-- [ ] **P2 — 32-bit ARM (armeabi-v7a) port of `find_decryptor.py`.** Many KR financial apps ship v7a-only.
-  Same MBA decryptor + ABI, just ARM32 regs (r0–r5) + capstone/unicorn ARM mode. Native string-vault only.
-- [ ] **P2 — fix `find_decryptor.py` arg reconstruction on newer engines.** MyHyundai (6.9.20.31) auto-found
-  the decryptor addr (0x24124) but reconstructed 0 static-buffer sites → 0 strings. Widen reg-sim / handle
-  the 6.9.20.x call-site pattern.
+- [x] **P2 — 32-bit ARM (armeabi-v7a) port of `find_decryptor.py`.** DONE. Auto-detects arm64 vs
+  arm/THUMB2; the ARM32 path locates the decryptor via the same seed (movw/movt) — validated M-STOCK v7a
+  → 0x14a00 (308 sites) + len/key recovered. arm64 path regression-clean (bithumb 0x1eadc/21 str, IBK
+  0x5dfc/34 str). **Honest limit**: arm32 ciphertext source is a function-scoped PIC anchor (`add rX,pc`/
+  `ldr [sp]`) set outside the call-site window → full v7a string dump needs function-entry emulation
+  (future); the decryptor *address* (the per-build unknown) + len/key are recovered. Documented in SKILL.md.
+- [~] **P2 — fix `find_decryptor.py` arg reconstruction on newer engines.** Partly folded into the arm32
+  work (reg-sim widened: movw/movt/add-pc/addw/ldr-lit/strd). MyHyundai (arm64 6.9.20.31, 0x24124) 0-string
+  case still to retest with the widened arm64 reg-sim; deferred as a small follow-up.
 - [x] **P2 — full payload decrypt + inventory across the fleet.** `payload_decrypt.py` run on all 12
   downloaded apps: mgmt server recovered 10/12 (2 oldest engines have different section0 framing) +
   plaintext base-apk SDK inventory for all 12. Results folded into XSHIELD_FLEET_SURVEY.md. Two
