@@ -1,9 +1,10 @@
 # Project Plan & Roadmap
 
-**Living status tracker + next actions.** Three tracks:
-- **Track 0 — Method & skill** (the `sdk-carve` tooling; largely shipped).
+**Living status tracker + next actions.** Tracks:
+- **Track 0 — Method & skill** (the `sdk-carve` + `xshield-reversal` tooling; largely shipped).
 - **Track 1 — Threat-intel: Goldoson-model lineage** (the `research/` study; ad-fraud SDK families 2023–2026).
 - **Track 2 — Method-generalization study** (GitHub **issue #5**: does target-aware carving generalize across *unrelated* SDKs?).
+- **Track 3 — KR RASP / xShield supply-chain** (adtech offerwalls + xShield fleet + Coocon). **Actionable backlog: [`analysis/reports/ROADMAP.md`](analysis/reports/ROADMAP.md)** — the running to-do list (P1/P2/P3). Findings: `analysis/reports/{XSHIELD_FLEET_SURVEY, COOCON_SASAPI_TRIAGE, GAD_*, TNK_*, TYRADS_*, ADISON_*}.md`.
 
 **Inputs**
 - Method: [`.claude/skills/sdk-carve/SKILL.md`](.claude/skills/sdk-carve/SKILL.md)
