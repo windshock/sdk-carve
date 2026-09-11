@@ -10,7 +10,7 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped/blocked. 
 All P1 + the recommended-next-3 are done. Remaining P2/P3 are sequenced below so nothing is dropped;
 executing top-down, recommendation-first. `[x]`=done this session.
 1. [x] **C** — Adison SugarToken + allowlist → **C** vendor hardening docs (GAD/TNK/Adison) → **C** issue #5 writeup.
-2. [ ] **B** — Coocon version diff (4 apps) → Coocon `updateScript` server endpoint/protocol → drfn plain-HTTP payload.
+2. [~] **B** — [x] Coocon version diff (4 apps) → [ ] Coocon `updateScript` server endpoint/protocol → [ ] drfn plain-HTTP payload.
 3. [ ] **A/D** — find_decryptor 32-bit + arg-recon → app string vault (Phase 3) → packer-detect Toss case.
 4. [ ] **E/F** — consolidated KR-RASP memo (+ GAD iOS symmetry) → draft vendor notifications → Goldoson-TDI.
 > Blocked-on-dynamic (parked, needs runtime/server JS): B "what scraping scripts collect/exfil"; outbound
@@ -47,7 +47,11 @@ executing top-down, recommendation-first. `[x]`=done this session.
   `ConnectionFailed/ScriptNotFound` exceptions + matching updateScript/loadScript/evaluateString/Socket
   counts. Channel present + identical in all 4 (M-STOCK also CPG-flow-verified). New detail: Coocon runs
   scripts on **Rhino OR V8**. Written up in COOCON_SASAPI_TRIAGE.md.
-- [ ] **P2 — recover Coocon `updateScript` server endpoint + protocol** (SEED-encrypted; behind config).
+- [x] **P2 — recover Coocon `updateScript` server endpoint + protocol** — DONE. Server `isas.coocon.co.kr:443:80`
+  (svc `PUSANAPP`/type `A`), devel fallback `183.111.160.145` via `devel.mode`/`local.ip` system-property
+  override (script-source redirect knob), auth-txn `http://59.6.190.44:8900/cgi/sidea.authtr.cgi` (plain HTTP),
+  local proxy `127.0.0.1:1024/1025`. Protocol: HTTP GET/POST, `+`-joined script names + 10-digit versions,
+  SEED-decrypted JS → Rhino/V8. No pin observed. Folded into COOCON_SASAPI_TRIAGE.md.
 - [ ] **P3 — what the scraping scripts collect/exfil** — needs the server-supplied JS (dynamic run or
   captured module). Same "server code channel" risk framing as GAD BeanShell.
 - [ ] **P3 — drfn/chart plain-HTTP (218.38.18.171/smartPhone/*.php)** — confirm payload of upload.php

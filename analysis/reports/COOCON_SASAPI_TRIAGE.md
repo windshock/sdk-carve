@@ -16,6 +16,14 @@ same threat class as GAD's BeanShell channel (RCE-by-design), here for financial
 | 현대해상 Hi (m.hi.co.kr) | xo.fxshield.co.kr | ~971–1074 | ~767 |
 | SK증권 주파수3 | (old framing) | ~10 (stub only) | — |
 
+**SASAPI version diff (2026-09-11):** M-STOCK = `sdk version: 2.20.6`, IBK = `2.10.0`, 현대해상 = `2.10.0`,
+신한 = version stored as a field (`MSDK_VERSION`/`sdkVersion`), no literal in strings. → **version is NOT
+correlated with the dxshield.com vs fxshield.co.kr split** (M-STOCK & IBK both use dxshield yet differ
+2.20.6 vs 2.10.0; IBK-dxshield and 현대해상-fxshield both 2.10.0). Coocon's own SDK versioning tracks each
+app's integration date, orthogonal to NSHC's xShield mgmt server — two independent supply-chain layers.
+The class structure (`sasapi/{SASManager, cert/Issac, crypt/AES256, sga/SASSGA, has160/*, scriptengine/*}`)
+is identical across all four; only the point version differs.
+
 The two `dxshield.com` apps (Mirae, IBK) are the most Coocon-embedded; both are brokerages. The full
 `updateScript`→Rhino chain below was CPG-verified on M-STOCK; the other three carry the same package +
 comparable ref counts (same engine). SK증권 has only a 10-ref stub (interface, not the full engine).
@@ -54,6 +62,24 @@ loadScript(String) / include(String)  →  ScriptEngine.a(String)  →  org.mozi
   the socket→buffer→loadScript→eval hops, **NOT** evidence of no channel. The method-name + call-graph
   chain (`updateScript`(socket) → `loadScript` → `a` → `evaluateString`) is the conclusive evidence.
   (Recurring lesson: a degenerate 0-flow is not a negative.)
+
+## Server endpoint + protocol (recovered 2026-09-11, from M-STOCK ScriptManager/SASManager/HttpManager)
+- **Script server:** `isas.coocon.co.kr` (`SASManager.initInstance` default `"isas.coocon.co.kr:443:80"`
+  = host:tlsPort:port), service ID **`PUSANAPP`**, type **`A`**. ISAS = Coocon's Internet Scraping/Aggregation
+  service. TLS via `http/TLSOnlySocketFactory` (TLS-only; pinning not observed — standard-TLS trust).
+- **Devel override (script-source redirection knob):** if system property `devel.mode=true`, the server is
+  taken from system property `local.ip`, else falls back to **`183.111.160.145:443:80`**. `System.getProperty`
+  (JVM props) — a build/host-settable switch that redirects where scripts are fetched from. Hygiene/risk flag.
+- **Auth transaction:** `http://59.6.190.44:8900/cgi/sidea.authtr.cgi` — **plain HTTP** (plaintext auth channel).
+- **On-device scraping proxy:** `127.0.0.1:1024/1025` (local proxy the engine drives the target webviews through).
+- **Error log:** `https://isas.coocon.co.kr:8443/jsp/ins_errlog.jsp`.
+- **Protocol (`ScriptManager.getScript`/`updateScript`):** scripts fetched by **`+`-joined names**, default
+  **POST** (GET fetches only not-yet-cached names); each script cached in the `v` map as {contents, `getScriptVersion`
+  = 10-digit version} so the client sends its version and the server returns newer JS. Retry via
+  `updateScript _CONNECTION_TRY_COUNT`; responses SEED-decrypted then handed to `ScriptEngine`/`V8ScriptEngine`.
+- **Net risk:** the eval'd JS originates at `isas.coocon.co.kr` over standard TLS (no pin observed) + a plaintext
+  auth channel + a system-property server-redirect switch → transport integrity of the code channel rests on the
+  device CA store. See VENDOR_HARDENING_REQUESTS.md §4 (script signing + endpoint pinning).
 
 ## Capability surface (carved CPG)
 - JS-EVAL: `ScriptEngine` (Rhino) **and** `V8ScriptEngine` (Google V8) — two interchangeable engines.
