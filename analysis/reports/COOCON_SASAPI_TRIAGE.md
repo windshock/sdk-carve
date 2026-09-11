@@ -20,6 +20,21 @@ The two `dxshield.com` apps (Mirae, IBK) are the most Coocon-embedded; both are 
 `updateScript`→Rhino chain below was CPG-verified on M-STOCK; the other three carry the same package +
 comparable ref counts (same engine). SK증권 has only a 10-ref stub (interface, not the full engine).
 
+### Channel confirmed (not just the package) across all 4 apps
+Carved `kr/co/coocon` straight from the **plaintext** base-apk dexes (no decrypt — this xShield variant
+leaves app dexes in the clear). All four apps carry a **byte-identical Coocon class structure**:
+- `Lkr/co/coocon/sasapi/scriptengine/ScriptEngine;` — the Rhino eval sink (holds `evaluateString`)
+- `Lkr/co/coocon/sasapi/scriptengine/V8ScriptEngine;` — a **second JS engine (Google V8)**; Coocon can
+  run server scripts on Rhino *or* V8.
+- `Lkr/co/coocon/sasapi/script/ScriptManager;` + `ConnectionFailedException` + `ScriptNotFoundException`
+  — the exceptions make the remote-fetch model explicit: scripts are **downloaded over the network**
+  (ConnectionFailed) and may be **absent server-side** (ScriptNotFound).
+- Per-app signature counts are near-identical (updateScript=1, loadScript=1, ScriptEngine=5,
+  evaluateString=1–2, `java/net/Socket`=5–6, `org/mozilla/javascript`=6–9) — same SDK version, same channel.
+
+So the server-driven JS channel is present and structurally identical in **M-STOCK, IBK, 신한, 현대해상**
+(M-STOCK additionally CPG-flow-verified). Method names are unobfuscated (Rhino + Coocon public API).
+
 ## How it was found (full 2-skill chain)
 1. `packer-detect` → M-STOCK (`com.miraeasset.trade`) = NSHC xShield/DxShield.
 2. `xshield-reversal` → payload asset `assets/.b636…dex` statically decrypted (section0 config oracle +
@@ -41,8 +56,10 @@ loadScript(String) / include(String)  →  ScriptEngine.a(String)  →  org.mozi
   (Recurring lesson: a degenerate 0-flow is not a negative.)
 
 ## Capability surface (carved CPG)
-- JS-EVAL (Rhino): 1 (ScriptEngine.a). NET: raw `Socket` in `trx` (scraping transactions) + `updateScript`
-  + `setProxy`. DEVICE-ID: 2. REFLECT/dyn: 6. CRYPTO: **KISA SEED-CBC** (Korean cipher) for its traffic.
+- JS-EVAL: `ScriptEngine` (Rhino) **and** `V8ScriptEngine` (Google V8) — two interchangeable engines.
+  NET: raw `Socket` in `trx` (scraping transactions) + `updateScript` + `setProxy`; script fetch surfaced
+  by `ConnectionFailedException`/`ScriptNotFoundException`. DEVICE-ID: 2. REFLECT/dyn: 6. CRYPTO: **KISA
+  SEED-CBC** (Korean cipher) for its traffic.
 - No `DexClassLoader`/`System.load` (JS is data-eval, not native code loading).
 
 ## Risk framing

@@ -7,10 +7,13 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped/blocked. 
 ---
 
 ## A. xShield fleet — deepen  (survey done: XSHIELD_FLEET_SURVEY.md, 14 apps)
-- [ ] **P1 — 32-bit ARM (armeabi-v7a) port of `find_decryptor.py`.** Many KR financial apps ship v7a-only
-  (M-STOCK, Kia, 신한, 현대캐피탈, 현대해상, SK증권). Same MBA decryptor + ABI, just ARM32 regs (r0–r5) +
-  capstone/unicorn ARM mode. Unblocks native string-vault on ~half the fleet.
-- [ ] **P1 — fix `find_decryptor.py` arg reconstruction on newer engines.** MyHyundai (6.9.20.31) auto-found
+> **Re-prioritized after the fleet run:** `payload_decrypt.py` already recovers the mgmt server +
+> full SDK inventory *without* the native vault (app dexes are plaintext), so the native-decryptor
+> items drop from P1→P2 — they now only add native-side string IOCs (extra anti-analysis constants,
+> any native-embedded URLs), not the primary supply-chain picture.
+- [ ] **P2 — 32-bit ARM (armeabi-v7a) port of `find_decryptor.py`.** Many KR financial apps ship v7a-only.
+  Same MBA decryptor + ABI, just ARM32 regs (r0–r5) + capstone/unicorn ARM mode. Native string-vault only.
+- [ ] **P2 — fix `find_decryptor.py` arg reconstruction on newer engines.** MyHyundai (6.9.20.31) auto-found
   the decryptor addr (0x24124) but reconstructed 0 static-buffer sites → 0 strings. Widen reg-sim / handle
   the 6.9.20.x call-site pattern.
 - [x] **P2 — full payload decrypt + inventory across the fleet.** `payload_decrypt.py` run on all 12
@@ -25,8 +28,13 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped/blocked. 
 ## B. Coocon SASAPI — server-script channel  (found: COOCON_SASAPI_TRIAGE.md)
 - [x] **P1 — Coocon presence across the Rhino-bearing apps.** Confirmed: same `kr.co.coocon` engine in
   **M-STOCK, IBK, 신한, 현대해상** (~700–1400 refs each) + a 10-ref stub in SK증권. Table in
-  COOCON_SASAPI_TRIAGE.md. *Follow-up: diff the Coocon **version** across them + CPG the `updateScript`
-  chain on IBK/신한/현대해상 to confirm the channel (not just the package) is present.*
+  COOCON_SASAPI_TRIAGE.md.
+- [x] **P1 — confirm the `updateScript`→Rhino `eval` CHANNEL (not just the package) on IBK/신한/현대해상.**
+  DONE. Carved `kr/co/coocon` from the plaintext base apks: all 4 apps have byte-identical
+  `sasapi/scriptengine/{ScriptEngine,V8ScriptEngine}` + `sasapi/script/ScriptManager` +
+  `ConnectionFailed/ScriptNotFound` exceptions + matching updateScript/loadScript/evaluateString/Socket
+  counts. Channel present + identical in all 4 (M-STOCK also CPG-flow-verified). New detail: Coocon runs
+  scripts on **Rhino OR V8**. Written up in COOCON_SASAPI_TRIAGE.md.
 - [ ] **P2 — recover Coocon `updateScript` server endpoint + protocol** (SEED-encrypted; behind config).
 - [ ] **P3 — what the scraping scripts collect/exfil** — needs the server-supplied JS (dynamic run or
   captured module). Same "server code channel" risk framing as GAD BeanShell.
@@ -64,7 +72,9 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped/blocked. 
 
 ---
 
-### Recommended next 3 (P1, cheap, high-leverage)
-1. **32-bit ARM port of find_decryptor** → unlocks native vault on the v7a fleet half.
-2. **Coocon presence/version across 신한·현대해상** (grep) → confirms the channel is a cross-app pattern.
-3. **GAD api-doc cross-check** → closes a long-standing vaulted-endpoint item with zero new setup.
+### Recommended next 3 (P1, cheap, high-leverage) — updated after channel confirmation
+1. ~~Confirm the Coocon channel on IBK/신한/현대해상~~ **DONE** (channel present + identical in all 4).
+2. **GAD api-doc cross-check** (C) → closes a long-standing vaulted-endpoint item with zero new setup.
+3. **TNK cert-pinning check** (C) → the low↔medium decider for the deser surface.
+
+*(Old "32-bit find_decryptor port" demoted to P2 — payload_decrypt already covers server+inventory.)*

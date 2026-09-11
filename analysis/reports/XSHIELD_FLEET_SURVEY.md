@@ -43,10 +43,12 @@ inventory). Engine versions span **6.3.1.85 → 6.9.20.31**; `find_decryptor.py`
 a DIFFERENT address in every arm64 build (0x1eca0/0x5c78/0x1eadc/0x1eab0/0x5dfc/0x24124/0xd868), zero hardcoding.
 
 ## Cross-app patterns
-- **Coocon SASAPI server-driven JS scraping — in 4 financial apps** (M-STOCK, IBK, 신한, 현대해상), each with
-  ~700–1400 `kr.co.coocon` + `org/mozilla/javascript` refs. Same `updateScript`→`loadScript`→Rhino `eval`
-  channel (RCE-by-design class, cf. GAD BeanShell). SK증권 has only a 10-ref Coocon stub. See
-  [`COOCON_SASAPI_TRIAGE.md`](COOCON_SASAPI_TRIAGE.md). This is the fleet's most significant shared surface.
+- **Coocon SASAPI server-driven JS scraping — CHANNEL confirmed in 4 financial apps** (M-STOCK, IBK, 신한,
+  현대해상). Not just the package: all four carry a byte-identical `sasapi/scriptengine/{ScriptEngine,
+  V8ScriptEngine}` + `sasapi/script/ScriptManager` + network-fetch exceptions — the `updateScript`→
+  `loadScript`→JS `eval` channel, runnable on **Rhino or V8**. RCE-by-design class (cf. GAD BeanShell).
+  SK증권 has only a 10-ref Coocon stub. See [`COOCON_SASAPI_TRIAGE.md`](COOCON_SASAPI_TRIAGE.md). Fleet's
+  most significant shared surface.
 - **On-device AV** — AhnLab V3 (`com.ahnlab.enginesdk`) in the 4 Coocon apps + Bithumb; NSHC DroidX3 in PASS.
 - **PKI diversity** — WIZVERA+SpongyCastle (신한, 현대해상), SignKorea+Yettiesoft (M-STOCK, SK증권),
   DreamSecurity (우리, SK증권), RaonSecure (most), INITECH (IBK, 현대캐피탈), NSHC nFilter keypad (우리, 현대캐피탈).
