@@ -1,11 +1,15 @@
 # Coocon SASAPI — server-driven JS scraping engine (in 4 KR financial apps)
 
 **Status:** cpg-confirmed on M-STOCK; string-confirmed across the fleet (`payload_decrypt.py`);
-**sandbox-escape PoC-confirmed → arbitrary in-process code** (see §Sandbox strength). **Severity: HIGH (design).**
+**sandbox-escape PoC-confirmed → arbitrary in-process code IF a script runs** (see §Sandbox strength).
+**Severity: HIGH *server-trust/supply-chain* design concern — remote network-injection by an arbitrary MITM
+is NOT demonstrated** (the delivery uses a per-session random AES key not recoverable from observed traffic;
+see §Attack path). **Two earlier over-claims retracted there** (makeString≠key; no low-barrier MITM injection).
 **One line:** Four KR financial apps bundle **Coocon SASAPI** (`kr.co.coocon.sasapi`), a
 screen-scraping/aggregation SDK that **downloads JavaScript from its server and executes it in-process via
-Rhino/V8** with **no ClassShutter** — a server-driven code channel whose real ceiling is **arbitrary Java
-execution** inside the financial app (PoC-confirmed), same/stronger class as GAD's BeanShell.
+Rhino/V8 with no `ClassShutter`** — so if the Coocon **server is malicious/compromised** (or a redirect that
+can complete the key exchange), it is **arbitrary Java execution** inside the bank app (RCE-given-script
+PoC-confirmed). Same channel class as GAD's BeanShell; a server-trust exposure, not a shown MITM exploit.
 
 ## Fleet presence (payload_decrypt base-apk dex scan)
 | App | mgmt server | kr.co.coocon refs | Rhino refs |
@@ -82,33 +86,44 @@ loadScript(String) / include(String)  →  ScriptEngine.a(String)  →  org.mozi
   **`AES/CBC/PKCS5Padding`** (`AESCipher`) + **GZip**; scripts held **in-memory only** (`v` HashMap — no disk
   write, so no local-cache tamper vector). Kept per name with a 10-digit version for delta updates.
 
-## Attack path — how a payload gets injected (updateScript bytecode, javap)
-The channel that delivers the (arbitrary-code) script has **no transport TLS and no script signature**, so
-authenticity rests entirely on AES-key secrecy — with no signature to forge:
+## Attack path — how a payload could get injected (dynamic lab, ByteBuddy-hooked real client)
+> **Two earlier claims here were WRONG and are retracted** (found via the dynamic lab): (a) `makeString` is
+> fixed-length request-field padding, not the AES key; (b) there is **no** app-static/derivable key — the key
+> is **random per session**, so the "low-barrier on-path injection via a one-time key extraction" claim does
+> **not** hold. Corrected picture below.
+
+**Confirmed design weaknesses (high confidence):**
 | defense | measured | consequence |
 |---|---|---|
-| transport TLS | **none** (raw `Socket`, no SSL) | on-path attacker intercepts **without a CA** (plain TCP) |
-| script signature/MAC | **none** (no `Signature.verify`/`Mac`/`WithRSA` in `updateScript`; the `SHA-256` present is an unkeyed hash — SHA256WithRSA exists only in the algorithm map) | **no authenticity** — a correctly-keyed AES blob is accepted verbatim |
-| AES key | `AESCipher.setKey(<local>)` at two stages (handshake + script); the byte-code (dex2jar register-mangled) shows the key built from app/device/version material + socket data, **not** a server-signed value. *`StringByByte.makeString` is fixed-length REQUEST-field padding, not the key (earlier note corrected).* | key derivation carries **no authenticity**; whether it's network-recoverable is the open dynamic item (below) |
-| disk cache | **none** | no local-file tamper path |
+| in-process JS sandbox | **no `ClassShutter`** | any *executed* script → arbitrary Java (PoC v1–v3, incl. via the app's own injected `dc`) |
+| delivery authenticity | **no signature/MAC** (no `Signature.verify`/`Mac`/RSA-sign in `updateScript`; SHA-256 present is unkeyed) | a **correctly-keyed** AES(GZip(script)) blob is decrypted+eval'd verbatim (forge PoC v4) |
+| transport TLS | **none** (raw `java.net.Socket`) | traffic is plain TCP (interceptable without a CA) |
+| disk cache | **none** (scripts memory-only) | no local-file tamper path |
 
-**① On-path network injection (primary):** plain TCP → intercept on any shared/rogue network (no CA needed).
-Because there is **no signature**, the only thing standing between an on-path attacker and code execution is
-the AES key; recover/derive it once → swap the script → the app evals it → **arbitrary in-process code**
-(no ClassShutter, PoC-confirmed). No TLS, no CA, no signature forgery — the barrier reduces to the AES key.
-**② `devel.mode`/`local.ip` source redirect (secondary/supply-chain):** in-process code (a malicious co-bundled
-SDK) or a leftover devel build sets the system property → script server points at an attacker host.
-**Not applicable:** local cache tamper (scripts are memory-only).
+**But the practical injection barrier — the AES session key — is NOT shown breakable:**
+- Ran the **real `ScriptManager.updateScript`** (pure-Java; no Android) against a localhost mock, with
+  **ByteBuddy hooking `AESCipher.setKey`/`setIV`/`decrypt` + SpongyCastle `RSAEngine`**. The AES key is
+  **generated per session by `SecureRandom.nextBytes`** — captured live, **different every run**
+  (`3c35fdf4…`, `bc40552e…`, `13060d72…`), IV = the uppercase-hex of the key's first 8 bytes.
+- **The session key is NOT recoverable from the observed traffic:** across runs the key/IV bytes are
+  **not present in the request** (not raw, not IV-encoded, not ASCII-hex), and **`RSAEngine.processBlock`
+  never fired** (no RSA key-wrap observed on this path). So an on-path/MITM attacker cannot obtain the
+  session key from what is sent → **cannot forge a script the client accepts → network injection is NOT
+  demonstrated.** *(This retracts the earlier "low-barrier on-path injection".)*
+- **Open (undetermined):** how the server obtains the session key — the 132-byte request body may carry it
+  under a pre-shared/derived wrap, or it may be established via the separate **plaintext-HTTP auth transaction**
+  (`59.6.190.44:8900/sidea.authtr.cgi`). If that establishment leaks the key or lets a hostile endpoint set
+  it, injection re-opens; **not shown either way**. `devel.mode`/`local.ip` redirect only helps an attacker
+  who can *also* complete this key exchange.
 
-**Confidence / open dynamic item (honest):** *confirmed statically* — no TLS, no signature, AES/CBC+GZip,
-memory-only, no-ClassShutter→RCE (PoC). *Confirmed dynamically* — the forge→AES-decrypt→GZip→`eval` chain
-executes on the app's REAL `AESCipher`+`GZip`+`ScriptEngine` given a valid key (PoC, `~/Downloads/coocon/poc/`).
-*Not yet nailed* — the **exact AES key + whether it is network-recoverable** (the two-stage handshake key
-derivation is too register-mangled to reverse reliably from dex2jar); confirming it needs a **runtime
-`AESCipher.setKey` hook** (device/Frida or a mock-server run). Until then the network-injection severity is
-"no-signature + plain-TCP → forgeable *if* the key is recoverable," not a demonstrated full network exploit.
-→ Fixes (VENDOR_HARDENING_REQUESTS.md §4): TLS+pinning, **RSA-sign the script** (SHA256WithRSA already in the
-map), session-derive the AES key, engine **ClassShutter** (contain any executed payload).
+**Net (honest):** *given a script that runs*, it is arbitrary in-process code (no ClassShutter — confirmed,
+incl. the forge→real-AES-decrypt→GZip→`eval` chain, PoC `~/Downloads/coocon/poc/`). *Getting a malicious
+script to run* over the network is **not demonstrated** — it is gated by a per-session random AES key that
+was **not recoverable** from the observed traffic. So the real risk is **"if the Coocon script SERVER is
+malicious or compromised (or a redirect can complete the key exchange), it's RCE in the bank app"** — a
+server-trust / supply-chain exposure — **not** a shown remote network-injection by an arbitrary MITM.
+→ Fixes (VENDOR_HARDENING_REQUESTS.md §4): still valuable defense-in-depth — TLS+pinning, **RSA-sign the
+script** (SHA256WithRSA already in the map), engine **ClassShutter** (contain any executed payload).
 
 ## Capability surface (carved CPG)
 - JS-EVAL: `ScriptEngine` (Rhino) **and** `V8ScriptEngine` (Google V8) — two interchangeable engines.

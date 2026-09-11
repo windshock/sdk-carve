@@ -37,11 +37,14 @@ supply-chain surface: vendor server integrity, script signing, endpoint pinning,
   (svc `PUSANAPP`), devel `devel.mode`/`local.ip` override + fallback `183.111.160.145`, auth-txn over
   **plain HTTP** (`59.6.190.44:8900/cgi/sidea.authtr.cgi`), local proxy `127.0.0.1:1024/1025`. SEED-crypto,
   **no cert pin observed**. Scripts fetched by name+version, decrypted, eval'd — a bank-site scraper (mydata).
-  **HIGH (design):** the engine sets `initSafeStandardObjects` but **no `setClassShutter`**, so a server
-  script escapes to **arbitrary in-process Java** via `getClass()` off any bound object — **PoC-confirmed**
-  (ran bundled Rhino + the real `ScriptEngine` + the real app object `com.miraeasset.main.dc` that the app
-  itself injects via `setObject`; `id` executed off both). Ceiling = arbitrary code inside a bank app, not a
-  bounded scraping API.
+  **HIGH server-trust design concern:** the engine sets `initSafeStandardObjects` but **no `setClassShutter`**,
+  so a server script escapes to **arbitrary in-process Java** via `getClass()` — **PoC-confirmed** (bundled
+  Rhino + real `ScriptEngine` + the app's own injected `com.miraeasset.main.dc`; `id` executed off both).
+  So *if the Coocon server is malicious/compromised* → RCE in the bank app. **BUT remote MITM injection is NOT
+  demonstrated:** the ByteBuddy-hooked real client shows the delivery AES key is **per-session random
+  (SecureRandom), not recoverable from observed traffic** (key not in the request, no RSA-wrap) → an on-path
+  attacker can't forge an accepted script. (Two earlier over-claims retracted — makeString≠key; no low-barrier
+  MITM. See COOCON_SASAPI_TRIAGE.md §Attack path.)
 - **GPA GAD BeanShell** → GAD_API_RUNTIME_CAPTURE.md. `gad.api.gpakorea.com/campaign/{setup,prepare2,
   script/entry}` push BeanShell executed in-process. The whole channel (+ `type=5` CPS + `x-tdi-client-secret`)
   is **undocumented to integrators** (public api-doc = list/join/status/complete, types 0–4 only). iOS SDK
