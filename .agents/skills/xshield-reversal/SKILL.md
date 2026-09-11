@@ -120,9 +120,12 @@ xShield는 앱/버전마다 **다른 `libdxbase` 빌드** → 주소는 전부 �
    addend에서 실제 ctor; strcpy는 seed 안 넘겨 자동 배제됨.)
 2. 세그먼트 매핑 → 복호기 첫 `bl`(=memset@plt) **스텁**(코드훅 PC=LR).
 3. 모든 `bl dec` 사이트에서 인자 역산 → `emu_start(dec,RET)` → buf 평문.
-   - **arm64**: `(buf=adrp+add, len=w4, key=w5)` → `x0..x5=(s1,s2,s3,buf,len,key)`. **검증**: PASS 0x5c78,
-     OK캐시백 0x1eca0, bithumb 0x1eadc(21 str), IBK 0x5dfc(34 str: `/sys/fs/selinux/policy`·`Debugger
-     detected`·`--oat-fd=` 등 안티분석 IOC), myhyundai 0x24124, woori 0xd868 — 전부 하드코딩 0.
+   - **arm64**: `len=w4, key=w5`, 암호문 주소 = `x3`(구엔진: adrp+add로 .text 암호문 직접) **또는** 소스-복사
+     엔진(6.9.20.x: `x3`=스택 로컬, 암호문은 `ldr q,[xN]`(xN=adrp+add)로 스택 버퍼에 복사) — 툴이 콜사이트 전
+     마지막 `ldr [xN]` 소스도 후보로 시도. **검증**: PASS 0x5c78, OK캐시백 0x1eca0, bithumb 0x1eadc(21 str),
+     IBK 0x5dfc(34 str: `/sys/fs/selinux/policy`·`Debugger detected`·`--oat-fd=`), **myhyundai 0x24124(6.9.20.x
+     → 104 str: `/sbin/magisk`·`/topjohnwu/magisk`·su 경로 등 루팅탐지 볼트, 소스-복사 처리로 0→104)**, woori
+     0xd868 — 전부 하드코딩 0.
    - **arm32(v7a)**: AAPCS라 len/key는 **스택 전달**(`strd rL,rH,[sp]`), 암호문은 **pc-상대 소스**를 NEON
      `vld1`로 로컬 버퍼에 복사 후 in-place 복호. 툴은 THUMB `movw/movt/add rX,pc/addw/ldr[pc]` 역산 +
      `strd`/`str[sp]`에서 len/key 회수. **검증**: M-STOCK v7a → 복호기 0x14a00(308 사이트) + len/key 회수 OK.

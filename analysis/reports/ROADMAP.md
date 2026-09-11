@@ -11,7 +11,8 @@ All P1 + the recommended-next-3 are done. Remaining P2/P3 are sequenced below so
 executing top-down, recommendation-first. `[x]`=done this session.
 1. [x] **C** — Adison SugarToken + allowlist → **C** vendor hardening docs (GAD/TNK/Adison) → **C** issue #5 writeup.
 2. [~] **B** — [x] Coocon version diff (4 apps) → [ ] Coocon `updateScript` server endpoint/protocol → [ ] drfn plain-HTTP payload.
-3. [ ] **A/D** — find_decryptor 32-bit + arg-recon → app string vault (Phase 3) → packer-detect Toss case.
+3. [~] **A/D** — [x] find_decryptor 32-bit + arg-recon (arm64 6.9.20.x 0→104 str; arm32 locates+len/key,
+   full dump=func-entry-emu limit) → [ ] app string vault (Phase 3) → [ ] packer-detect Toss case.
 4. [ ] **E/F** — consolidated KR-RASP memo (+ GAD iOS symmetry) → draft vendor notifications → Goldoson-TDI.
 > Blocked-on-dynamic (parked, needs runtime/server JS): B "what scraping scripts collect/exfil"; outbound
 > vendor *sends* need explicit user auth (drafts only).
@@ -29,9 +30,11 @@ executing top-down, recommendation-first. `[x]`=done this session.
   0x5dfc/34 str). **Honest limit**: arm32 ciphertext source is a function-scoped PIC anchor (`add rX,pc`/
   `ldr [sp]`) set outside the call-site window → full v7a string dump needs function-entry emulation
   (future); the decryptor *address* (the per-build unknown) + len/key are recovered. Documented in SKILL.md.
-- [~] **P2 — fix `find_decryptor.py` arg reconstruction on newer engines.** Partly folded into the arm32
-  work (reg-sim widened: movw/movt/add-pc/addw/ldr-lit/strd). MyHyundai (arm64 6.9.20.31, 0x24124) 0-string
-  case still to retest with the widened arm64 reg-sim; deferred as a small follow-up.
+- [x] **P2 — fix `find_decryptor.py` arg reconstruction on newer engines.** DONE. Root cause: 6.9.20.x
+  copies ciphertext from an `adrp+add` source via `ldr q,[xN]` into a stack buffer (x3=stack), so the old
+  "buf=x3 in .text" path found nothing. Added source-candidate reconstruction (last `ldr [xN]` before the
+  call) + scratch-buffer emulation. **MyHyundai 0x24124: 0 → 104 strings** (real RASP IOCs: /sbin/magisk,
+  /topjohnwu/magisk, su paths, OAT/dalvik-cache, /proc/self probes). bithumb/IBK regression-clean.
 - [x] **P2 — full payload decrypt + inventory across the fleet.** `payload_decrypt.py` run on all 12
   downloaded apps: mgmt server recovered 10/12 (2 oldest engines have different section0 framing) +
   plaintext base-apk SDK inventory for all 12. Results folded into XSHIELD_FLEET_SURVEY.md. Two

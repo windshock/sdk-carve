@@ -38,7 +38,7 @@ def run_arm64():
         UC_ARM64_REG_X4, UC_ARM64_REG_X5, UC_ARM64_REG_SP, UC_ARM64_REG_LR, UC_ARM64_REG_PC,
         UC_ARM64_REG_TPIDR_EL0)
     from capstone import Cs, CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN
-    from capstone.arm64 import ARM64_OP_IMM
+    from capstone.arm64 import ARM64_OP_IMM, ARM64_OP_MEM
     md = Cs(CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN); md.detail = True
     insns = list(md.disasm(code, tva))
 
@@ -90,32 +90,64 @@ def run_arm64():
             uc.reg_write(UC_ARM64_REG_PC, uc.reg_read(UC_ARM64_REG_LR))
     if memset_plt: mu.hook_add(UC_HOOK_CODE, cb, begin=memset_plt, end=memset_plt)
 
+    SCR = 0x40000000; mu.mem_map(SCR, 0x10000)     # scratch for copied ciphertext (6.9.20.x copies to stack buf)
     def orig(buf, ln):
         for va, c in SEGS:
             if va <= buf < va + len(c): return c[buf - va: buf - va + ln]
         return None
-    def decrypt(buf, ln, key):
-        ct = orig(buf, ln)
+    def decrypt_from(addr, ln, key):
+        ct = orig(addr, ln)
         if ct is None: return None
-        mu.mem_write(buf, ct)
+        try: mu.mem_write(SCR, ct)
+        except Exception: return None
         for r, v in [(UC_ARM64_REG_X0, S1), (UC_ARM64_REG_X1, S1), (UC_ARM64_REG_X2, S3),
-                     (UC_ARM64_REG_X3, buf), (UC_ARM64_REG_X4, ln), (UC_ARM64_REG_X5, key),
+                     (UC_ARM64_REG_X3, SCR), (UC_ARM64_REG_X4, ln), (UC_ARM64_REG_X5, key),
                      (UC_ARM64_REG_SP, 0x70080000), (UC_ARM64_REG_LR, RET), (UC_ARM64_REG_TPIDR_EL0, 0x60000000)]:
             mu.reg_write(r, v)
         try: mu.emu_start(DEC, RET, 0, 0)
         except UcError: return None
-        return bytes(mu.mem_read(buf, ln)).split(b'\x00')[0]
+        return bytes(mu.mem_read(SCR, ln)).split(b'\x00')[0]
+
+    # reconstruct (ciphertext-source candidates, len, key) at a call site. Old engines: buf=x3 points at
+    # .text ciphertext directly. 6.9.20.x: buf=x3 is a stack local; ciphertext is `ldr q,[xN]` (xN=adrp+add)
+    # copied into it. So try both the x3 value and the last SIMD/GP load source before the bl.
+    def args64(i, span=45):
+        reg = {}; src = None
+        for j in range(max(0, i - span), i):
+            ins = insns[j]; ops = ins.operands; m = ins.mnemonic
+            try:
+                if m in ('ldr', 'ldur') and len(ops) == 2 and ops[1].type == ARM64_OP_MEM and ops[1].mem.base:
+                    bnm = ins.reg_name(ops[1].mem.base)
+                    if bnm in reg: src = (reg[bnm] + ops[1].mem.disp) & 0xffffffffffffffff
+            except Exception: pass
+            reg_step(reg, ins)
+        return src, reg.get('x3'), reg.get('w4'), reg.get('w5')
+
+    def reg_step(reg, ins):
+        ops = ins.operands; m = ins.mnemonic
+        try:
+            if m == 'adrp': reg[ins.reg_name(ops[0].reg)] = ops[1].imm
+            elif m == 'add' and len(ops) == 3 and ops[2].type == ARM64_OP_IMM and ins.reg_name(ops[1].reg) in reg:
+                reg[ins.reg_name(ops[0].reg)] = reg[ins.reg_name(ops[1].reg)] + ops[2].imm
+            elif m == 'mov' and len(ops) == 2 and ops[1].type == ARM64_OP_IMM:
+                reg[ins.reg_name(ops[0].reg)] = ops[1].imm
+            elif m == 'movk' and len(ops) == 2 and ops[1].type == ARM64_OP_IMM:
+                rd = ins.reg_name(ops[0].reg); reg[rd] = reg.get(rd, 0) | (ops[1].imm << 16)
+        except Exception: pass
 
     out = set()
     for i, ins in enumerate(insns):
         if ins.mnemonic == 'bl' and ins.operands and ins.operands[0].type == ARM64_OP_IMM and ins.operands[0].imm == DEC:
-            reg = reg_at(i, 45); buf = reg.get('x3'); ln = reg.get('w4'); key = reg.get('w5')
-            if not buf or not ln or ln > 256 or not (tva <= buf < tva + len(code) + 0x40000): continue
-            s = decrypt(buf, ln, key)
-            if s:
-                try: t = s.decode('utf-8')
-                except Exception: continue
-                if t and sum(32 <= ord(c) < 127 for c in t) >= max(2, len(t) - 1): out.add(t)
+            src, x3, ln, key = args64(i, 45)
+            if not ln or ln > 256 or key is None: continue
+            for addr in [a for a in (src, x3) if a is not None]:
+                if not (tva <= addr < tva + len(code) + 0x80000) and orig(addr, ln) is None: continue
+                s = decrypt_from(addr, ln, key)
+                if s:
+                    try: t = s.decode('utf-8')
+                    except Exception: t = None
+                    if t and sum(32 <= ord(c) < 127 for c in t) >= max(2, len(t) - 1):
+                        out.add(t); break
     report(sorted(out))
 
 
@@ -145,12 +177,12 @@ def run_arm():
             elif m in ('mov', 'movs', 'mov.w') and ops[1].type == ARM_OP_REG:
                 reg[rn(0)] = reg.get(rn(1))
             elif m == 'adr':
-                reg[rn(0)] = PCB(ins.address) + ops[1].imm
+                reg[rn(0)] = (PCB(ins.address) + ops[1].imm) & 0xffffffff
             elif m in ('add', 'add.w', 'addw') and len(ops) == 2 and rn(1) == 'pc':      # add rd, pc
-                reg[rn(0)] = (reg.get(rn(0)) or 0) + PCB(ins.address)
+                reg[rn(0)] = ((reg.get(rn(0)) or 0) + PCB(ins.address)) & 0xffffffff
             elif m in ('add', 'add.w', 'addw') and len(ops) == 3 and ops[2].type == ARM_OP_IMM:
                 base = PCB(ins.address) if rn(1) == 'pc' else reg.get(rn(1))
-                if base is not None: reg[rn(0)] = base + ops[2].imm
+                if base is not None: reg[rn(0)] = (base + ops[2].imm) & 0xffffffff
             elif m in ('ldr', 'ldr.w') and ops[1].type == ARM_OP_MEM and ins.reg_name(ops[1].mem.base) == 'pc':
                 a = PCB(ins.address) + ops[1].mem.disp; o = a - tva
                 if 0 <= o <= len(code) - 4: reg[rn(0)] = struct.unpack('<I', code[o:o + 4])[0]
