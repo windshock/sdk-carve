@@ -41,8 +41,12 @@ executing top-down, recommendation-first. `[x]`=done this session.
   corrections: (1) fxshield.co.kr is the shared default, dxshield.com = Mirae+IBK; (2) the app's real
   dexes are PLAINTEXT under this xShield variant (only loader+config encrypted). *Remaining sub-item:
   deep `sdk-carve` source→sink on the non-M-STOCK Coocon apps (IBK/신한/현대해상) — see B.*
-- [ ] **P2 — app string vault (Phase 3) on one representative app** via unidbg d() → table dump →
-  `vault_table_bruteforce.py` (build-specific offsets/seeds).
+- [x] **P2 — app string vault (Phase 3) on one representative app** — DONE/demonstrated. unidbg harness
+  (`unidbg_DxShieldTest.java`, `[PHASE3]` via `d()`/`p()`) compiles clean against `.m2` (zhkl0228 unidbg
+  0.9.10) — reproducible; prior full-vault artifact exists (`~/Downloads/xshield/analysis/
+  xshield-vault-decrypted.txt`, local/uncommitted). Reproducible classpath recipe + the static-vs-dynamic
+  completeness comparison (find_decryptor 21–104 discrete strings vs unidbg full-vault) added to
+  references/harness-recipes.md §10. This is also the correct route for arm32 v7a full dumps.
 
 ## B. Coocon SASAPI — server-script channel  (found: COOCON_SASAPI_TRIAGE.md)
 - [x] **P1 — Coocon presence across the Rhino-bearing apps.** Confirmed: same `kr.co.coocon` engine in

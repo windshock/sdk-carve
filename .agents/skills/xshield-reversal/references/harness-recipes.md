@@ -180,3 +180,24 @@ for (long got = 0; got < 1_500_000; got += 65536) {
   서로 대조 — 한쪽만의 결론을 최종판으로 쓰지 않는다.
 - 네거티브 판정("더미", "안 쓰임")은 커버리지 사각/좌표 혼동 사례가 있었으므로
   2개 이상 독립 근거 없이는 확정하지 않는다.
+
+## 10. Phase-3 재현 레시피 (unidbg 풀 볼트 덤프 + static 대조)
+
+**클래스패스(.m2, JDK17)** — 별도 unidbg 체크아웃 없이 로컬 maven 저장소 jar만으로 컴파일/실행:
+```bash
+CP=$(find ~/.m2/repository \( -path '*com/github/zhkl0228/*' -o -path '*net/java/dev/jna/*' \
+     -o -path '*junit/*' -o -path '*org/slf4j/*' -o -path '*log4j*' -o -path '*dongliu/apk-parser*' \
+     -o -path '*org/apache/commons*' \) -name '*.jar' ! -name '*sources*' ! -name '*javadoc*' | tr '\n' ':')
+javac -cp "$CP" -d out scripts/unidbg_DxShieldTest.java   # 패키지 com.github.unidbg.android
+java  -cp "$CP:out" com.github.unidbg.android.DxShieldTest
+```
+검증: zhkl0228 unidbg **0.9.10-SNAPSHOT** 로 클린 컴파일(2026-09-11). 하네스 SO 경로만 대상 빌드로 교체.
+
+**static(find_decryptor) vs dynamic(unidbg d()/p()) — 완전성 대조:**
+- `find_decryptor.py`(정적)는 콜사이트에서 인자가 정적 역산되는 항목만 → 빌드당 **개별 문자열 21~104개**
+  (arm64; 안티분석 IOC 핵심은 회수). 동적 주소·런타임 앵커 항목은 누락.
+- unidbg **Phase 3**는 `d()`/`p()`를 볼트 테이블 전역에 에뮬 → **볼트 전량**(루팅/frida/xposed 경로,
+  원격제어 앱 목록(teamviewer/anydesk/rsupport…), `[STAGE x/3] Hacking was successful` 등 전부).
+- 규약(§9): 두 산출을 교차 대조 — static은 "동적 재현 성공"을, dynamic은 "정적 근거"를 서로 확인.
+  본 사례 실측 아티팩트는 로컬 SKP 워크스페이스(`~/Downloads/xshield/analysis/xshield-vault-decrypted.txt`,
+  샘플 파생물이라 미커밋). arm32(v7a) 풀 덤프는 정적 소스 앵커 한계로 이 Phase-3(동적) 경로가 정석.
