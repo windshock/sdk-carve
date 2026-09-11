@@ -37,6 +37,11 @@ supply-chain surface: vendor server integrity, script signing, endpoint pinning,
   (svc `PUSANAPP`), devel `devel.mode`/`local.ip` override + fallback `183.111.160.145`, auth-txn over
   **plain HTTP** (`59.6.190.44:8900/cgi/sidea.authtr.cgi`), local proxy `127.0.0.1:1024/1025`. SEED-crypto,
   **no cert pin observed**. Scripts fetched by name+version, decrypted, eval'd — a bank-site scraper (mydata).
+  **HIGH (design):** the engine sets `initSafeStandardObjects` but **no `setClassShutter`**, so a server
+  script escapes to **arbitrary in-process Java** via `getClass()` off any bound object — **PoC-confirmed**
+  (ran bundled Rhino + the real `ScriptEngine` + the real app object `com.miraeasset.main.dc` that the app
+  itself injects via `setObject`; `id` executed off both). Ceiling = arbitrary code inside a bank app, not a
+  bounded scraping API.
 - **GPA GAD BeanShell** → GAD_API_RUNTIME_CAPTURE.md. `gad.api.gpakorea.com/campaign/{setup,prepare2,
   script/entry}` push BeanShell executed in-process. The whole channel (+ `type=5` CPS + `x-tdi-client-secret`)
   is **undocumented to integrators** (public api-doc = list/join/status/complete, types 0–4 only). iOS SDK

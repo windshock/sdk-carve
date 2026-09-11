@@ -21,15 +21,20 @@ no samples/PoC in the first contact, ask for a security contact + acknowledgemen
 > secret. No vulnerability is claimed; sharing so your customer guidance can be accurate.
 
 ## B. Coocon — SASAPI scraping SDK  (+ host banks/brokers: Mirae Asset, IBK, Shinhan, Hyundai Marine)
-**Contact:** Coocon security + each host institution's security team. **Class:** supply-chain design.
+**Contact:** Coocon security + each host institution's security team. **Class:** supply-chain design, HIGH.
 > Coocon SASAPI (`kr.co.coocon.sasapi`) downloads JavaScript from `isas.coocon.co.kr` and executes it
-> in-process via Rhino/V8 (`updateScript`→`ScriptManager`→`ScriptEngine.evaluateString`). This is a
-> server-driven in-process code channel: the server (or a party with a device-trusted cert) can run
-> arbitrary script inside the host financial app. We observed: no certificate pinning on the script
-> endpoint, a plaintext-HTTP auth transaction (`59.6.190.44:8900/cgi/sidea.authtr.cgi`), and a
-> `devel.mode`/`local.ip` system-property switch that redirects the script source. Requests: sign the
-> served scripts (host-verifiable), pin the endpoint, remove the plaintext auth channel and the devel
-> override from release builds, and document the scraped-data scope for integrating institutions.
+> in-process via Rhino/V8 (`updateScript`→`ScriptManager`→`ScriptEngine.evaluateString`). The engine is
+> configured with `initSafeStandardObjects` but **without a `ClassShutter`**, so a server script can pivot
+> off any exposed Java object (`obj.getClass().forName('java.lang.Runtime')…`) to **arbitrary in-process
+> code** — we confirmed this in a controlled lab by running the app's bundled Rhino with the real
+> `ScriptEngine` and the host app's own injected object (`com.miraeasset.main.dc`) and executing a command.
+> The host app also injects its secure-key crypto object into the script scope, widening the surface.
+> Transport: no certificate pinning on the script endpoint, a plaintext-HTTP auth transaction
+> (`59.6.190.44:8900/cgi/sidea.authtr.cgi`), and a `devel.mode`/`local.ip` switch that redirects the script
+> source. Requests: **add a Rhino/V8 ClassShutter allow-list**, sign the served scripts (host-verifiable),
+> pin the endpoint, stop injecting host-app objects into the scope, remove the plaintext auth channel and
+> the devel override from release builds, and document the scraped-data scope. (We are not alleging
+> malicious server content — the observed scripts were scraping logic; this is a design-level exposure.)
 
 ## C. drfn — charting SDK (host: Mirae Asset M-STOCK)
 **Contact:** drfn (chart vendor) + Mirae Asset security. **Class:** privacy/hygiene.

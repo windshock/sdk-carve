@@ -64,15 +64,21 @@ web. (adison-scheme deeplinks *are* host-gated to internal activities — so thi
 ## 4. Coocon (kr.co.coocon) — SASAPI scraping engine  · in M-STOCK, IBK, 신한, 현대해상
 **Finding** (COOCON_SASAPI_TRIAGE.md): the SDK **downloads JavaScript over a socket and executes it
 in-process** (`updateScript` → `ScriptManager`/`loadScript` → `ScriptEngine`/`V8ScriptEngine`
-`evaluateString`) for financial-site scraping. RCE-by-design, comparable to the GAD channel, running inside
-bank/broker apps. Traffic is SEED-encrypted; pinning/endpoint integrity unconfirmed.
-**Risk class:** server-driven code execution (design). This is a govern-the-vendor ask for the *host*
-banks/brokers as much as for Coocon.
+`evaluateString`) for financial-site scraping. The engine sets `initSafeStandardObjects` but **no
+`setClassShutter`** → a server script escapes to **arbitrary in-process Java** via `getClass()` off any
+bound object (**PoC-confirmed** on the bundled Rhino + the real `ScriptEngine` + the app's own injected
+object `com.miraeasset.main.dc`). Transport: SEED-encrypted but **no cert pinning**, plaintext-HTTP auth-txn,
+and a `devel.mode`/`local.ip` switch that redirects the script source.
+**Risk class:** **server-driven arbitrary code execution (design, HIGH; PoC-confirmed).** Govern-the-vendor
+ask for the *host* banks/brokers as much as for Coocon.
 **Requested hardening (Coocon + integrating financial institutions):**
-1. **Script integrity + endpoint pinning**: sign the scraping scripts and pin `updateScript`'s server so a
-   MITM cannot inject JS into the app process.
-2. **Least privilege / scope**: constrain what the server scripts can touch; document the scraped-data scope.
-3. Institutions: **govern this as a supply-chain code channel** (vendor server integrity, script signing,
+1. **Install a Rhino/V8 `ClassShutter` allow-list** (+ keep safe objects + sealed) so scripts cannot pivot
+   off bound objects into arbitrary classes — this is the direct fix for the confirmed escape.
+2. **Script integrity + endpoint pinning**: sign the scraping scripts and pin `updateScript`'s server;
+   remove the plaintext-HTTP auth transaction and the `devel.mode`/`local.ip` source-redirect switch.
+3. **Least privilege / scope**: stop injecting host-app objects (e.g. the secure-key crypto bridge) into the
+   script scope; constrain and document what the server scripts can touch + the scraped-data scope.
+4. Institutions: **govern this as a supply-chain code channel** (vendor server integrity, script signing,
    incident scope) — same class as any server-driven-eval dependency.
 
 ---

@@ -1,11 +1,11 @@
 # Coocon SASAPI — server-driven JS scraping engine (in 4 KR financial apps)
 
-**Status:** cpg-confirmed on M-STOCK (via sdk-carve on the decrypted payload); string-confirmed across
-the fleet (`payload_decrypt.py` base-apk dex scan).
+**Status:** cpg-confirmed on M-STOCK; string-confirmed across the fleet (`payload_decrypt.py`);
+**sandbox-escape PoC-confirmed → arbitrary in-process code** (see §Sandbox strength). **Severity: HIGH (design).**
 **One line:** Four KR financial apps bundle **Coocon SASAPI** (`kr.co.coocon.sasapi`), a
-screen-scraping/aggregation SDK that **downloads JavaScript from its server over a raw socket and
-executes it in-process via Rhino (`org.mozilla.javascript`)** — a server-driven code-execution channel,
-same threat class as GAD's BeanShell channel (RCE-by-design), here for financial-site scraping (mydata-style).
+screen-scraping/aggregation SDK that **downloads JavaScript from its server and executes it in-process via
+Rhino/V8** with **no ClassShutter** — a server-driven code channel whose real ceiling is **arbitrary Java
+execution** inside the financial app (PoC-confirmed), same/stronger class as GAD's BeanShell.
 
 ## Fleet presence (payload_decrypt base-apk dex scan)
 | App | mgmt server | kr.co.coocon refs | Rhino refs |
@@ -88,12 +88,50 @@ loadScript(String) / include(String)  →  ScriptEngine.a(String)  →  org.mozi
   SEED-CBC** (Korean cipher) for its traffic.
 - No `DexClassLoader`/`System.load` (JS is data-eval, not native code loading).
 
-## Risk framing
-- **By design**: Coocon is a legitimate KR scraping/aggregation SDK (banks/cards/mydata). Its power is
-  intrinsic — the server can push arbitrary JS that runs in the host (financial) app's process. Trust
-  reduces to Coocon's server + transport integrity (SEED-encrypted, but confirm cert/endpoint pinning).
-- **Same threat class as GPA GAD BeanShell** (server → in-process code eval). Not malware; a supply-chain
-  surface a bank/broker should govern (vendor server integrity, script signing, scope of scraped data).
+## Real app integration (M-STOCK, carved 2026-09-11)
+How the host app actually wires the engine (app scraper `com.daewoo.mainlib.Scrap.aa.iIiIIIiiii()`):
+```java
+SASManager sm = SASManager.getInstance();
+dc dcVar = new dc();                     // com.miraeasset.main.dc extends kr.co.coocon.sasapi.crypt.AbstractCrypto
+sm.setObject(dcVar, <name>);             // the APP injects its OWN object into the script scope
+sm.addSASRunCompletedListener(this); sm.addSASRunStatusChangedListener(this);
+```
+- `getInstance()` binds Coocon's own toolkit into the JS scope: **`system`=ScriptEngine** (whose JS-reachable
+  methods include `getHttpRequest()`→HttpManager, `getSASSessions()`, `getDeviceID()`, `getUserInfo()`,
+  **`addTrustedCertificateAuthority()`** = runtime CA trust, `loadScript`/`include`/`runScript`), plus
+  `httpRequest`, `SASSessions`, `certManager`, `SASCipher`, `TouchEnKey`/`TouchEnKeyEx` (secure keypad), etc.
+- The app *additionally* injects **`com.miraeasset.main.dc`** — a crypto bridge whose `dec()`/`enc()` route
+  to the app's **`KeySecManager`/`SecManager` secure-key** decryption. So a server script gets Coocon's
+  financial toolkit **plus the host app's secure-key crypto**.
+
+## Sandbox strength — escape PoC-confirmed → arbitrary in-process code (2026-09-11)
+`ScriptEngine.getInstance()` sets up Rhino with **`initSafeStandardObjects` + sealed scope only — it does
+NOT call `setClassShutter`** (the `ClassShutter`/`visibleToScripts` strings in the dex are the bundled
+Rhino library's own, not a Coocon-installed shutter — verified: no `setClassShutter` call in
+`getInstance`/`initInstance`). With no ClassShutter, `initSafeStandardObjects` removes only the global
+`java`/`Packages` — it does **not** stop the classic Rhino pivot `boundObject.getClass().forName('java.lang.
+Runtime')…` off any exposed Java object.
+- **Dynamically confirmed (local PoC, uncommitted):** ran the app's **bundled Rhino bytecode** (dex2jar) with
+  the **real `ScriptEngine`** bound as `system` (v2) **and** the **real app object `dc`** injected via the
+  engine's real `setObject()` (v3, matching §Real app integration). Controls: `java`/`Packages` globals
+  blocked (safe objects working). Escape: `system.getClass()…exec('id')` **and** the app object
+  `dc.getClass()…exec('id')` both returned real `id` output → **arbitrary in-process command execution**.
+  So the escape works even off the *app's own* injected object — i.e., injecting any Java object into the
+  scope opens it. Tooling note: this is pure-JVM Rhino semantics (Dalvik/ART identical); unidbg is native-only
+  and N/A. PoC code kept local (method/result only in this report).
+
+## Risk framing — HIGH (design; PoC-confirmed sandbox escape)
+- **Ceiling is arbitrary in-process code**, not a bounded scraping API: the server (or a party who can swap
+  the script) runs code inside a bank/broker app with the user's authenticated financial sessions, PKI,
+  secure keypad, runtime CA trust, **and** the app's secure-key crypto — plus a confirmed escape to arbitrary
+  Java. Same/stronger class as GPA GAD BeanShell (GAD had no ClassShutter either; here the app also hands in
+  its own object).
+- **Transport widens it:** no cert pinning observed on `isas.coocon.co.kr`, a plaintext-HTTP auth transaction,
+  and a `devel.mode`/`local.ip` system-property switch that redirects the script source → a device-trusted-CA
+  MITM can substitute the script and drive all of the above.
+- **Not an allegation of malicious server content** (observed scripts were scraping logic). This is a
+  **design-level exposure**: a bank/broker must govern it as a server-driven code path — script signing,
+  endpoint pinning, an engine ClassShutter allow-list, and minimizing what host objects are injected.
 
 ## Second finding in the same dexes (hygiene/privacy — payload confirmed 2026-09-11)
 `drfn/chart` (third-party charting SDK, `drfn.chart.base.{Save,Load}ChartController` + `COMUtil`) is a
