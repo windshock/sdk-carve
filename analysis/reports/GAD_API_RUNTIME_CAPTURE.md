@@ -159,7 +159,12 @@ GPA KOREA는 GitHub org를 2개 운영(스킬 vendor-attribution 노트의 "2-or
 + BeanShell eval 채널은 **통합사(매체)에게 전혀 공개되지 않은 내부 표면**이다. 즉 "볼트 뒤 정확한 API 경로"
 미결은 봉인 전 diff 없이 **공개 문서 부재로 확정**된다 — 문서화된 표면과 실제 표면의 격차 자체가 은닉 채널이다.
 
-**남은 후속**: iOS SDK(`gad-ios-sdk-syrup`, `GadSDK ~>0.1.3`)의 BeanShell/스크립트 채널 유무(크로스플랫폼 대칭성 확인용).
+**iOS 대칭성 (2026-09-11 종결)**: iOS SDK는 컴파일된 XCFramework(`GadSDK` v0.1.9, GitHub 릴리스 바이너리)로 배포.
+바이너리 strings 검사 결과 — `gad.api.gpakorea`(동일 호스트) + `tDi`×9(TDI 연동, `x-tdi-client-secret`과 정합) +
+`evaluateJavaScript`×3(**WKWebView JS 주입** 표준 API)만 존재. **`JSContext`/`JavaScriptCore` 독립 JS 엔진 없음,
+BeanShell 없음**(iOS엔 Java 없음), `/campaign/setup|prepare2|script/entry`·`type=5` 리터럴 미관측. **결론: 안드로이드의
+BeanShell **인프로세스 코드 실행** 채널은 iOS에 대칭 이식되지 않음** — iOS는 독립 스크립트 인터프리터를 싣지 않고
+WKWebView(샌드박스) JS 주입만 사용. API 호스트·TDI 연동은 공유하나 RCE-by-design 코드 채널은 **안드로이드 한정 노출**.
 
 ## 공개 소스 (2026-09-07 기록)
 

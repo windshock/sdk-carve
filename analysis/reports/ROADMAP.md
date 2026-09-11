@@ -116,8 +116,11 @@ executing top-down, recommendation-first. `[x]`=done this session.
   control not false-positived (50× margin). In packer-detect.py + SKILL.md field note.
 
 ## E. Reporting / outbound
-- [ ] **P2 — consolidated KR-RASP supply-chain memo** (fleet + Coocon + AV/PKI patterns). Note: the SKP
-  xShield 공급망 평가 proper is a **separate session** (`~/Downloads/xshield/`).
+- [x] **P2 — consolidated KR-RASP supply-chain memo** — DONE. `KR_RASP_SUPPLY_CHAIN_MEMO.md` synthesizes
+  the fleet + the two server-code channels (Coocon JS / GAD BeanShell) + AV/PKI/adtech/drfn patterns +
+  actions. Includes the **GAD iOS symmetry** resolution: iOS SDK (v0.1.9 XCFramework) is asymmetric — shares
+  API host + TDI but ships no script interpreter (WKWebView evaluateJavaScript only, no JSContext/BeanShell)
+  → the RCE-by-design channel is Android-only. Folded into GAD_API_RUNTIME_CAPTURE.md too.
 - [ ] **P3 — vendor notifications**: NSHC (xShield), Coocon (server-code channel govern), drfn (plain-HTTP).
 
 ## F. Low
