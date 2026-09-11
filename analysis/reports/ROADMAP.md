@@ -6,6 +6,18 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped/blocked. 
 
 ---
 
+## Execution sequence (gap-free, all remaining items) — set 2026-09-11
+All P1 + the recommended-next-3 are done. Remaining P2/P3 are sequenced below so nothing is dropped;
+executing top-down, recommendation-first. `[x]`=done this session.
+1. [x] **C** — Adison SugarToken + allowlist → **C** vendor hardening docs (GAD/TNK/Adison) → **C** issue #5 writeup.
+2. [ ] **B** — Coocon version diff (4 apps) → Coocon `updateScript` server endpoint/protocol → drfn plain-HTTP payload.
+3. [ ] **A/D** — find_decryptor 32-bit + arg-recon → app string vault (Phase 3) → packer-detect Toss case.
+4. [ ] **E/F** — consolidated KR-RASP memo (+ GAD iOS symmetry) → draft vendor notifications → Goldoson-TDI.
+> Blocked-on-dynamic (parked, needs runtime/server JS): B "what scraping scripts collect/exfil"; outbound
+> vendor *sends* need explicit user auth (drafts only).
+
+---
+
 ## A. xShield fleet — deepen  (survey done: XSHIELD_FLEET_SURVEY.md, 14 apps)
 > **Re-prioritized after the fleet run:** `payload_decrypt.py` already recovers the mgmt server +
 > full SDK inventory *without* the native vault (app dexes are plaintext), so the native-decryptor
@@ -55,8 +67,12 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped/blocked. 
   confined to `TnkAssert` self-test (not wired to production). Verdict: **unpinned → deser decider =
   medium confirmed** (not trivially MITM-able, but no pinning defense-in-depth). Written up in
   TNK_FULLPASS.md §4.1. Pinning is now an evidence-backed line in the hardening ask.
-- [ ] **P2 — Adison SugarToken confirm** (Native-Ads SDK/docs) + `open/openExternal` domain allowlist
-  request (TYRADS/ADISON triage §9).
+- [x] **P2 — Adison SugarToken confirm + `open/openExternal` allowlist** — DONE. SugarToken = server-session
+  term for the `setUid` uid (0 binary refs / not in SDK docs / not on web) → no client artifact. Bridge
+  re-decompiled: corrected two triage overstatements — web bridge is ~9 methods (not 3), and URL handling
+  is structured scheme-dispatch (adison-scheme host-gated), NOT blind loadUrl. Real residual surface =
+  `intent:` `Intent.parseUri` redirection + web-specified packageName + no http/inappbrowser domain
+  allowlist. Folded into ADISON_SDK_TRIAGE.md §7/§9; hardening asks feed the next item.
 - [ ] **P2 — vendor hardening request docs**: GPA(bsh 2.0b6+/channel integrity), TNK(loadClass allow-list /
   type-safe format / pinning), Adison(open/openExternal allowlist / v5 / drop dev+apiary-mock).
 - [ ] **P2 — issue #5 (method generalization) writeup** — the 4 non-Goldoson offerwalls carved+CPG'd are

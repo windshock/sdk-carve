@@ -77,7 +77,7 @@ showNativeAd, availableReward, getSdkVersion, loadAds` — 문서의 웹뷰 JS S
   식별됐었고 AAR 실명 628클래스와 동일 제품(버전 일치)으로 확인. 전체 카브 패스는
   히트 전무로 미수행.
 
-## 7. 사용자 식별자 — SugarToken (기록, 미완료 확인)
+## 7. 사용자 식별자 — SugarToken (2026-09-11 종결)
 
 - **운영 정보(매체 연동 문서 인용)**: 사용자 식별자는 **Session > SugarToken 사용
   (사용자마다 Unique)**. 관련 문서 섹션: Native Ads 가이드
@@ -88,9 +88,11 @@ showNativeAd, availableReward, getSdkVersion, loadAds` — 문서의 웹뷰 JS S
   `offerwallListTitle`, `navigationHelpButtonType`, `listType`,
   `enablePopupBannerExtension` 등. v5 스타일 API이며 **시럽이 쓰는 3.16.4에는
   없는 인터페이스**.
-- **바이너리 확인**: `SugarToken` 문자열은 3.16.4와 5.4.0 AAR 양쪽 모두 0건 —
-  SDK 클래스가 아니라 **서버 세션 개념**이거나 Native Ads 전용 아티팩트(미분석)의
-  요소로 추정. 확정하려면 ofw-native-ads 문서/SDK 별도 확인 필요 → **미완료로 기록**.
+- **종결**: `SugarToken`은 (a) 3.16.4·5.4.0 AAR 바이너리 0건, (b) 공개 SDK 개발자
+  문서(`ofw-native-ads` 재확인) 미언급, (c) 공개 웹 전무 — **클라이언트 SDK 아티팩트가
+  아님**. 매체 연동 문서의 "Session > SugarToken"은 **매체가 넘긴 사용자 식별자의
+  서버-세션 측 명칭**으로 확정(= 클라이언트가 `Adison.setUid(uid)`로 전달하는 `uid`의
+  서버 표현). 별도 SugarToken 민팅/저장 코드 없음 → 코드상 추가 공격면 없음.
 - **v3(시럽) 식별자 흐름은 문서로 확정됨**: `Adison.setUid(...)` — UID는 사용자마다
   고유·불변(재설치/기기 변경/재로그인 불변), 80자 한도, 매체사가 생성하는 비개인정보
   난수(생성 로직을 애디슨에 설명하지 않는 것이 문서 요건). 시럽 구현과 정확히 일치:
@@ -121,14 +123,20 @@ showNativeAd, availableReward, getSdkVersion, loadAds` — 문서의 웹뷰 JS S
 
 | # | 공격 포인트 | 확인 내용 | 등급 |
 |---|---|---|---|
-| 1 | **SharedWeb 브리지** | 일반 웹뷰(`AdisonOfwWebFragment`)+헬프에 부착된 `SharedWebViewJsInterface`는 `close()`/`open(url)`/`openExternal(url)` 3메서드 — **URL 게이트 없음**(`shouldOverrideUrlLoading`이 무조건 loadUrl). 캠페인 랜딩 페이지가 in-app 네비게이션 제어·임의 외부 인텐트 발화 가능 | 낮음-중간 |
-| 2 | **풀 브리지 미노출** | 12메서드 풀 브리지(`setUid`·`impression` 포함)는 3.16.4에서 `addJavascriptInterface` 부착 지점이 **없음** — 웹 콘텐츠가 setUid를 건드릴 경로 없음(호스트 앱 호출 전용). 웹 노출은 3메서드로 한정 | 양호 |
+| 1 | **SharedWeb 브리지** | 웹 노출 브리지는 3메서드가 아니라 **~9메서드**(`open`·`openExternal`×2·`close`·`copyToClipboard`·`showAlert`·`showConfirm`·`setTitle`·`getSdkVersion`). URL 처리는 "무조건 loadUrl"이 **아님**(정정) — `AdisonUriParser`가 **스킴 분기** 처리하며 adison-스킴은 host 게이트(`OFFERWALL_HOST`→내부 Activity, `INAPPBROWSER_HOST`→인앱 웹뷰). 실제 잔여 표면 ↓(1a~1c) | 낮음-중간 |
+| 1a | **intent-스킴 리다이렉션** | `openExternal("intent://…")` → `AdisonUriParser.processOtherScheme` → **`Intent.parseUri(url, URI_INTENT_SCHEME)` → startActivity**. 캠페인 랜딩 JS가 임의 인텐트를 구성해 발화(익스포트 컴포넌트/extras). BROWSABLE 카테고리 필터 미적용 | 낮음-중간 |
+| 1b | **웹 지정 packageName** | `openExternal(url, packageName)`는 웹이 넘긴 `packageName`으로 `intent.setPackage()` 후 startActivity, 실패 시 원본 url로 `ACTION_VIEW` 폴백 — 대상 앱을 웹이 지정 | 낮음 |
+| 1c | **목적지 도메인 allowlist 부재** | `adison://inappbrowser?url=<임의>` 및 http(s) open은 **목적지 도메인 검증 없이** 인앱 웹뷰(브리지 부착)에 로드 — 랜딩이 곧 신뢰 경계. `copyToClipboard`로 웹→클립보드 쓰기 가능 | 낮음-중간 |
+| 2 | **민감 브리지 미노출** | `setUid`·`impression` 등을 포함한 **호스트 앱용 풀 브리지**는 웹뷰에 `addJavascriptInterface`로 부착되지 않음 — 웹 콘텐츠가 `setUid`(식별자)를 건드릴 경로 없음. 웹 노출은 (1)의 `ui/web/SharedWebViewJsInterface` ~9메서드로 한정(민감 메서드 제외) | 양호 |
 | 3 | **TLS 피닝 없음** | `Tls12SocketFactory`는 구형 기기 TLSv1.2 활성화 셈틀일 뿐, `CertificatePinner`/TrustManager 커스터마이즈 없음. MITM = 기기에 신뢰 CA 주입 필요(표준 한계) | 표준 |
 | 4 | 리워드 무결성 | 적립은 S2S postback + HMAC(문서) — **클라이언트 민팅 경로 없음** | 양호 |
 | 5 | 서버 말린 필터 | `{}` 정규식 밖 플레이스홀더 → eval 예외가 try 밖으로 전파(fail-closed, 크래시 여지) | 견고성 |
 
-**결론**: 실행 프리미티브(코드 실행·식별자 탈취)는 없음이 유지되지만, 웹뷰
-네비게이션 브리지의 URL 게이트 부재는 실재하는 (낮은 등급의) 공격 포인트 — 캠페인
-랜딩이 곧 신뢰 경계가 되는 구조. 권고: 벤더에 `open/openExternal` 대상 도메인
-검증(allowlist) 요청. 토스·시럽 관점 추가 확인치: 번들 버전의 브리지 노출 범위가
-동일한지(토스는 dex 암호화로 미확인).
+**결론**: 실행 프리미티브(코드 실행·식별자 탈취)는 없음이 유지된다. 다만 브리지 URL
+처리는 "게이트 전무"가 아니라 **스킴 분기 + adison-스킴 host 게이트**가 있고, 실재하는
+(낮은 등급의) 잔여 표면은 (1a) `intent:` 스킴 `Intent.parseUri` 리다이렉션, (1b) 웹 지정
+`packageName`, (1c) http/inappbrowser **목적지 도메인 allowlist 부재**다 — 캠페인 랜딩이
+곧 신뢰 경계가 되는 구조. **벤더 권고**(→ VENDOR_HARDENING_REQUESTS.md): `open`/`openExternal`
+http(s)·inappbrowser 목적지 **도메인 allowlist**, `intent:` 스킴 처리 제한(임의 `parseUri`
+지양 또는 스킴/컴포넌트 allowlist), 웹 지정 `packageName` 제약, `copyToClipboard` 스코프
+검토. 토스·시럽 관점 추가 확인치: 번들 버전의 브리지 노출 범위 동일 여부(토스는 dex 암호화로 미확인).
