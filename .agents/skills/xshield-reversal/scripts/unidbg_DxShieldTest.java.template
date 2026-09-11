@@ -1,0 +1,526 @@
+package com.github.unidbg.android;
+
+import com.github.unidbg.AndroidEmulator;
+import com.github.unidbg.Emulator;
+import com.github.unidbg.LibraryResolver;
+import com.github.unidbg.Module;
+import com.github.unidbg.linux.android.AndroidEmulatorBuilder;
+import com.github.unidbg.linux.android.AndroidResolver;
+import com.github.unidbg.linux.android.dvm.DalvikModule;
+import com.github.unidbg.linux.android.dvm.VM;
+import com.github.unidbg.linux.file.ByteArrayFileIO;
+import com.github.unidbg.memory.Memory;
+import com.github.unidbg.memory.MemoryBlock;
+import org.junit.Test;
+
+import java.io.File;
+import com.github.unidbg.arm.backend.Backend;
+import unicorn.Arm64Const;
+
+public class DxShieldTest {
+
+    private static final String APK = "/Users/1004276/Downloads/ok-cashbag-7-1-9.apk";
+    private static final String SO = "/Users/1004276/Downloads/xshield/native/arm64-v8a/libdxbase.so";
+
+    @Test
+    public void jniOnLoadAndSeeds() {
+        AndroidEmulator emulator = AndroidEmulatorBuilder.for64Bit()
+                .setProcessName("com.skmc.okcashbag.home_google")
+                .build();
+        Memory memory = emulator.getMemory();
+        memory.setLibraryResolver(new AndroidResolver(23));
+
+        // Samsung Knox check in FUN_26128 reads these two props: sdk != 0 AND selinux == 1
+        com.github.unidbg.linux.android.SystemPropertyHook propHook =
+            new com.github.unidbg.linux.android.SystemPropertyHook(emulator);
+        propHook.setPropertyProvider(new com.github.unidbg.linux.android.SystemPropertyProvider() {
+            @Override
+            public String getProperty(String key) {
+                if ("ro.build.version.sdk".equals(key)) return "33";
+                if ("ro.build.selinux".equals(key)) return "1";
+                return null;
+            }
+        });
+        memory.addHookListener(propHook);
+
+        // redirect the on-device APK path to the host file.
+        // SimpleFileIO (not ByteArrayFileIO): the loader readlink()s the APK path and
+        // lseek/pread-parses the zip; ByteArrayFileIO throws AbstractMethodError on getPath.
+        emulator.getSyscallHandler().addIOResolver((emulator1, path, oflags) -> {
+            System.out.println("[IO] open(" + path + ", " + oflags + ")");
+            if (path.contains("base.apk") || path.contains("ok-cashbag")) {
+                try {
+                    return com.github.unidbg.file.FileResult.<com.github.unidbg.file.linux.AndroidFileIO>success(
+                            new com.github.unidbg.linux.file.SimpleFileIO(oflags, new File(APK), path));
+                } catch (Throwable t) {
+                    System.out.printf("[IO] SimpleFileIO failed: %s%n", t);
+                }
+            }
+            return null;
+        });
+
+        VM vm = emulator.createDalvikVM(new File(APK));
+        vm.setVerbose(true);
+
+        DalvikModule dm = vm.loadLibrary(new File(SO), false);
+        Module module = dm.getModule();
+        long base = module.base;
+        System.out.printf("[*] libdxbase base = 0x%x%n", base);
+
+        // pthread_create@plt (base+0x627a0): patch to "mov w0, wzr; ret".
+        // unidbg's futex/mutex emulation deadlocks when bionic pthread internals contend
+        // (spin at libc+0x68a44 after the MAIN PATH spawns). No emulated thread ever runs
+        // anyway; their outputs are injected explicitly.
+        emulator.getBackend().mem_write(base + 0x627a0, new byte[]{(byte) 0xe0, 0x03, 0x1f, 0x2a, (byte) 0xc0, 0x03, 0x5f, (byte) 0xd6});
+        System.out.println("[*] pthread_create@plt patched to no-op");
+
+        try {
+            dm.callJNI_OnLoad(emulator);
+            System.out.println("[*] JNI_OnLoad completed");
+        } catch (Throwable t) {
+            System.out.printf("[!] JNI_OnLoad threw: %s%n", t);
+        }
+        for (Module m : memory.getLoadedModules()) {
+            System.out.printf("[MOD] base=0x%x size=0x%x %s%n", m.base, m.size, m.getPath());
+        }
+
+        // Re-apply AFTER JNI_OnLoad: its init re-fills the dlsym'd fn-ptr globals.
+        // pthread_mutex_lock (DAT_735e8) / pthread_mutex_unlock (DAT_73618): bionic's
+        // mutex lock on these globals spins forever in the futex retry loop under unidbg.
+        // Point both at the "mov w0,#0; ret" stub already written at base+0x627a0.
+        long noRet = base + 0x627a0;
+        byte[] ptr = new byte[]{
+            (byte) noRet, (byte) (noRet >> 8), (byte) (noRet >> 16), (byte) (noRet >> 24),
+            (byte) (noRet >> 32), (byte) (noRet >> 40), (byte) (noRet >> 48), (byte) (noRet >> 56)};
+        emulator.getBackend().mem_write(base + 0x735e8, ptr);
+        emulator.getBackend().mem_write(base + 0x73618, ptr);
+        System.out.println("[*] pthread_mutex_lock/unlock dlsym ptrs redirected to no-op stub");
+
+        // === state injection: set the globals that the app's init would have set ===
+        // DAT_71ac8 -> pointer to "dex\0" (the dex magic check target)
+        byte[] dexTag = new byte[]{'d', 'e', 'x', 0};
+        com.github.unidbg.pointer.UnidbgPointer dexTagPtr = memory.malloc(dexTag.length, false).getPointer();
+        emulator.getBackend().mem_write(dexTagPtr.peer, dexTag);
+        emulator.getBackend().mem_write(base + 0x71ac8, longToBytes(dexTagPtr.peer));
+        System.out.printf("[*] DAT_71ac8 -> 0x%x (dex tag)%n", dexTagPtr.peer);
+
+        // DAT_71fe8 -> pointer to the asset entry name
+        byte[] assetName = "assets/.4ee57bec0477eab193ad1dcb308b0fe8.dex\0".getBytes();
+        com.github.unidbg.pointer.UnidbgPointer namePtr = memory.malloc(assetName.length, false).getPointer();
+        emulator.getBackend().mem_write(namePtr.peer, assetName);
+        emulator.getBackend().mem_write(base + 0x71fe8, longToBytes(namePtr.peer));
+        System.out.printf("[*] DAT_71fe8 -> 0x%x (asset name)%n", namePtr.peer);
+
+        dumpSeeds(emulator, base);
+
+        // second phase: call the REAL native da.d via the DVM (21-arg JNI call)
+        final java.util.Deque<Long> pcRing = new java.util.ArrayDeque<>();
+        final long[] watchdogCount = {0};
+        final boolean[] memDumped = {false};
+        final boolean[] dynSeen = {false};
+        final int[] loaderInvocations = {0};
+        final int[] lastW21Setter = {0};
+        emulator.getBackend().hook_add_new(new com.github.unidbg.arm.backend.CodeHook() {
+            @Override
+            public void hook(com.github.unidbg.arm.backend.Backend backend, long address, int size, Object user) {
+                long off = address - base;
+                // dump memory right before the self-kill
+                if (off >= 0x1cf70 && off <= 0x1cfd0 && !memDumped[0]) {
+                    memDumped[0] = true;
+                    try {
+                        java.io.PrintStream ps = new java.io.PrintStream("/tmp/xsh-memdump.txt");
+                        ps.println("=== MEMORY SCAN at kill point ===");
+                        byte[] asset = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("/tmp/xshield-check/assets/.4ee57bec0477eab193ad1dcb308b0fe8.dex"));
+                        // find the asset buffer address
+                        com.github.unidbg.pointer.UnidbgPointer assetPtr = com.github.unidbg.pointer.UnidbgPointer.pointer(emulator, base + 0x224);
+                        // read the first 4KB from the emulated memory at various known offsets
+                        for (long readOff : new long[]{0x220, 0x224, 0x2C2, 0x2C6}) {
+                            try {
+                                byte[] buf = backend.mem_read(base + readOff, 64);
+                                ps.printf("read@%x: %s%n", readOff, java.util.HexFormat.of().formatHex(buf, 0, Math.min(32, buf.length)));
+                            } catch (Exception e2) { ps.printf("read@%x err%n", readOff); }
+                        }
+                        // dump the stack copy (sp + 0x1078)
+                        long sp = backend.reg_read(Arm64Const.UC_ARM64_REG_SP).longValue();
+                        byte[] stack = backend.mem_read(sp + 0x1078, 158);
+                        ps.println("stack copy: " + new String(stack, java.nio.charset.StandardCharsets.ISO_8859_1));
+                        ps.close();
+                        System.out.println("[MEMDUMP] complete");
+                    } catch (Exception e) { System.out.println("[MEMDUMP] err: " + e); }
+                }
+                // === SDK-gate trace (0x21a10..0x21c10) ===
+                switch ((int) off) {
+                    case 0x21a10: {
+                        long v = rd32(backend, base + 0x72080);
+                        System.out.printf("[GATE] 0x21a10 DAT_72080=0x%x (0=check, nonzero=main)%n", v);
+                        break;
+                    }
+                    case 0x21a5c: {
+                        long x24 = backend.reg_read(Arm64Const.UC_ARM64_REG_X24).longValue();
+                        String s = "<null>";
+                        if (x24 != 0) {
+                            try { s = cstr(backend, backend.mem_read(x24, 8), 64); } catch (Throwable t) { s = "<unreadable>"; }
+                        }
+                        long sp = backend.reg_read(Arm64Const.UC_ARM64_REG_SP).longValue();
+                        long arg = rd32(backend, sp + 0xa4);
+                        System.out.printf("[GATE] 0x21a5c str[x24=0x%x]=%s arg[sp+a4]=%d%n", x24, s, arg);
+                        break;
+                    }
+                    case 0x21a6c: {
+                        long v = rd32(backend, base + 0x72070);
+                        System.out.printf("[GATE] 0x21a6c DAT_72070(SDK)=0x%x%n", v);
+                        break;
+                    }
+                    case 0x21a84: {
+                        long r = backend.reg_read(Arm64Const.UC_ARM64_REG_X0).longValue();
+                        long usleepFn = backend.mem_read(base + 0x735e0, 8) == null ? 0 : rd64(backend, base + 0x735e0);
+                        System.out.printf("[GATE] 0x21a84 FUN_26128 ret=%d DAT_734ac=0x%x usleep@=0x%x%n",
+                            r, rd32(backend, base + 0x734ac), usleepFn);
+                        break;
+                    }
+                    case 0x26ee0: {
+                        System.out.printf("[GATE] 0x26ee0 FUN_26128 spawning worker thread FUN_2d5a0 (pthread_create)%n");
+                        break;
+                    }
+                    case 0x2d5a0: {
+                        System.out.println("[GATE] 0x2d5a0 *** worker thread ENTERED ***");
+                        break;
+                    }
+                    case 0x26f0c: {
+                        // pthread_create returned: unidbg has no thread scheduler, so the worker
+                        // FUN_2d5a0 (file-existence prober) never runs and the 64x usleep(1ms)
+                        // poll times out -> FUN_26128 returns 3. Inject the clean-device result
+                        // the worker would have written: status=0 (nothing detected), count=1.
+                        long sp = backend.reg_read(Arm64Const.UC_ARM64_REG_SP).longValue();
+                        backend.mem_write(sp + 0x3028, new byte[]{0, 0, 0, 0});
+                        backend.mem_write(sp + 0x302c, new byte[]{1, 0, 0, 0});
+                        System.out.println("[GATE] 0x26f0c injected worker result: status=0 count=1");
+                        break;
+                    }
+                    case 0x26ed0: {
+                        // fallthrough target after poll loop; x0 = status flag struct is stack-based, log via x19/x20 heuristics
+                        System.out.println("[GATE] 0x26ed0 poll loop exited (flag observed)");
+                        break;
+                    }
+                    case 0x27d10: {
+                        System.out.printf("[GATE] 0x27d10 FUN_26128 returning via 0x27d10 (x0=%d)%n",
+                            backend.reg_read(Arm64Const.UC_ARM64_REG_X0).longValue());
+                        break;
+                    }
+                    case 0x279dc: {
+                        System.out.printf("[GATE] 0x279dc FUN_26128 join point (x0=%d)%n",
+                            backend.reg_read(Arm64Const.UC_ARM64_REG_X0).longValue());
+                        break;
+                    }
+                    case 0x21b6c: {
+                        long sp = backend.reg_read(Arm64Const.UC_ARM64_REG_SP).longValue();
+                        System.out.printf("[GATE] 0x21b6c param17[sp+a0]=%d DAT_734b4=0x%x (bit29=%d)%n",
+                            rd32(backend, sp + 0xa0), rd32(backend, base + 0x734b4),
+                            (rd32(backend, base + 0x734b4) >> 29) & 1);
+                        break;
+                    }
+                    case 0x29d70: {
+                        loaderInvocations[0]++;
+                        long p2 = backend.reg_read(Arm64Const.UC_ARM64_REG_X1).longValue();
+                        System.out.printf("[LOADER] === invocation #%d entry, param_2=%d (0x%x)%n",
+                            loaderInvocations[0], (int) p2, p2);
+                        break;
+                    }
+                    case 0x2abc4: {
+                        long w21 = backend.reg_read(Arm64Const.UC_ARM64_REG_X21).longValue();
+                        System.out.printf("[LOADER] 0x2abc4 section-completed, w21=%d%n", (int) w21);
+                        break;
+                    }
+                    case 0x2b4c4: {
+                        long w21 = backend.reg_read(Arm64Const.UC_ARM64_REG_X21).longValue();
+                        System.out.printf("[LOADER] 0x2b4c4 check w21=%d (neg=fail)%n", (int) w21);
+                        break;
+                    }
+                    case 0x2d1e8: {
+                        long w21 = backend.reg_read(Arm64Const.UC_ARM64_REG_X21).longValue();
+                        System.out.printf("[LOADER] 0x2d1e8 final w21=%d%s%n", (int) w21,
+                            (w21 & 0x80000000L) != 0 ? " -> will subtract 100" : " -> ok");
+                        break;
+                    }
+                    case 0x29ec8: case 0x2b264: case 0x2b27c: case 0x2b294:
+                    case 0x2b2ac: case 0x2b2c4: case 0x2b53c: case 0x2b828:
+                    case 0x2b8b8: case 0x2c4c0: case 0x2c4cc: case 0x2c4d8:
+                    case 0x2d564: {
+                        lastW21Setter[0] = (int) off;
+                        break;
+                    }
+                    case 0x2d538: {
+                        long w21 = backend.reg_read(Arm64Const.UC_ARM64_REG_X21).longValue();
+                        System.out.printf("[LOADER] epilogue w21=%d, last setter=0x%x%n", (int) w21, lastW21Setter[0]);
+                        break;
+                    }
+                    case 0x2b238: {
+                        // open(path, 0, 0) right before the per-section w21 result codes
+                        long x0 = backend.reg_read(Arm64Const.UC_ARM64_REG_X0).longValue();
+                        String p = "<null>";
+                        try {
+                            byte[] raw = backend.mem_read(x0, 96);
+                            p = cstr(backend, raw, 96);
+                        } catch (Throwable t) { p = "<unreadable 0x" + Long.toHexString(x0) + ">"; }
+                        System.out.printf("[SEC] 0x2b238 open(\"%s\", O_RDONLY)%n", p);
+                        break;
+                    }
+                    case 0x2b240: {
+                        long fd = backend.reg_read(Arm64Const.UC_ARM64_REG_X0).longValue();
+                        long pathPtr = 0;
+                        try { pathPtr = rd64(backend, backend.reg_read(Arm64Const.UC_ARM64_REG_SP).longValue()); } catch (Throwable t) { }
+                        System.out.printf("[SEC] 0x2b240 section-loop open fd=%d%n", fd);
+                        break;
+                    }
+                    case 0x2b2cc: {
+                        long w21 = backend.reg_read(Arm64Const.UC_ARM64_REG_X21).longValue() & 0xffffffffL;
+                        long w19 = backend.reg_read(Arm64Const.UC_ARM64_REG_X19).longValue() & 0xffffffffL;
+                        long x28 = backend.reg_read(Arm64Const.UC_ARM64_REG_X28).longValue();
+                        long cnt = 0;
+                        try { cnt = rd32(backend, x28 + 0x10a0); } catch (Throwable t) { }
+                        System.out.printf("[SEC] 0x2b2cc loop head w21=%d w19=%d cnt[x28+10a0]=%d%n", (int) w21, (int) w19, cnt);
+                        break;
+                    }
+                    case 0x2b480: {
+                        System.out.println("[SEC] 0x2b480 loop exit (cnt==0)");
+                        break;
+                    }
+                    case 0x221fc: {
+                        System.out.printf("[D] 0x221fc FUN_29d70 loader returned %d%n",
+                            backend.reg_read(Arm64Const.UC_ARM64_REG_X0).longValue());
+                        break;
+                    }
+                    case 0x22938: {
+                        System.out.println("[D] 0x22938 termination(-3) path hit (pthread daemon branch)");
+                        break;
+                    }
+                    case 0x229c0: {
+                        System.out.println("[D] 0x229c0 canary-fail termination path hit");
+                        break;
+                    }
+                    case 0x229c4: {
+                        System.out.printf("[D] 0x229c4 d() epilogue: x0=0x%x (0=NULL)%n",
+                            backend.reg_read(Arm64Const.UC_ARM64_REG_X0).longValue());
+                        break;
+                    }
+                    case 0x21a90: {
+                        System.out.printf("[GATE] 0x21a90 *** BAD PATH (marker+terminate) *** DAT_734ac=0x%x%n",
+                            rd32(backend, base + 0x734ac));
+                        break;
+                    }
+                    case 0x21c04: {
+                        System.out.println("[GATE] 0x21c04 *** MAIN PATH taken ***");
+                        break;
+                    }
+                    default: break;
+                }
+                if (pcRing.size() > 3000) pcRing.poll();
+                pcRing.add(address - base);
+                // === runtime-generated code region: first entry trace ===
+                if (off > 0x80000 && address < 0xff000000L && !dynSeen[0]) {
+                    dynSeen[0] = true;
+                    System.out.printf("[DYN] *** execution LEFT static image: pc=0x%x (base+0x%x) ***%n",
+                        address, off);
+                    StringBuilder sb = new StringBuilder("[DYN] entry pc tail (newest last): ");
+                    for (long p : pcRing) sb.append(String.format("%x ", p));
+                    System.out.println(sb);
+                    try {
+                        byte[] code = backend.mem_read(address, 64);
+                        System.out.println("[DYN] code @entry: " + java.util.HexFormat.of().formatHex(code));
+                    } catch (Throwable t) {
+                        System.out.println("[DYN] code read err: " + t);
+                    }
+                }
+                // watchdog: periodically flush recent pc tail so a hang can be located post-mortem
+                if ((++watchdogCount[0] & 0xFFFF) == 0) {
+                    try {
+                        java.io.PrintStream ps = new java.io.PrintStream("/tmp/xsh_pc_tail.txt");
+                        ps.println("=== pc tail @ " + watchdogCount[0] + " ===");
+                        int n = 0;
+                        for (java.util.Iterator<Long> it = pcRing.descendingIterator(); it.hasNext() && n < 60; n++) {
+                            ps.printf("%x ", it.next());
+                        }
+                        ps.println();
+                        long spv = backend.reg_read(Arm64Const.UC_ARM64_REG_SP).longValue();
+                        ps.printf("sp=0x%x lr=0x%x pc_off=0x%x%n", spv,
+                            backend.reg_read(Arm64Const.UC_ARM64_REG_LR).longValue(), address - base);
+                        try {
+                            byte[] cd = backend.mem_read(address, 48);
+                            ps.println("code: " + java.util.HexFormat.of().formatHex(cd));
+                        } catch (Throwable t2) { ps.println("code read err"); }
+                        ps.close();
+                    } catch (Throwable t) { }
+                }
+            }
+            @Override public void onAttach(com.github.unidbg.arm.backend.UnHook unHook) {}
+            @Override public void detach() {}
+        }, 1L, 0xfffffffffffffffL, null);
+
+        try {
+            com.github.unidbg.linux.android.dvm.DvmClass da = vm.resolveClass("com/xshield/da");
+            com.github.unidbg.linux.android.dvm.StringObject ret = da.callStaticJniMethodObject(emulator,
+                "d(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IIIIIIII)Ljava/lang/String;",
+                "com.skmc.okcashbag.home_google",                                          // packageName
+                "/data/user/0/com.skmc.okcashbag.home_google/files",                       // files dir
+                "/data/app/~~aBcD1234/com.skmc.okcashbag.home_google-XyZ987/base.apk",     // sourceDir
+                "/data/user/0/com.skmc.okcashbag.home_google",                             // dataDir
+                "/data/app/~~aBcD1234/com.skmc.okcashbag.home_google-XyZ987/lib/arm64",    // nativeLibraryDir
+                "arm64-v8a",                                                               // SUPPORTED_ABIS joined
+                "samsung",                                                                 // MANUFACTURER
+                "SM-G991N",                                                                // MODEL
+                "samsung/o1skt/o1s:12/SP1A.210812.016/G991NKTU1TVDA:user/release-keys",    // FINGERPRINT
+                "1.8.0_332",                                                               // java.version
+                "7.1.9",                                                                   // versionName
+                243,   // versionCode
+                36,    // targetSdk
+                33,    // SDK_INT
+                100000,  // time counter
+                0,       // launch count
+                470851338,  // app flags
+                10175,      // uid
+                4400);      // constant
+            System.out.println("[RET] \"" + ret + "\"");
+
+            // === d() succeeded: field[6] = hex key that unlocks _o()/_p() ===
+            if (ret != null && ret.getValue() != null) {
+                String[] fields = ret.getValue().split(",");
+                System.out.println("[PHASE3] d() returned " + fields.length + " fields");
+                if (fields.length == 13) {
+                    int key = (int) Long.parseLong(fields[6].trim(), 16);
+                    System.out.printf("[PHASE3] unlock key = 0x%08x%n", key);
+                    com.github.unidbg.linux.android.dvm.DvmClass daCls = da;
+
+                    // --- dump the app string vault via p(i, i2) ---
+                    int vaultHits = 0;
+                    for (int i2 = 0; i2 < 4; i2++) {
+                        for (int i = 0; i < 30000; i++) {
+                            int a1 = (i2 < 4) ? (i ^ key) : i;
+                            try {
+                                com.github.unidbg.linux.android.dvm.StringObject so =
+                                    daCls.callStaticJniMethodObject(emulator, "p(II)Ljava/lang/String;", a1, i2);
+                                String s = so == null ? null : so.getValue();
+                                if (s != null && !s.isEmpty()) {
+                                    System.out.printf("[P] p(%d,%d) = %s%n", i, i2, s.replace("\n", "\\n"));
+                                    vaultHits++;
+                                }
+                            } catch (Throwable t) {
+                                System.out.printf("[P] p(%d,%d) threw %s%n", i, i2, t);
+                                break;
+                            }
+                        }
+                    }
+                    System.out.println("[PHASE3] vault strings recovered: " + vaultHits);
+
+                    // --- dump the app string vault table for offline analysis ---
+                    try {
+                        long tbl = rd64(emulator.getBackend(), base + 0x71f80);
+                        System.out.printf("[VAULT] table @ 0x%x, dumping 1.5MB%n", tbl);
+                        java.io.FileOutputStream fos = new java.io.FileOutputStream("/tmp/xsh_vault_table.bin");
+                        long got = 0;
+                        for (; got < 1_500_000; got += 65536) {
+                            try {
+                                byte[] chunk = emulator.getBackend().mem_read(tbl + got, 65536);
+                                fos.write(chunk);
+                            } catch (Throwable t2) {
+                                System.out.printf("[VAULT] mapping ends at +0x%x (%s)%n", got, t2.getMessage());
+                                break;
+                            }
+                        }
+                        fos.close();
+                        System.out.printf("[VAULT] dumped %d bytes to /tmp/xsh_vault_table.bin%n", got);
+                    } catch (Throwable t) {
+                        System.out.println("[VAULT] dump failed: " + t);
+                    }
+
+                    // --- o(i, j) probe ---
+                    for (int j = 0; j < 4; j++) {
+                        boolean brk = false;
+                        for (int i = 0; i < 8 && !brk; i++) {
+                            try {
+                                Integer r = daCls.callStaticJniMethodInt(emulator, "o(II)I", i ^ key, j);
+                                System.out.printf("[O] o(%d,%d) = %s%n", i, j, r);
+                            } catch (Throwable t) {
+                                System.out.printf("[O] o(%d,%d) threw %s%n", i, j, t);
+                                brk = true;
+                            }
+                        }
+                    }
+
+                    // --- q(ctx, i, "") command-channel poll ---
+                    try {
+                        com.github.unidbg.linux.android.dvm.DvmObject<?> ctx =
+                            vm.resolveClass("android/content/Context").newObject(null);
+                        for (int i = 0; i < 70; i++) {
+                            try {
+                                com.github.unidbg.linux.android.dvm.StringObject qo = daCls.callStaticJniMethodObject(emulator,
+                                    "q(Landroid/content/Context;ILjava/lang/String;)Ljava/lang/String;", ctx, i, "");
+                                String r = qo == null ? null : qo.getValue();
+                                if (r != null) System.out.printf("[Q] q(%d) = %s%n", i, r.replace("\n", "\\n"));
+                            } catch (Throwable t) {
+                                System.out.printf("[Q] q(%d) threw %s%n", i, t.getClass().getSimpleName());
+                                break;
+                            }
+                        }
+                    } catch (Throwable t) {
+                        System.out.println("[Q] context setup failed: " + t);
+                    }
+                }
+            }
+            StringBuilder sbPc = new StringBuilder("pc tail: ");
+            for (long pc : pcRing) sbPc.append(String.format("%x ", pc));
+            System.out.println(sbPc);
+        } catch (Throwable t) {
+            System.out.printf("[!] da.d threw: %s%n", t);
+        }
+        dumpSeeds(emulator, base);
+    }
+
+    private static long rd32(com.github.unidbg.arm.backend.Backend backend, long addr) {
+        byte[] b = backend.mem_read(addr, 4);
+        return (b[0] & 0xffL) | ((b[1] & 0xffL) << 8) | ((b[2] & 0xffL) << 16) | ((b[3] & 0xffL) << 24);
+    }
+
+    private static long rd64(com.github.unidbg.arm.backend.Backend backend, long addr) {
+        byte[] b = backend.mem_read(addr, 8);
+        return (b[0] & 0xffL) | ((b[1] & 0xffL) << 8) | ((b[2] & 0xffL) << 16) | ((b[3] & 0xffL) << 24)
+             | ((b[4] & 0xffL) << 32) | ((b[5] & 0xffL) << 40) | ((b[6] & 0xffL) << 48) | ((b[7] & 0xffL) << 56);
+    }
+
+    private static String cstr(com.github.unidbg.arm.backend.Backend backend, byte[] first8, int max) {
+        try {
+            StringBuilder sb = new StringBuilder();
+            for (byte c : first8) {
+                if (c == 0) return sb.toString();
+                sb.append((char) (c & 0xff));
+            }
+            return sb + "…";
+        } catch (Throwable t) {
+            return "<err>";
+        }
+    }
+
+    private static byte[] longToBytes(long v) {
+        return new byte[]{(byte)v, (byte)(v>>8), (byte)(v>>16), (byte)(v>>24)};
+    }
+
+    private static void dumpSeeds(Emulator<?> emu, long base) {
+        for (int off : new int[]{0x73728, 0x7372c, 0x73730, 0x73494, 0x73498, 0x7349c, 0x734a0,
+                                 0x71f80, 0x71f88, 0x734c0, 0x735b8, 0x735bc, 0x735c0, 0x735c4, 0x735c8}) {
+            try {
+                byte[] b = emu.getBackend().mem_read(base + off, 4);
+                long v = (b[0] & 0xffL) | ((b[1] & 0xffL) << 8) | ((b[2] & 0xffL) << 16) | ((b[3] & 0xffL) << 24);
+                System.out.printf("[SEEDS] DAT_%05x = 0x%08x%n", off, v);
+            } catch (Throwable t) {
+                System.out.printf("[SEEDS] DAT_%05x = <unreadable>%n", off);
+            }
+        }
+    }
+
+    private static byte[] readFileQuietly(File f) {
+        try {
+            return java.nio.file.Files.readAllBytes(f.toPath());
+        } catch (Exception e) {
+            return new byte[0];
+        }
+    }
+}

@@ -19,11 +19,13 @@ description: NSHC xShield/DxShield(및 유사 상용 Android RASP·패커)로 �
 
 - Python3 + `unicorn` + `capstone` (`pip install --user --break-system-packages unicorn capstone`)
 - JDK 17+(실측 25 사용), Maven, unidbg 클론 (`git clone https://github.com/zhkl0228/unidbg /tmp/unidbg`)
-- Ghidra + pyghidra (구조 파악용, 일괄 디컴파일: `tools/decomp_all.py`), radare2(선택)
-- 스킬 내장 도구: **`scripts/find_decryptor.py`**(빌드 무관 문자열 복호기 자동 특정 + 정적 볼트 덤프).
-- 분석 워크스페이스 도구(무거운 것): `~/Downloads/xshield/tools/` — `decrypt_libdxbase.py`(볼트, 주소 인자),
-  `unidbg_DxShieldTest.java`(전체 로더 에뮬 하니스), `vault_table_bruteforce.py`, `jarsolve.c`,
-  `decomp_all.py`(pyghidra). 다른 타깃엔 이들 + 타깃 `.so`를 함께 가져갈 것.
+- Ghidra + pyghidra (구조 파악용, 일괄 디컴파일: `scripts/decomp_all.py`), radare2(선택)
+- **스킬 자립 — `scripts/` 에 모든 도구 내장** (외부 폴더 불필요, 타깃 `.so`/`.apk`만 가져오면 됨):
+  - `find_decryptor.py` — 빌드 무관 문자열 복호기 자동 특정 + 정적 볼트 덤프 (Phase 1, 주소 하드코딩 0)
+  - `decrypt_libdxbase.py <so> <addr>` — 문자열 볼트 복호(수동, 주소 인자) (Phase 1)
+  - `decomp_all.py` — pyghidra 일괄 디컴파일 (구조 파악)
+  - `unidbg_DxShieldTest.java.template` — 전체 로더 에뮬 하니스 (Phase 2, 타깃 경로/오프셋만 편집)
+  - `vault_table_bruteforce.py` — 앱 문자열 볼트 테이블 전수 복호 (Phase 3)
 - Sibling 스킬 **`sdk-carve`**: `scripts/packer-detect.py`(stage-0 프로텍터 식별), carve/CPG source→sink.
 
 ## 대상 지문 (xShield 판별)
@@ -47,16 +49,16 @@ description: NSHC xShield/DxShield(및 유사 상용 Android RASP·패커)로 �
    (OK캐시백에서 "7.96 통째암호화"는 오측정이었고 실제 7.10 혼합 — 재측정 1회로 뒤집힘.)
 
 ### Phase 1 — 정적 크랙 (먼저 시도. 여기서 끝나는 경우가 많다)
-1. **라이브러리 구조화**: Ghidra로 디컴파일 일괄 생성 (`tools/decomp_all.py`).
+1. **라이브러리 구조화**: Ghidra로 디컴파일 일괄 생성 (`scripts/decomp_all.py`).
 2. **문자열 볼트 크랙**: 볼트 복호 순수함수를 unicorn 단독 에뮬 → ABI `(s1,s2,s3,buf,len,key)`,
    상수 **s1=s2=0x86817231, s3=0x11300316**(빌드 불변). 함수 **주소는 빌드별로 다름**
    (OK캐시백 `0x1eca0`, PASS `0x5c78`) → 아래 **[Cross-build 주소 재특정]**으로 먼저 특정.
-   호출부 직전 레지스터에서 인자 재구성해 전량 복호 (`tools/decrypt_libdxbase.py <so> <addr>`).
+   호출부 직전 레지스터에서 인자 재구성해 전량 복호 (`scripts/decrypt_libdxbase.py <so> <addr>`).
 3. **페이로드 에셋 해부**: 스텁 dex → 헤더 사본(file_size 힌트) → 섹션 길이/본문 →
    평문 매니페스트(engine_version/policys/classes 맵) → OTL.
 4. **섹션 LCG 암호**: `s = s*0x343FD + 0x269EC3` (MSVC rand), 키바이트 = `s>>16`.
    - S1은 CD 엔트리 누적(`acc ^= crc32 ^ usize`)에서 유도, 섹션 시드는 로직 복원 or
-     known-plaintext 브루트포스(zip `PK\x03\x04`/dex 매직 오라클, `tools/jarsolve.c`류).
+     known-plaintext 브루트포스(zip `PK\x03\x04`/dex 매직 오라클, 소형 C 브루트(즉석 작성; `find_decryptor.py`와 동일 오라클 원리)).
    - **오라클-우선 권장(S1 불필요, 앱 간 이식성 높음)**: 섹션0(설정)은 **패키지명**을 known-plaintext로
      (`com.<pkg>` 오라클 @0x234, 앞 16B는 raw 키블록), 섹션1(jar)은 **`PK\x03\x04`** 오라클로 시드
      직접 재발견. 섹션1 오프셋이 애매하면 소범위 오프셋 스캔 + zip-EOCD 검증으로 확정(PASS 실측:
@@ -65,7 +67,7 @@ description: NSHC xShield/DxShield(및 유사 상용 Android RASP·패커)로 �
 5. 이 단계에서 막히면(런타임 상태 의존) Phase 2로.
 
 ### Phase 2 — unidbg 전체 파이프라인 에뮬레이션
-하니스 뼈대: `tools/unidbg_DxShieldTest.java` (그대로 복사해 타깃 경로만 교체).
+하니스 뼈대: `scripts/unidbg_DxShieldTest.java.template` (그대로 복사해 타깃 경로만 교체).
 핵심 구성: AndroidEmulator(64bit) + DVM + IO 리졸버(**반드시 SimpleFileIO** —
 ByteArrayFileIO는 readlinkat에서 AbstractMethodError로 로더가 도중 사망) +
 JNI_OnLoad → 등록 네이티브 관찰(RegisterNatives 주소 기록) → 21인자 `d()` 호출.
@@ -94,7 +96,7 @@ JNI_OnLoad → 등록 네이티브 관찰(RegisterNatives 주소 기록) → 21�
    (key=6번 필드). q는 커맨드 채널 — 응답하는 id 목록이 Java 호출부와 일치하는지 확인.
 2. p() 디컴필에서 **볼트 테이블 포인터 전역**을 찾아 덤프 (d() 성공 후 활성).
    벌크 암호 영역 = 이 테이블일 가능성이 높다(로더는 복호 없이 적재만 함).
-3. 테이블 전체를 파일로 덤프(청크 mem_read) → `tools/vault_table_bruteforce.py`로
+3. 테이블 전체를 파일로 덤프(청크 mem_read) → `scripts/vault_table_bruteforce.py`로
    모든 오프셋에서 (u16 길이, 본문) 복호. **길이와 본문의 시드 순서가 서로 다를 수
    있음**(본문은 역순 — p() 디컴필의 두 FUN 호출 인자 순서를 확인할 것).
    필터는 ASCII가 아니라 UTF-8 유효성 기준(한글 등 멀티바이트 보존).
