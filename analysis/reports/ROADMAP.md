@@ -79,8 +79,11 @@ executing top-down, recommendation-first. `[x]`=done this session.
   allowlist / constrain intent: scheme / validate packageName / drop dev+apiary-mock), Coocon+banks
   (script signing + endpoint pinning + govern as supply-chain code channel). Includes an outreach-priority
   table. Sends remain gated on explicit auth (E-P3).
-- [ ] **P2 — issue #5 (method generalization) writeup** — the 4 non-Goldoson offerwalls carved+CPG'd are
-  the evidence. → PLAN.md Track 2.
+- [x] **P2 — issue #5 (method generalization) writeup** — DONE. `ISSUE5_GENERALIZATION.md` maps the
+  accumulated carves (GAD/Syrup-ob/SK-Planet-bb8/TNK×2/Tyrads/Adison/Coocon + Toss negative) onto RQ4's
+  axes (unrelated families, multi-version, R8/renames, packed/damaged decompilation, big apps, lib-dep,
+  analyzer-agnostic). Verdict: generalizes wherever code is recoverable; the two honest limits (carve
+  finds class not always behavior; packing can block carve) stated. → PLAN Track 2.
 
 ## D. Skill / tooling improvements  (`.agents/skills/`)
 - [x] **P1 — generalize the payload section-decrypt into a tool** (`scripts/payload_decrypt.py`). Built:
