@@ -2,14 +2,15 @@
 
 **Status:** cpg-confirmed on M-STOCK; string-confirmed across the fleet (`payload_decrypt.py`);
 **sandbox-escape PoC-confirmed → arbitrary in-process code IF a script runs** (see §Sandbox strength).
-**Severity: HIGH *server-trust/supply-chain* design concern — remote network-injection by an arbitrary MITM
-is NOT demonstrated** (the delivery uses a per-session random AES key not recoverable from observed traffic;
-see §Attack path). **Two earlier over-claims retracted there** (makeString≠key; no low-barrier MITM injection).
+**Severity: HIGH — active on-path MITM can inject arbitrary in-process code** (script channel is plain TCP,
+no signature, no `ClassShutter`, and the AES session key is recoverable from the cleartext seed in the
+request: `key = SHA-256(seed)[0:16]`, static-verified + dynamically confirmed; see §Attack path).
 **One line:** Four KR financial apps bundle **Coocon SASAPI** (`kr.co.coocon.sasapi`), a
-screen-scraping/aggregation SDK that **downloads JavaScript from its server and executes it in-process via
-Rhino/V8 with no `ClassShutter`** — so if the Coocon **server is malicious/compromised** (or a redirect that
-can complete the key exchange), it is **arbitrary Java execution** inside the bank app (RCE-given-script
-PoC-confirmed). Same channel class as GAD's BeanShell; a server-trust exposure, not a shown MITM exploit.
+screen-scraping/aggregation SDK that **downloads JavaScript over plain TCP and executes it in-process via
+Rhino/V8 with no `ClassShutter`**; the delivery has no TLS and no signature, and its AES session key is a
+public hash of a **cleartext seed sent in the request**, so an **active on-path MITM can forge a malicious
+script → arbitrary Java in the bank app** (key-recovery + forge→eval each PoC-confirmed). Same channel class
+as GAD's BeanShell.
 
 ## Fleet presence (payload_decrypt base-apk dex scan)
 | App | mgmt server | kr.co.coocon refs | Rhino refs |
@@ -100,28 +101,28 @@ loadScript(String) / include(String)  →  ScriptEngine.a(String)  →  org.mozi
 | transport TLS | **none** (raw `java.net.Socket`) | traffic is plain TCP (interceptable without a CA) |
 | disk cache | **none** (scripts memory-only) | no local-file tamper path |
 
-**But the practical injection barrier — the AES session key — is NOT shown breakable:**
+**And the session key IS network-recoverable (static-verified + dynamically confirmed) → active-MITM injection is feasible:**
 - Ran the **real `ScriptManager.updateScript`** (pure-Java; no Android) against a localhost mock, with
-  **ByteBuddy hooking `AESCipher.setKey`/`setIV`/`decrypt` + SpongyCastle `RSAEngine`**. The AES key is
-  **generated per session by `SecureRandom.nextBytes`** — captured live, **different every run**
-  (`3c35fdf4…`, `bc40552e…`, `13060d72…`), IV = the uppercase-hex of the key's first 8 bytes.
-- **The session key is NOT recoverable from the observed traffic:** across runs the key/IV bytes are
-  **not present in the request** (not raw, not IV-encoded, not ASCII-hex), and **`RSAEngine.processBlock`
-  never fired** (no RSA key-wrap observed on this path). So an on-path/MITM attacker cannot obtain the
-  session key from what is sent → **cannot forge a script the client accepts → network injection is NOT
-  demonstrated.** *(This retracts the earlier "low-barrier on-path injection".)*
-- **Open (undetermined):** how the server obtains the session key — the 132-byte request body may carry it
-  under a pre-shared/derived wrap, or it may be established via the separate **plaintext-HTTP auth transaction**
-  (`59.6.190.44:8900/sidea.authtr.cgi`). If that establishment leaks the key or lets a hostile endpoint set
-  it, injection re-opens; **not shown either way**. `devel.mode`/`local.ip` redirect only helps an attacker
-  who can *also* complete this key exchange.
+  **ByteBuddy hooking `AESCipher.setKey`/`setIV`/`decrypt`**. Static bytecode of the key setup:
+  `R = SecureRandom.nextBytes(20)`; `key = SHA-256(R)[0:16]`; `IV = ascii-hex(key[0:8])`.
+- **The seed `R` is sent IN CLEARTEXT in the request.** The request framing is `[8B header "00013402"]
+  [20B seed R][AES/CBC(GZip(json)) body]`. Dynamically confirmed **across runs**: `key == SHA-256(middle-20B)
+  [0:16]` (true every time) — i.e. the 20-byte middle field is exactly the seed, and the key is a *public*
+  function of it. (No RSA/DH key-wrap: `RSAEngine.processBlock` never fired; the key is not protected at all.)
+- **Therefore an on-path attacker: reads `R` from the plaintext request → computes `key = SHA-256(R)[0:16]`
+  → forges `AES(GZip(malicious_script))` (no signature to forge) → the client decrypts + evals it →
+  arbitrary in-process code (no ClassShutter).** No TLS, no CA, no session secret needed — only active
+  on-path position (shared/rogue Wi-Fi, ARP spoof, malicious proxy). The forge→decrypt→`eval` half is
+  PoC-confirmed (v4); the key-recovery half is confirmed here.
+- **Correction trail (honest):** this reverses a prior "not recoverable" note — that note only ruled out a
+  *plaintext key* / *RSA-wrap* / *hash-of-key*; it missed that the **seed** (not the key) is what's sent and
+  the key is a public hash of the seed. Also retracted earlier: `makeString`≠key. The dynamic+static
+  re-verification pinned the real mechanism.
 
-**Net (honest):** *given a script that runs*, it is arbitrary in-process code (no ClassShutter — confirmed,
-incl. the forge→real-AES-decrypt→GZip→`eval` chain, PoC `~/Downloads/coocon/poc/`). *Getting a malicious
-script to run* over the network is **not demonstrated** — it is gated by a per-session random AES key that
-was **not recoverable** from the observed traffic. So the real risk is **"if the Coocon script SERVER is
-malicious or compromised (or a redirect can complete the key exchange), it's RCE in the bank app"** — a
-server-trust / supply-chain exposure — **not** a shown remote network-injection by an arbitrary MITM.
+**Net:** **arbitrary in-process code via active-MITM script injection is feasible** (bank app: user's
+authenticated financial sessions, PKI, secure keypad, the app's own injected crypto object, and — via the
+no-ClassShutter escape — arbitrary Java). A remaining nicety (not required for the verdict) is a full live
+mock serving the forged response; the key-recovery + forge-eval halves are each confirmed.
 → Fixes (VENDOR_HARDENING_REQUESTS.md §4): still valuable defense-in-depth — TLS+pinning, **RSA-sign the
 script** (SHA256WithRSA already in the map), engine **ClassShutter** (contain any executed payload).
 
