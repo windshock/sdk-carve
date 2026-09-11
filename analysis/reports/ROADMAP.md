@@ -49,8 +49,12 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped/blocked. 
   public docs** → the covert channel is undocumented-to-integrators; item closed by public-doc absence.
   Bonus: README pins `syrup-0.8.0-rc.12` = my runtime capture → rc.4/rc.12 skew resolved.
   *Remaining: iOS SDK (`gad-ios-sdk-syrup`) script-channel symmetry check.*
-- [ ] **P1 — TNK `SSLFactory` cert-pinning check** — the low↔medium decider for the deser surface
-  (TNK_FULLPASS.md §5). HSTS ≠ pinning.
+- [x] **P1 — TNK `SSLFactory` cert-pinning check** — DONE. `SSLFactory` = `SSLContext.init(null,null,
+  null)` (default system-CA trust, TLS-only, forced https) with NO pinning; `PacketService`/`VideoCache`
+  wire it via `setSSLSocketFactory` and set no HostnameVerifier. The trust-all `NullHostNameVerifier` is
+  confined to `TnkAssert` self-test (not wired to production). Verdict: **unpinned → deser decider =
+  medium confirmed** (not trivially MITM-able, but no pinning defense-in-depth). Written up in
+  TNK_FULLPASS.md §4.1. Pinning is now an evidence-backed line in the hardening ask.
 - [ ] **P2 — Adison SugarToken confirm** (Native-Ads SDK/docs) + `open/openExternal` domain allowlist
   request (TYRADS/ADISON triage §9).
 - [ ] **P2 — vendor hardening request docs**: GPA(bsh 2.0b6+/channel integrity), TNK(loadClass allow-list /

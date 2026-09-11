@@ -93,6 +93,28 @@ triage의 위험스캔은 `ObjectInputStream.readObject` 시그니처만 봐서 
   Adiscope(dev 엔드포인트 잔존)/Tenqube 3자 연동 — triage §2·§3와 일치.
 - **위생 항목(유지)**: v7 문자열 암호화 vs v8 평문, Adiscope **dev** URL 잔존, 레거시 IMEI 호출.
 
+## 4.1 cert-pinning decider — 확정 (2026-09-11, ROADMAP C-P1)
+
+§2/§4의 역직렬화 가젯면(`api3.tnkfactory.com` 응답 → 화이트리스트 없는 자체 `ObjectInput`)의 심각도는
+"서버 응답이 pinning으로 무결성 보장되는가"로 low↔medium이 갈렸다. `com.tnkfactory.ad.rwd.SSLFactory`
++ 실제 전송 클래스(`PacketService`/`VideoCache`/`InterstitialCache`)를 디컴파일해 확정:
+
+- `SSLFactory()` = `SSLContext.getInstance("TLS")` + `init(null, null, null)` → **플랫폼 기본 TrustManager
+  (시스템 CA 스토어)**. trust-all도 아니고 **pinning도 아님**. `a(Socket)`은 활성 프로토콜을 TLS 계열로만
+  제한(하드닝) — pinning 아님.
+- `PacketService`(API 본선): `new URL(...).openConnection()` → `if (instanceof HttpsURLConnection)
+  setSSLSocketFactory(new SSLFactory())`, 그리고 `http://`를 `https://`로 강제 승격. **`setHostnameVerifier`
+  호출 없음** → 기본 호스트명 검증 적용. `VideoCache`도 동일(`setSSLSocketFactory(new SSLFactory())` ×2).
+- **trust-all `TnkAssert$NullHostNameVerifier.verify()`는 무조건 `return true`** 지만 **`TnkAssert`
+  자가진단 클래스 안에만** 존재 — `setDefaultHostnameVerifier`/`setHostnameVerifier`로 전역·본선에 설치되지
+  않음(프로덕션 미배선). 잠복 위험(향후 배선 시 즉시 MITM 홀)이라 하드닝 목록에 명시.
+
+**결론:** API 전송은 **cert pinning 부재** — 무결성은 오직 단말 CA 스토어에 의존. 개방망 수동 MITM은
+표준 TLS로 차단되나(=trivially exploitable 아님, high 아님), **단말 신뢰 CA를 얻은 공격자**(오발급/침해 CA,
+기업 MITM 프록시, 루팅 단말의 사용자 CA)는 응답을 치환해 화이트리스트 없는 deser 가젯에 도달 가능.
+→ **decider = medium 확정**(low로 하향 불가): "unpinned + 화이트리스트 없는 자체 ObjectInput". §4 하드닝
+요청(allow-list / 타입안전 포맷 / **cert pinning**)은 이제 증거 기반이며 pinning이 실제 결여됨을 확인.
+
 ## 5. 한계
 
 - 자동 reachability 미스티칭(§3) — 정밀 증명 필요 시 소스/싱크를 `SessionInfo` 필드·
