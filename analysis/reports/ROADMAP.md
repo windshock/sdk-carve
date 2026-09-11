@@ -73,8 +73,12 @@ executing top-down, recommendation-first. `[x]`=done this session.
   is structured scheme-dispatch (adison-scheme host-gated), NOT blind loadUrl. Real residual surface =
   `intent:` `Intent.parseUri` redirection + web-specified packageName + no http/inappbrowser domain
   allowlist. Folded into ADISON_SDK_TRIAGE.md §7/§9; hardening asks feed the next item.
-- [ ] **P2 — vendor hardening request docs**: GPA(bsh 2.0b6+/channel integrity), TNK(loadClass allow-list /
-  type-safe format / pinning), Adison(open/openExternal allowlist / v5 / drop dev+apiary-mock).
+- [x] **P2 — vendor hardening request docs** — DONE. Consolidated `VENDOR_HARDENING_REQUESTS.md` with
+  evidence-backed asks per vendor: GPA GAD (disclose+constrain the BeanShell channel, pin/sign scripts),
+  TNK (class allow-list / type-safe format / cert pinning / drop NullHostNameVerifier), Adison (domain
+  allowlist / constrain intent: scheme / validate packageName / drop dev+apiary-mock), Coocon+banks
+  (script signing + endpoint pinning + govern as supply-chain code channel). Includes an outreach-priority
+  table. Sends remain gated on explicit auth (E-P3).
 - [ ] **P2 — issue #5 (method generalization) writeup** — the 4 non-Goldoson offerwalls carved+CPG'd are
   the evidence. → PLAN.md Track 2.
 
