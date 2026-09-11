@@ -21,6 +21,7 @@ description: NSHC xShield/DxShield(및 유사 상용 Android RASP·패커)로 �
 - JDK 17+(실측 25 사용), Maven, unidbg 클론 (`git clone https://github.com/zhkl0228/unidbg /tmp/unidbg`)
 - Ghidra + pyghidra (구조 파악용, 일괄 디컴파일: `scripts/decomp_all.py`), radare2(선택)
 - **스킬 자립 — `scripts/` 에 모든 도구 내장** (외부 폴더 불필요, 타깃 `.so`/`.apk`만 가져오면 됨):
+  - `payload_triage.py <apk|xapk|dir>` — 복호 없이 공급망 인벤토리(엔진·서버·SDK 클래스맵) (Phase 0)
   - `find_decryptor.py` — 빌드 무관 문자열 복호기 자동 특정 + 정적 볼트 덤프 (Phase 1, 주소 하드코딩 0)
   - `decrypt_libdxbase.py <so> <addr>` — 문자열 볼트 복호(수동, 주소 인자) (Phase 1)
   - `decomp_all.py` — pyghidra 일괄 디컴파일 (구조 파악)
@@ -43,10 +44,12 @@ description: NSHC xShield/DxShield(및 유사 상용 Android RASP·패커)로 �
    (payload-DEX BLIND) 판정. APKiD 병행, 네이티브 sha256 기록(공급망 베이스라인).
 2. APK CD 전수 열거: `classes*.dex` 개수/크기, 대형 에셋, lib/ — 엔트리 수를 기억
    (로더가 CD를 전수 순회하며, 이후 교차 검증에 쓰임).
-3. **페이로드 에셋 엔트로피 재측정 필수** — "통째 암호화(7.9x)"로 단정 금지. 256KB→그 이하 윈도우로
-   엔트로피 맵 그리면 **혼합 컨테이너**가 드러난다: `[스텁][헤더사본][암호섹션][평문 매니페스트
-   (engine_version/policys/classes 맵)][OTL]`. 평문 매니페스트만으로 클래스 인벤토리 전량 확보.
-   (OK캐시백에서 "7.96 통째암호화"는 오측정이었고 실제 7.10 혼합 — 재측정 1회로 뒤집힘.)
+3. **`scripts/payload_triage.py <apk|xapk|dir>`** — 페이로드 에셋 자동 탐지 + **복호 없이** 공급망
+   인벤토리 추출: xShield 엔진 버전·packing_system·**FxShield 서버**·policys + **평문 클래스맵의 SDK/라이브러리
+   패키지 루트**(Rhino/BeanShell 등 스크립트엔진·PKI·adtech 자동 플래그). 원리: 에셋은 혼합 컨테이너
+   `[스텁][헤더사본][암호섹션][평문 매니페스트(engine_version/policys/classes 맵)][OTL]` — 평문 매니페스트만으로
+   클래스 인벤토리 확보. **"통째 암호화(7.9x)"로 단정 금지**(OK캐시백 "7.96"은 오측정, 실제 7.10 혼합).
+   검증: 7앱(OKC/PASS + 미래에셋·기아·SK증권·신한·NightCrows), xShield 엔진 6.3~6.9 전대역.
 
 ### Phase 1 — 정적 크랙 (먼저 시도. 여기서 끝나는 경우가 많다)
 1. **라이브러리 구조화**: Ghidra로 디컴파일 일괄 생성 (`scripts/decomp_all.py`).
