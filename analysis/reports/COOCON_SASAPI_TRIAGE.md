@@ -65,21 +65,42 @@ loadScript(String) / include(String)  →  ScriptEngine.a(String)  →  org.mozi
 
 ## Server endpoint + protocol (recovered 2026-09-11, from M-STOCK ScriptManager/SASManager/HttpManager)
 - **Script server:** `isas.coocon.co.kr` (`SASManager.initInstance` default `"isas.coocon.co.kr:443:80"`
-  = host:tlsPort:port), service ID **`PUSANAPP`**, type **`A`**. ISAS = Coocon's Internet Scraping/Aggregation
-  service. TLS via `http/TLSOnlySocketFactory` (TLS-only; pinning not observed — standard-TLS trust).
+  = host:port:port), service ID **`PUSANAPP`**, type **`A`**. ISAS = Coocon's Internet Scraping/Aggregation.
+- **⚠️ CORRECTION — the script-fetch channel is PLAIN TCP, not TLS.** `updateScript()` bytecode (javap; the
+  method defeats jadx+CFR) uses a **raw `java.net.Socket`** (`new Socket()`→`connect()`→get{In,Out}putStream)
+  — **no SSLSocket/SSLSocketFactory/TLS handshake**. `TLSOnlySocketFactory` is used elsewhere (the scraping
+  `HttpManager`, the `https://…:8443` error log), NOT for script delivery. So the only protection on the
+  code channel is an app-layer AES blob (see §Attack path). *(Supersedes the earlier "standard TLS" note.)*
 - **Devel override (script-source redirection knob):** if system property `devel.mode=true`, the server is
   taken from system property `local.ip`, else falls back to **`183.111.160.145:443:80`**. `System.getProperty`
   (JVM props) — a build/host-settable switch that redirects where scripts are fetched from. Hygiene/risk flag.
 - **Auth transaction:** `http://59.6.190.44:8900/cgi/sidea.authtr.cgi` — **plain HTTP** (plaintext auth channel).
 - **On-device scraping proxy:** `127.0.0.1:1024/1025` (local proxy the engine drives the target webviews through).
 - **Error log:** `https://isas.coocon.co.kr:8443/jsp/ins_errlog.jsp`.
-- **Protocol (`ScriptManager.getScript`/`updateScript`):** scripts fetched by **`+`-joined names**, default
-  **POST** (GET fetches only not-yet-cached names); each script cached in the `v` map as {contents, `getScriptVersion`
-  = 10-digit version} so the client sends its version and the server returns newer JS. Retry via
-  `updateScript _CONNECTION_TRY_COUNT`; responses SEED-decrypted then handed to `ScriptEngine`/`V8ScriptEngine`.
-- **Net risk:** the eval'd JS originates at `isas.coocon.co.kr` over standard TLS (no pin observed) + a plaintext
-  auth channel + a system-property server-redirect switch → transport integrity of the code channel rests on the
-  device CA store. See VENDOR_HARDENING_REQUESTS.md §4 (script signing + endpoint pinning).
+- **Protocol (`ScriptManager.updateScript`):** length-prefixed frames over the raw socket; scripts fetched by
+  **`+`-joined names**; status codes `0000`/`0001`/`9999` (+ `ScriptNotFoundException`); payload is
+  **`AES/CBC/PKCS5Padding`** (`AESCipher`) + **GZip**; scripts held **in-memory only** (`v` HashMap — no disk
+  write, so no local-cache tamper vector). Kept per name with a 10-digit version for delta updates.
+
+## Attack path — how a payload gets injected (updateScript bytecode, javap)
+The channel that delivers the (arbitrary-code) script has **no transport TLS, no script signature, and an
+app-derived static AES key** — so it is forgeable with a low barrier:
+| defense | measured | consequence |
+|---|---|---|
+| transport TLS | **none** (raw `Socket`, no SSL) | on-path attacker intercepts **without a CA** (plain TCP) |
+| script signature/MAC | **none** (no `Signature.verify`/`Mac`/`WithRSA` in `updateScript`; the `SHA-256` present is an unkeyed hash — SHA256WithRSA exists only in the algorithm map) | **no authenticity** — forgery blocked only by AES-key secrecy |
+| AES key | `AESCipher.setKey(StringByByte.makeString(<internal consts>, static fields f/g/h).getBytes())`, set **before** the socket read, no server nonce | key derived from **app-internal static material → recoverable by reversing the app** (likely a fixed key) |
+| disk cache | **none** | no local-file tamper path |
+
+**① On-path network injection (primary, low barrier):** plain TCP → intercept on any shared/rogue network
+(no CA needed) → recover the app-static AES key once → decrypt the fetched script, swap in a malicious one,
+re-encrypt with the same key → the app evals it → **arbitrary in-process code** (no ClassShutter, PoC-confirmed).
+No TLS, no CA, no signature forgery required — only a one-time AES-key extraction.
+**② `devel.mode`/`local.ip` source redirect (secondary/supply-chain):** in-process code (a malicious co-bundled
+SDK) or a leftover devel build sets the system property → script server points at an attacker host.
+**Not applicable:** local cache tamper (scripts are memory-only).
+→ Fixes (VENDOR_HARDENING_REQUESTS.md §4): TLS+pinning, **RSA-sign the script** (SHA256WithRSA already in the
+map), session-derive the AES key (drop the app-static key), engine **ClassShutter** (contain any executed payload).
 
 ## Capability surface (carved CPG)
 - JS-EVAL: `ScriptEngine` (Rhino) **and** `V8ScriptEngine` (Google V8) — two interchangeable engines.
