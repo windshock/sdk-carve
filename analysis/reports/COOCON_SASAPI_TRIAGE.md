@@ -1,10 +1,24 @@
-# Coocon SASAPI — server-driven JS scraping engine (found in Mirae Asset M-STOCK)
+# Coocon SASAPI — server-driven JS scraping engine (in 4 KR financial apps)
 
-**Status:** cpg-confirmed (static, via sdk-carve on the decrypted xShield payload).
-**One line:** M-STOCK bundles **Coocon SASAPI** (`kr.co.coocon.sasapi`), a screen-scraping/aggregation SDK
-that **downloads JavaScript from its server over a raw socket and executes it in-process via Rhino
-(`org.mozilla.javascript`)** — a server-driven code-execution channel, same threat class as GAD's
-BeanShell channel (RCE-by-design), here for financial-site scraping (mydata-style).
+**Status:** cpg-confirmed on M-STOCK (via sdk-carve on the decrypted payload); string-confirmed across
+the fleet (`payload_decrypt.py` base-apk dex scan).
+**One line:** Four KR financial apps bundle **Coocon SASAPI** (`kr.co.coocon.sasapi`), a
+screen-scraping/aggregation SDK that **downloads JavaScript from its server over a raw socket and
+executes it in-process via Rhino (`org.mozilla.javascript`)** — a server-driven code-execution channel,
+same threat class as GAD's BeanShell channel (RCE-by-design), here for financial-site scraping (mydata-style).
+
+## Fleet presence (payload_decrypt base-apk dex scan)
+| App | mgmt server | kr.co.coocon refs | Rhino refs |
+|---|---|---|---|
+| Mirae Asset M-STOCK | xo.dxshield.com | ~896–997 | ~817 |
+| IBK i-ONE 기업 (com.ibk.scbs) | xo.dxshield.com | ~1281–1384 | ~707 |
+| 신한 SOL저축은행 (com.shinhan.spbs) | xo.fxshield.co.kr | ~978–1081 | ~698 |
+| 현대해상 Hi (m.hi.co.kr) | xo.fxshield.co.kr | ~971–1074 | ~767 |
+| SK증권 주파수3 | (old framing) | ~10 (stub only) | — |
+
+The two `dxshield.com` apps (Mirae, IBK) are the most Coocon-embedded; both are brokerages. The full
+`updateScript`→Rhino chain below was CPG-verified on M-STOCK; the other three carry the same package +
+comparable ref counts (same engine). SK증권 has only a 10-ref stub (interface, not the full engine).
 
 ## How it was found (full 2-skill chain)
 1. `packer-detect` → M-STOCK (`com.miraeasset.trade`) = NSHC xShield/DxShield.
@@ -45,5 +59,6 @@ Unencrypted + hardcoded IP in a securities app = a hygiene/privacy flag (recomme
 
 ## Follow-ups
 - Recover Coocon's `updateScript` server endpoint/protocol (behind SEED + likely the payload/config).
-- Compare Coocon presence/version across the other Rhino-bearing apps (Shinhan, Hyundai Marine).
+- ~~Compare Coocon across the other Rhino-bearing apps~~ **DONE** — confirmed in IBK, 신한, 현대해상 (table above).
+  Next: diff the Coocon *version* across them (is dxshield.com vs fxshield.co.kr correlated with a build?).
 - Confirm what data the scraping scripts collect + exfiltrate (needs the server-supplied JS or a dynamic run).

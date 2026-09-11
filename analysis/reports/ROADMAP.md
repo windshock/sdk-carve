@@ -13,14 +13,20 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped/blocked. 
 - [ ] **P1 — fix `find_decryptor.py` arg reconstruction on newer engines.** MyHyundai (6.9.20.31) auto-found
   the decryptor addr (0x24124) but reconstructed 0 static-buffer sites → 0 strings. Widen reg-sim / handle
   the 6.9.20.x call-site pattern.
-- [ ] **P2 — full payload decrypt + sdk-carve on the rest.** Only M-STOCK deep-dived. Prioritize the
-  Rhino-bearing (신한, 현대해상) and AhnLab-bearing (IBK, 신한). Reuse the oracle decrypt (→ see D).
+- [x] **P2 — full payload decrypt + inventory across the fleet.** `payload_decrypt.py` run on all 12
+  downloaded apps: mgmt server recovered 10/12 (2 oldest engines have different section0 framing) +
+  plaintext base-apk SDK inventory for all 12. Results folded into XSHIELD_FLEET_SURVEY.md. Two
+  corrections: (1) fxshield.co.kr is the shared default, dxshield.com = Mirae+IBK; (2) the app's real
+  dexes are PLAINTEXT under this xShield variant (only loader+config encrypted). *Remaining sub-item:
+  deep `sdk-carve` source→sink on the non-M-STOCK Coocon apps (IBK/신한/현대해상) — see B.*
 - [ ] **P2 — app string vault (Phase 3) on one representative app** via unidbg d() → table dump →
   `vault_table_bruteforce.py` (build-specific offsets/seeds).
 
 ## B. Coocon SASAPI — server-script channel  (found: COOCON_SASAPI_TRIAGE.md)
-- [ ] **P1 — Coocon presence/version across the Rhino-bearing apps** (신한, 현대해상): is it the same
-  `kr.co.coocon.sasapi` engine + `updateScript` channel? cheap (grep decrypted dex / class-map).
+- [x] **P1 — Coocon presence across the Rhino-bearing apps.** Confirmed: same `kr.co.coocon` engine in
+  **M-STOCK, IBK, 신한, 현대해상** (~700–1400 refs each) + a 10-ref stub in SK증권. Table in
+  COOCON_SASAPI_TRIAGE.md. *Follow-up: diff the Coocon **version** across them + CPG the `updateScript`
+  chain on IBK/신한/현대해상 to confirm the channel (not just the package) is present.*
 - [ ] **P2 — recover Coocon `updateScript` server endpoint + protocol** (SEED-encrypted; behind config).
 - [ ] **P3 — what the scraping scripts collect/exfil** — needs the server-supplied JS (dynamic run or
   captured module). Same "server code channel" risk framing as GAD BeanShell.
@@ -40,9 +46,10 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped/blocked. 
   the evidence. → PLAN.md Track 2.
 
 ## D. Skill / tooling improvements  (`.agents/skills/`)
-- [ ] **P1 — generalize the payload section-decrypt into a tool** (`scripts/payload_decrypt.py`). Hand-wrote
-  the oracle-brute C for OKC/PASS/M-STOCK each time; make it: find asset → section0 (package oracle) +
-  section1 (PK oracle + offset scan + zip-EOCD) → classes.dex → SDK inventory. (Complements payload_triage.)
+- [x] **P1 — generalize the payload section-decrypt into a tool** (`scripts/payload_decrypt.py`). Built:
+  finds asset → section0 package-oracle (config/server) + section1 PK-oracle+offset-scan+zip-EOCD →
+  component classes.dex → SDK-root inventory + Rhino/Coocon/AV/PKI auto-flags. Compiles a throwaway C
+  brute for the 2^32 seed. Complements payload_triage (no-decrypt) with the actual decrypt.
 - [ ] **P1 — find_decryptor 32-bit + arg-recon** (see A). 
 - [ ] **P2 — packer-detect: add the Toss in-house obfuscator case** (packer-detect blind → arsc fallback;
   already noted in sdk-carve SKILL field notes, wire a signature/heuristic).
