@@ -101,6 +101,16 @@ Example: OK캐시백 `com.skmc.okcashbag.home_google` (7.1.9), 시럽
 - **Semgrep scoped works** on jadx output (it was whole-tree scans that historically
   broke on decompiler syntax). Regex rules see through runtime string decryption that
   name-matching analyzers miss — treat analyzer disagreement as a lead, root-cause it.
+- **Decompiler-resistant methods (exception-table flattening + irreducible flow).** When a
+  method makes ALL decompilers fail (CFR `ConfusedCFRException TRYBLOCK`, Vineflower/Fernflower
+  `FinallyProcessor` IOOBE, jadx "Method not decompiled", even Corpseflower `--deobfuscate`),
+  check the exception table (`javap -c`): hundreds of tiny protected ranges funnelling into a few
+  shared `ASTORE;GOTO` handler stubs = deliberate obfuscation, not javac output. `scripts/ExFlattenNormalize.java`
+  (ASM) normalizes it so CFR structures it: `--redundant` (drop traps that can't throw) `--split`
+  (node-split terminal cleanup blocks reached by backward GOTOs → CFG reducible) `--unify` (collapse
+  handlers onto one try + multi-catch). Add flags incrementally and watch the decompiler error
+  evolve `TRYBLOCK→UNCONDITIONALDOLOOP→DOLOOP→success`. Always cross-check recovered source vs raw
+  `javap -c` — the normalizer changes structure for readability, so don't trust it blind.
 - **Custom string encryption** (Toss 5.276.0, 2026-09): valid dex magic + no known-packager
   signature, yet per-MB `Lcom/` descriptor counts near 0 (normal: ~1,000/MB) and long-word
   density ~8/MB (normal ~15,000/MB) = full DEX+manifest string encryption by an in-house

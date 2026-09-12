@@ -157,12 +157,29 @@ both now pinned.
 ### Why the code resisted observation (and how it was overcome)
 The delay to a full E2E was **tooling friction, not a security unknown** — worth recording because it recurs on
 obfuscated Java SDKs:
-1. **Decompilation resistance.** `updateScript` is a single ~2240-instruction, **control-flow-obfuscated**
-   method: **jadx** ("Method not decompiled"), **CFR** (`ConfusedCFRException TRYBLOCK`) and **Fernflower**
-   ("couldn't be decompiled") all fail on it. → Worked from raw `javap -c` bytecode; slices like the response
-   parse (`decrypt`→`GZip.unzip`→`JSONParser.parse`→`get(o/n/p)`→`equals("0000")`) were read instruction-by-
-   instruction, and the JSON key names (`ResultCode`/`ScriptVersion`/`Script`) recovered by **reflection** on
-   the `ScriptManager` static fields `o`/`n`/`p`.
+1. **Decompilation resistance — a two-layer obfuscation, now characterized AND defeated.** `updateScript` is a
+   single ~2240-instruction method that **all five mainstream decompilers fail on** — **jadx** ("Method not
+   decompiled"), **CFR** (`ConfusedCFRException … TRYBLOCK`), **Fernflower**/**Vineflower** (`FinallyProcessor`
+   `IndexOutOfBounds`), and **Corpseflower** (a purpose-built Vineflower deobf fork; even `--deobfuscate`
+   "couldn't be decompiled"). Root cause, quantified from the exception table + CFG:
+   - **Layer 1 — exception-table flattening:** **1033 exception-table entries** across **225 tiny protected
+     ranges** (5–18 bytes each), funnelled into **~40 shared `ASTORE n; GOTO dispatch` handler stubs**; 188–193
+     disjoint ranges map to a single handler. **No nested try/catch tree reproduces this** → CFR's `TRYBLOCK`
+     abort. **295** of the traps guard pure stack-shuffle code that can throw nothing (synthetic).
+   - **Layer 2 — irreducible control flow:** backward `GOTO`s into shared finally-ladder cleanup blocks make the
+     CFG irreducible (CFR sees them as `UNCONDITIONALDOLOOP`s crossing a try).
+   **Defeat (custom 4-pass ASM normalizer, then CFR decompiles cleanly, 0 failures):** (1) collapse GOTO→GOTO
+   chains; (2) **RedundantTrapRemover** — drop traps whose range has no `invoke*`/`athrow` (−295); (3)
+   **node-splitting** — duplicate the short terminal (`xRETURN`/`ATHROW`) cleanup blocks reached by a backward
+   GOTO, which removes the fake do-loops → **CFG becomes reducible**; (4) **unify** the 40 `(handler,type)`
+   ranges onto one common `[min, firstHandler)` range = a single try + multi-catch (nestable). Class is Java 6
+   (v50) so stale frames are stripped and it's rewritten with `COMPUTE_MAXS`. The recovered source **confirms the
+   hand-reversed protocol 1:1**, including the crypto at source level: `key = SHA-256(seed)[0:16]`
+   (`System.arraycopy(sha256(seed),0,key,0,16)`), `IV = ascii-hex(key)[0:16]`
+   (`Bytes.bytesToHexString(key).substring(0,16)`), `AES/CBC` (`SAS_AL_022`) over `GZip.zip(json)`; response
+   `AESCipher.decrypt`→`GZip.unzip`→`JSONObject.get(ResultCode/ScriptVersion/Script)`; and `StringByByte.makeString`
+   = fixed-length field padding (not a key). *(Before the normalizer existed, the same facts were read straight
+   from `javap -c` bytecode + reflection on the `o`/`n`/`p` key fields — the deobf just made it human-readable.)*
 2. **Runtime-instrumentation failure (the real blocker).** ByteBuddy hooked peripheral classes fine
    (`AESCipher`, `GZip`) but **silently would not transform `ScriptManager`** — so the read/parse flow was
    invisible. Root cause (found via an `AgentBuilder` error `Listener`): `@Advice` methods that used Java string
