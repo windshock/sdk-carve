@@ -170,16 +170,21 @@ Reframed from "Coocon customer" OSINT to **iSAS/smart-scraping supply history + 
 `sasapi==Coocon iSAS` closed in binary (`iSASXecure` class). Acquire→`coocon-fingerprint.sh`→deep-confirm.
 - [x] **fingerprint tool + candidate tracker** — `scripts/coocon-fingerprint.sh` (exit 0/1/3/4; packing-aware),
   `COOCON_FLEET_CANDIDATES.md` with the L0–L5 evidence framework and strict claim scoping.
-- [~] **fleet sweep (44 APKs fingerprinted, 5 batches)** — **28 L3 carriers** (all → `isas.coocon.co.kr:443:80`),
-  8 negatives (server-side/ASP), 8 INDETERMINATE (AppIron-packed), 9 pending-acquire. SDK propagation tree
-  across the 비즈플레이 dev-family (981/888/725 ref-count clusters). Scoping kept honest: **28 L3 / 6 L4 / 4 L5.**
-- [ ] **G-1 AppIron unpacking (NEXT LEVER)** — 8 INDETERMINATE targets staged at `~/Downloads/AppIron/`
-  (`UNPACK_PLAN.md`: lottecap/suhyup/heungkuk/ibk-bizcard/bp-ippp/chuncheon/kangwon/gncurrency). Approach:
-  runtime dex-dump (frida-dexdump) or unidbg emulation of `libAppIron-jni`, then re-fingerprint → promote
-  INDETERMINATE→L3. **Status: PREPARED, not started** (per 2026-09-12 decision — staging only).
-- [ ] **G-2 acquire the pending-9** (need official-channel APK / `APKMD_CLI`): 메디팜핏 (P0, L2 source-level),
-  세모리포트, 신협기업, ACT, BNK캐피탈, 보맵플래너, 비씨카드 비즈플레이, 서울Pay+, 제주 탐나는전.
-- [ ] **G-3 promote L3→L4/L5** on selected carriers (javap deep-confirm; optional live-E2E lab).
+- [~] **fleet sweep (53 APKs fingerprinted, 6 batches incl. VT domain-pivot)** — **37 L3 carriers** (all →
+  `isas.coocon.co.kr:443:80`) across **finance / expense / 지역화폐 / healthcare / mobility / portal(NAVER)**; 8
+  negatives (server-side/ASP), 8 INDETERMINATE (AppIron-packed), 9 pending. Scoping honest: **37 L3 / 6 L4 / 4 L5.**
+  Method ranking (evidence): VT-domain pivot (9/9 observed) > dev-family > supplier OSINT.
+- [~] **G-3 build-family (subtree-hash) — the highest-leverage item** — method VALIDATED: identical sasapi
+  class-inventory clusters cross-industry+cross-vendor (**M-STOCK≡CheckPay≡OSB** =105-class build; **IBK≡현대해상**
+  =108; 신한=112; 창원=97). Turns "37 apps" into a few shared iSAS builds = supply-chain result. **Blocker:** quick
+  extractor reads jars/plain-APK only (returns 0 on XAPK) → needs a robust dex class-def parser (dexdump/dex2jar).
+- [ ] **G-1 AppIron unpacking** — 8 INDETERMINATE staged at `~/Downloads/AppIron/` (`UNPACK_PLAN.md`). Goal =
+  recover runtime L3 evidence (any of `sasapi.*`/`SASManager`/`iSASXecure`/`isas.coocon.co.kr` in loaded code),
+  NOT a generic unpacker. Approach: frida-dexdump / unidbg emul of `libAppIron-jni`. **PREPARED, not started.**
+- [ ] **G-2 acquire the pending-9** (official-channel APK / `APKMD_CLI`): 메디팜핏 (P0, L2), 세모리포트, 신협기업,
+  ACT, BNK캐피탈, 보맵플래너, 비씨카드 비즈플레이, 서울Pay+, 제주 탐나는전.
+- [ ] **G-4 L3→L4** on one representative app per build-family (javap b/sig/ClassShutter) → then **G-5 vendor
+  disclosure** scoped by build-family representative. (Growing 37→50 < proving how few builds they collapse into.)
 
 ---
 

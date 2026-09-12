@@ -42,11 +42,29 @@ VT alone; confirm at L3 on the shipping APK. (Also: VT lists must be normalized 
 multi-version dups, and the **Windows iSAS** artifacts `NXISAS`/`nxisas.exe`/`iSASNXWS.exe` — those are
 product-family attribution for iSAS on Windows, **not** part of the Android `sasapi` mobile-vuln claim.)
 
-## Verticals — iSAS is not finance-only
-Coocon's official case studies place iSAS/healthcare-package beyond banking: **[인바디]** and **[GC케어]** are
-published Coocon customer cases ("헬스케어 패키지…맞춤형 건강관리"). Coocon's personal-data product also brokers
-건강보험공단/국민연금/국세청 data (income/proof). So the SDK surface plausibly spans **finance · corporate-expense ·
-healthcare · public/transit** — verify each vertical at L3 rather than assuming.
+**Discovery-method ranking (evidence-backed, this study):**
+| method | result |
+|---|---|
+| **VT-domain pivot** (`isas.coocon.co.kr` → APK) | **Observed precision on the currently-validated VT-derived set: 9/9 L3** (do NOT generalize to "VT precision = 100%" — selection bias likely; state it as the observed set only) |
+| **dev-family** (same developer / package-namespace) | very high hit rate (비즈플레이 family) |
+| supplier/customer OSINT | useful for *generating* candidates; many false positives at L3 (한화생명/밀리패스/페퍼/씨티/HB) |
+
+## Verticals — Coocon iSAS is a CROSS-INDUSTRY client-side data-collection/scraping component
+Framing (use this, not "financial scraping SDK" — that understates the scope):
+> **Coocon iSAS is a client-side data-collection/scraping component propagated across multiple Android product
+> families and industry verticals** — i.e. a cross-industry supply-chain component.
+
+L3-confirmed verticals (not hypotheses anymore):
+| vertical | L3 carriers (examples) |
+|---|---|
+| Finance (bank/savings/broker/insurer/card) | M-STOCK, 신한저축, IBK, 현대해상, KB스타뱅킹, NH콕뱅크, 부산/경남/한투/OK/우리저축, 핀다 … |
+| Corporate expense / ERP | 비즈플레이(+white-labels), BZPEXPENSE, 세모장부, 경리나라 |
+| Local payment (지역화폐) | 창원 누비전 (+ 춘천/강원/경남 packed) |
+| **Healthcare** (Coocon official cases) | **InBody 976 · GC케어 1012 · 웰체크 1005 — 3/3 confirmed** |
+| **Mobility / GMaaS** | **셔클 985 · 똑타 985 (현대 AirLab; no prior OSINT — binary found it)** |
+| **Platform / Portal super-app** | **NAVER (com.nhn.android.search)** |
+> Mobility + NAVER matter methodologically: they had little/no supplier-OSINT trail, yet the binary carries iSAS
+> → **the binary relation graph is WIDER than the OSINT supply graph.** Sweep by vertical, don't assume finance-only.
 
 ## How to confirm (one step per APK)
 ```
@@ -114,6 +132,35 @@ corporate-card white-labels, 지역화폐) — carrier status tracks the code li
 white-labels are byte-family (all 888). A separate same-code-line cluster shows up in 현대차 AirLab mobility
 (셔클/똑타 = 985). Same-vendor apps still packed (AppIron) can't be counted yet (see INDETERMINATE).
 
+**⚠️ ref-count caveat (do not over-state):** the current clusters `981 / 888 / 725 / 985` are strong
+product-lineage signals, but **"same ref count = byte-identical SDK" is one step too far** on its own. Escalate
+to a real build-family claim:
+```
+same coocon ref count
+   → same sasapi class inventory  (sorted class-descriptor set)     [in progress — subtree_hash.sh]
+   → same per-class/method hashes
+   → same sasapi subtree hash
+   → SDK build-family CONFIRMED
+```
+Payoff: this converts "N apps carry the vulnerable SDK" into **"which iSAS SDK build/family propagated along which
+product lineage into how many apps"** — the difference between an app list and a supply-chain result.
+
+### Build-family (subtree-hash) — method VALIDATED, partial results (2026-09-12)
+First cut = sorted-unique `kr/co/coocon/sasapi/*` class-path inventory per app → sha. On the cleanly-extracted
+subset (dex2jar jars + plain APKs), **identical inventories cluster into shared builds — cross-industry AND
+cross-vendor**:
+| build (sha / #classes) | apps sharing the EXACT sasapi inventory |
+|---|---|
+| `ff3a46…` / 105 | **M-STOCK ≡ CheckPay ≡ OSB저축** (broker + Coocon's own app + savings bank) |
+| `b76ae4…` / 108 | **IBK ≡ 현대해상** (broker + insurer) |
+| `1ee0f4…` / 112 | 신한 SOL저축 (distinct) |
+| `443b02…` / 97  | 창원 누비전 (distinct) |
+→ Same iSAS build ships across unrelated industries/vendors ⇒ genuine supply-chain propagation, not per-app forks.
+**Honest limitation:** the quick extractor only reads jars + plain APKs cleanly; it returns 0 on the **XAPK**-
+packaged set (inner-apk dex handling), so the full 37-app build-family map is **not done yet** — it needs a
+robust dex class-def parser (dexdump/dex2jar-based). Method proven; full map is the next step (ROADMAP G-3). Do
+NOT read the 0-inventory apps as "no classes" — that's the extractor, not the app (they're confirmed L3 carriers).
+
 ## NEGATIVE (L3-neg) — public "Coocon integration" but NO in-APK lib (readable dex; server-side/ASP/cloud)  · 8
 | App | package | androidx | why negative |
 |---|---|---|---|
@@ -165,7 +212,12 @@ Enumerate the 비즈플레이(주) Play developer account and fingerprint the lo
   (InBody/GC케어/웰체크) and mobility (셔클/똑타). New verticals to sweep, not just banks.
 - **Code-lineage (ref-count) as a search axis**: propagation clusters 981/888/725 (비즈플레이) and 985 (현대 AirLab
   mobility). Carrier tracks the code line, not the brand.
-- Next levers: **AppIron unpacking** (8 packed → L3) and **more VT-relation pivots** per newly-found vertical.
+- **Next order** (priority): (1) **AppIron unpacking** → runtime L3 evidence for the 8 packed (goal = recover any
+  of `sasapi.*`/`SASManager`/`iSASXecure`/`isas.coocon.co.kr` from loaded code, NOT a generic unpacker); (2)
+  continue **VT `isas.coocon.co.kr` pivots**; (3) **build-family subtree-hash full map** (robust extractor) —
+  the highest-leverage: turns 37 apps into a small set of shared iSAS builds = supply-chain result; (4) promote
+  representative build-families **L3→L4** (javap b/sig/ClassShutter); (5) then scope **vendor disclosure** by
+  representative app per build-family. Growing 37→50 matters less than proving how few builds they collapse into.
 - **iSAS/smart-scraping supply = strong predictor**; every *readable* smart-scraping supplyee scanned is a carrier
   (신한저축·부산·한투저축·우리·NH·IBK저축·우리저축·다올·OK저축·신협·OSB). **MyData-customer / ASP / cloud-scraping = weak/negative**
   (한화생명·밀리패스·페퍼-ASP·HB). Binary overrode OSINT twice: TRIP+ (guessed server-only) = carrier; OSB (guessed cloud) = carrier.
