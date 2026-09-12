@@ -119,10 +119,16 @@ loadScript(String) / include(String)  →  ScriptEngine.a(String)  →  org.mozi
   the key is a public hash of the seed. Also retracted earlier: `makeString`≠key. The dynamic+static
   re-verification pinned the real mechanism.
 
-**Net:** **arbitrary in-process code via active-MITM script injection is feasible** (bank app: user's
-authenticated financial sessions, PKI, secure keypad, the app's own injected crypto object, and — via the
-no-ClassShutter escape — arbitrary Java). A remaining nicety (not required for the verdict) is a full live
-mock serving the forged response; the key-recovery + forge-eval halves are each confirmed.
+**Net:** **arbitrary in-process code via active-MITM script injection is feasible at the crypto level**
+(recoverable key + no authenticity + no ClassShutter; both exploit halves — key-recovery and
+forge→real-AES-decrypt→GZip→`eval` — PoC-confirmed). **Live end-to-end status:** drove the real client
+against a MITM mock that computes `key=SHA-256(seed)[0:16]` and serves a forged `AES(GZip(malicious))`
+response; the real client **connects and reads the forged response**, but full acceptance needs replicating
+the SDK's **multi-message wire protocol** — before the script message the client reads a **gzipped handshake
+frame `[6-digit len][GZip(body)]` and echo-validates it** (unzip→`String.equals` against client-sent values),
+then the script frame carries a plaintext status + `[20B seed][AES(GZip(json{status:"0000",script:…}))]`.
+Completing that is **mechanical protocol replication, not a security unknown** — the vulnerability (no TLS,
+recoverable session key, no signature, no ClassShutter) is already proven.
 → Fixes (VENDOR_HARDENING_REQUESTS.md §4): still valuable defense-in-depth — TLS+pinning, **RSA-sign the
 script** (SHA256WithRSA already in the map), engine **ClassShutter** (contain any executed payload).
 
