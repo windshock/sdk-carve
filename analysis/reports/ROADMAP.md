@@ -165,16 +165,30 @@ executing top-down, recommendation-first. `[x]`=done this session.
   /impression on tdi9.com/notii.net/appservice9.com. Bundled under the Goldoson root; behavior = ad
   delivery, not Goldoson-core C2. (Local finding — samples never committed.)
 
+## G. Coocon fleet expansion + iSAS carrier corpus  (COOCON_FLEET_CANDIDATES.md)  — ACTIVE
+Reframed from "Coocon customer" OSINT to **iSAS/smart-scraping supply history + code-lineage (dev-family)**;
+`sasapi==Coocon iSAS` closed in binary (`iSASXecure` class). Acquire→`coocon-fingerprint.sh`→deep-confirm.
+- [x] **fingerprint tool + candidate tracker** — `scripts/coocon-fingerprint.sh` (exit 0/1/3/4; packing-aware),
+  `COOCON_FLEET_CANDIDATES.md` with the L0–L5 evidence framework and strict claim scoping.
+- [~] **fleet sweep (44 APKs fingerprinted, 5 batches)** — **28 L3 carriers** (all → `isas.coocon.co.kr:443:80`),
+  8 negatives (server-side/ASP), 8 INDETERMINATE (AppIron-packed), 9 pending-acquire. SDK propagation tree
+  across the 비즈플레이 dev-family (981/888/725 ref-count clusters). Scoping kept honest: **28 L3 / 6 L4 / 4 L5.**
+- [ ] **G-1 AppIron unpacking (NEXT LEVER)** — 8 INDETERMINATE targets staged at `~/Downloads/AppIron/`
+  (`UNPACK_PLAN.md`: lottecap/suhyup/heungkuk/ibk-bizcard/bp-ippp/chuncheon/kangwon/gncurrency). Approach:
+  runtime dex-dump (frida-dexdump) or unidbg emulation of `libAppIron-jni`, then re-fingerprint → promote
+  INDETERMINATE→L3. **Status: PREPARED, not started** (per 2026-09-12 decision — staging only).
+- [ ] **G-2 acquire the pending-9** (need official-channel APK / `APKMD_CLI`): 메디팜핏 (P0, L2 source-level),
+  세모리포트, 신협기업, ACT, BNK캐피탈, 보맵플래너, 비씨카드 비즈플레이, 서울Pay+, 제주 탐나는전.
+- [ ] **G-3 promote L3→L4/L5** on selected carriers (javap deep-confirm; optional live-E2E lab).
+
 ---
 
-### Status — CLOSED (2026-09-12)
-**All active roadmap items are DONE.** The Coocon deep-dive (B) went beyond the original scope: impact = in-process
-RCE, **live E2E RCE reproduced on all 4 apps (M-STOCK/신한/IBK/현대해상)**, decompiler-resistance defeated with a
-reusable ASM deobfuscator, `updateScript` source recovered + 4 new protocol findings.
+### Status (2026-09-12) — tracks A–F CLOSED; track G ACTIVE
+**A–F done.** The Coocon deep-dive went beyond scope: impact = in-process RCE, **live E2E RCE on all 4 original
+apps**, decompiler-resistance defeated (reusable ASM deobfuscator), `updateScript` source recovered.
 
-**Only two items remain, both PARKED by decision (not now, each gated on something external):**
-- **B-P3** — what the server-supplied scraping JS collects/exfils → needs a runtime/live-server capture. Design
-  risk already fully established; re-open only if a capture becomes available.
-- **E-P3** — actually *sending* the vendor-notification drafts → gated on explicit user sign-off.
+**Then the fleet expanded into a corpus effort (track G, ACTIVE):** 28 iSAS carriers confirmed at L3; the next
+lever is **G-1 AppIron unpacking** (8 packed candidates staged, not started).
 
-Nothing else is open. (History: recommended-next-3 — Coocon channel confirm / GAD api-doc / TNK pinning — all done.)
+**Parked (external gate):** B-P3 (server-JS exfil — needs runtime/server capture); E-P3 (vendor-notification
+send — needs explicit sign-off).
