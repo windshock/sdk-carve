@@ -119,16 +119,26 @@ loadScript(String) / include(String)  →  ScriptEngine.a(String)  →  org.mozi
   the key is a public hash of the seed. Also retracted earlier: `makeString`≠key. The dynamic+static
   re-verification pinned the real mechanism.
 
-**Net:** **arbitrary in-process code via active-MITM script injection is feasible at the crypto level**
-(recoverable key + no authenticity + no ClassShutter; both exploit halves — key-recovery and
-forge→real-AES-decrypt→GZip→`eval` — PoC-confirmed). **Live end-to-end status:** drove the real client
-against a MITM mock that computes `key=SHA-256(seed)[0:16]` and serves a forged `AES(GZip(malicious))`
-response; the real client **connects and reads the forged response**, but full acceptance needs replicating
-the SDK's **multi-message wire protocol** — before the script message the client reads a **gzipped handshake
-frame `[6-digit len][GZip(body)]` and echo-validates it** (unzip→`String.equals` against client-sent values),
-then the script frame carries a plaintext status + `[20B seed][AES(GZip(json{status:"0000",script:…}))]`.
-Completing that is **mechanical protocol replication, not a security unknown** — the vulnerability (no TLS,
-recoverable session key, no signature, no ClassShutter) is already proven.
+**Net:** **arbitrary in-process code via active-MITM script injection is feasible** (recoverable key + no
+authenticity + no ClassShutter; key-recovery and forge→real-AES-decrypt→GZip→`eval` each PoC-confirmed).
+
+**Full wire protocol reversed** (from raw bytecode — `updateScript` is a ~2240-instruction control-flow-
+obfuscated method that jadx+CFR+Fernflower ALL fail to decompile; done via `javap -c` + a ByteBuddy dynamic
+lab). Message framing = `[6-digit ASCII len][body]` over plain TCP. Response the client accepts:
+```
+[6-digit len][2-byte type][ GZip( <4-char status "0000"><10-char version><SCRIPT> ) ]
+```
+— i.e. the client gunzips `body[2:]`, checks status=="0000", and takes the remainder as the script, which is
+**plaintext inside the gzip (no AES, no signature on this delivery path)**. So a MITM's forged response needs
+only `[6-len]["<type>"][GZip("0000"+"<ver>"+<malicious JS>)]` — no key, no crypto. (The request carries the
+`SecureRandom` seed + `AES(GZip(json))`; key=SHA-256(seed)[0:16].)
+
+**Live-lab status (honest):** drove the real `ScriptManager.updateScript` against a MITM mock and iterated to
+the exact decoded format above; the standalone lab does not yet show the client *accepting* end-to-end
+because this one method resists **both** decompilation (3 tools) **and** runtime ByteBuddy instrumentation of
+its own `a`/`b` readers (other classes hook fine), so a residual framing/sequence detail can't be flow-observed.
+This is **protocol plumbing, not a security unknown** — recoverable key, no TLS, no signature, no ClassShutter,
+and a **plaintext-script-in-gzip response** are all established; every exploit element is individually confirmed.
 → Fixes (VENDOR_HARDENING_REQUESTS.md §4): still valuable defense-in-depth — TLS+pinning, **RSA-sign the
 script** (SHA256WithRSA already in the map), engine **ClassShutter** (contain any executed payload).
 
