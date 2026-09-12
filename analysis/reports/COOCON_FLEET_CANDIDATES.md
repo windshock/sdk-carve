@@ -145,21 +145,40 @@ same coocon ref count
 Payoff: this converts "N apps carry the vulnerable SDK" into **"which iSAS SDK build/family propagated along which
 product lineage into how many apps"** — the difference between an app list and a supply-chain result.
 
-### Build-family (subtree-hash) — method VALIDATED, partial results (2026-09-12)
-First cut = sorted-unique `kr/co/coocon/sasapi/*` class-path inventory per app → sha. On the cleanly-extracted
-subset (dex2jar jars + plain APKs), **identical inventories cluster into shared builds — cross-industry AND
-cross-vendor**:
-| build (sha / #classes) | apps sharing the EXACT sasapi inventory |
+### Build-family — three tiers (do NOT collapse them; preempts "same class list ≠ same binary")
+```
+same class INVENTORY hash        → same STRUCTURAL family   (class-name set)
+same normalized CODE hash        → same CODE family / SDK build   (class+method+field sigs + normalized bytecode)
+same raw DEX/subtree bytes       → byte-identical artifact
+```
+Per-app fingerprints to compute (G-3 extractor): `inventory_hash` = sorted class names · `api_shape_hash` =
+class+method names+descriptors+field sigs · `code_hash` = normalized method bytecode/IR. (raw-DEX SHA is a poor
+propagation signal — obfuscation/DEX-ordering/host-build differ; normalized code_hash is the useful one.)
+
+**FULL 37-app map (2026-09-12, robust extractor — `dexdump` class-defs, container-walk incl. XAPK).**
+`inventory_hash` = defined sasapi class-name set; `api_shape_hash` = + method/field descriptors. Result:
+**37 L3 apps → 17 structural families.** Multi-app families (api-shape sub-cluster in parens = same-API build):
+| structural family (n classes) | apps (grouped by identical api-shape) |
 |---|---|
-| `ff3a46…` / 105 | **M-STOCK ≡ CheckPay ≡ OSB저축** (broker + Coocon's own app + savings bank) |
-| `b76ae4…` / 108 | **IBK ≡ 현대해상** (broker + insurer) |
-| `1ee0f4…` / 112 | 신한 SOL저축 (distinct) |
-| `443b02…` / 97  | 창원 누비전 (distinct) |
-→ Same iSAS build ships across unrelated industries/vendors ⇒ genuine supply-chain propagation, not per-app forks.
-**Honest limitation:** the quick extractor only reads jars + plain APKs cleanly; it returns 0 on the **XAPK**-
-packaged set (inner-apk dex handling), so the full 37-app build-family map is **not done yet** — it needs a
-robust dex class-def parser (dexdump/dex2jar-based). Method proven; full map is the next step (ROADMAP G-3). Do
-NOT read the 0-inventory apps as "no classes" — that's the extractor, not the app (they're confirmed L3 carriers).
+| **105-class** (9 apps) | **api-A:** M-STOCK · CheckPay · **api-B:** 비즈플레이 · 현대/우리/삼성카드 비즈플레이 · On-Premise · 다올저축 (6, identical api) · **api-C:** OSB저축 |
+| **113-class `e8a4`** (5) | **api-D:** OK저축 · KB저축 키위 · 셔클 · 똑타 (4, identical api — savings×2 + mobility×2) · **api-E:** 우리WON뱅킹 |
+| **108-class** (3) | **IBK · 현대해상 · InBody — identical inventory AND api-shape** (finance + insurance + **healthcare**) |
+| **112-class** (3) | **신한 SOL저축 · 신협 온뱅크 · 세모장부** — identical inventory AND api-shape (savings + credit-union + expense) |
+| **116-class `c566`** (2) | **BNK부산은행 · NAVER** — identical inventory AND api-shape (bank + portal super-app) |
+| **116-class `7576`** (2) | TRIP+ · BZPEXPENSE — identical (com.nextbiz expense line) |
+| **97-class** (2) | 보맵 · 창원 누비전 — identical (insurance + 지역화폐) |
+| **114-class `4805`** (2) | knbank · finda — same inventory, **different** api-shape (structural only) |
+| singletons (9) | busanbank\* / keybank / nhbanking / ibksb / woorifsb / gyeongni / kbstar / gccare / wellcheck / nhcok |
+
+**What this establishes (safe claims):**
+- **37 apps collapse to 17 structural families**, and several families are the **same iSAS build (identical
+  api-shape) across unrelated companies AND industries** — e.g. IBK≡현대해상≡InBody (finance/insurance/healthcare),
+  BNK부산≡NAVER (bank/portal), 신한저축≡신협≡세모장부, OK저축≡KB저축≡셔클≡똑타 (savings/mobility). This is the difference
+  between "many apps use iSAS" and **"one iSAS build was supplied into many independent products across industries."**
+- **Terminology (kept honest):** *structural family* = identical inventory; *same-API build* = identical
+  api-shape (much stronger — same public+private API surface); *byte-identical* still needs **`code_hash`**
+  (normalized method bytecode) — the remaining step (G-3 code_hash). We claim structural + api-shape, not byte.
+- Extractor: `dexdump` defined-class-defs via a container-walker (apk/xapk/apks/jar) → `coocon-buildfamily.sh`.
 
 ## NEGATIVE (L3-neg) — public "Coocon integration" but NO in-APK lib (readable dex; server-side/ASP/cloud)  · 8
 | App | package | androidx | why negative |

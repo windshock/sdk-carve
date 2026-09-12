@@ -174,10 +174,12 @@ Reframed from "Coocon customer" OSINT to **iSAS/smart-scraping supply history + 
   `isas.coocon.co.kr:443:80`) across **finance / expense / 지역화폐 / healthcare / mobility / portal(NAVER)**; 8
   negatives (server-side/ASP), 8 INDETERMINATE (AppIron-packed), 9 pending. Scoping honest: **37 L3 / 6 L4 / 4 L5.**
   Method ranking (evidence): VT-domain pivot (9/9 observed) > dev-family > supplier OSINT.
-- [~] **G-3 build-family (subtree-hash) — the highest-leverage item** — method VALIDATED: identical sasapi
-  class-inventory clusters cross-industry+cross-vendor (**M-STOCK≡CheckPay≡OSB** =105-class build; **IBK≡현대해상**
-  =108; 신한=112; 창원=97). Turns "37 apps" into a few shared iSAS builds = supply-chain result. **Blocker:** quick
-  extractor reads jars/plain-APK only (returns 0 on XAPK) → needs a robust dex class-def parser (dexdump/dex2jar).
+- [~] **G-3 build-family — DONE for structural+api-shape; code_hash remaining.** Robust extractor built
+  (`scripts/coocon-buildfamily.sh`, dexdump class-defs + container-walk incl. XAPK). **37 L3 apps → 17 structural
+  families**; api-shape reveals **same-API builds across industries/vendors**: IBK≡현대해상≡InBody (finance/insurance/
+  healthcare), BNK부산≡NAVER (bank/portal), 신한저축≡신협≡세모장부, OK저축≡KB저축≡셔클≡똑타, bizplay-family+다올(6), TRIP+≡BZPEXPENSE,
+  보맵≡창원. Claim scoped: structural + same-API (NOT byte-identical). **Remaining: code_hash** (normalized bytecode
+  via dexdump -d, strip pool-idx/offsets) to close "same build" fully.
 - [ ] **G-1 AppIron unpacking** — 8 INDETERMINATE staged at `~/Downloads/AppIron/` (`UNPACK_PLAN.md`). Goal =
   recover runtime L3 evidence (any of `sasapi.*`/`SASManager`/`iSASXecure`/`isas.coocon.co.kr` in loaded code),
   NOT a generic unpacker. Approach: frida-dexdump / unidbg emul of `libAppIron-jni`. **PREPARED, not started.**
