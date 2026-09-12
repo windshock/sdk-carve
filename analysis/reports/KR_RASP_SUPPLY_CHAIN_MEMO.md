@@ -37,14 +37,15 @@ supply-chain surface: vendor server integrity, script signing, endpoint pinning,
   (svc `PUSANAPP`), devel `devel.mode`/`local.ip` override + fallback `183.111.160.145`, auth-txn over
   **plain HTTP** (`59.6.190.44:8900/cgi/sidea.authtr.cgi`), local proxy `127.0.0.1:1024/1025`. SEED-crypto,
   **no cert pin observed**. Scripts fetched by name+version, decrypted, eval'd — a bank-site scraper (mydata).
-  **HIGH server-trust design concern:** the engine sets `initSafeStandardObjects` but **no `setClassShutter`**,
-  so a server script escapes to **arbitrary in-process Java** via `getClass()` — **PoC-confirmed** (bundled
-  Rhino + real `ScriptEngine` + the app's own injected `com.miraeasset.main.dc`; `id` executed off both).
-  And **active on-path MITM injection IS feasible** (ByteBuddy lab + static, confirmed): the script channel is
-  plain TCP (no TLS), no signature, and the AES session key is `SHA-256(seed)[0:16]` where the **seed is sent
-  in cleartext** in the request (dynamically confirmed 3× `key==SHA-256(middle-20B)[0:16]`). So an on-path
-  attacker reads the seed → derives the key → forges `AES(GZip(malicious))` → client evals → RCE. Both halves
-  PoC-confirmed (key-recovery + forge→eval). See COOCON_SASAPI_TRIAGE.md §Attack path.
+  **HIGH — active on-path MITM RCE, CONFIRMED end-to-end.** The engine sets `initSafeStandardObjects` but
+  **no `setClassShutter`**, so a server script escapes to **arbitrary in-process Java** via `getClass()`. The
+  script channel is plain TCP (no TLS), no signature, and the AES session key is `SHA-256(seed)[0:16]` where the
+  **seed is sent in cleartext** in the request. **Full chain demonstrated live** (ByteBuddy lab, one reproducible
+  run, all real bundled Coocon+Rhino classes): MITM reads the seed → derives the key → forges the 2434-path
+  response `[type][20B field][AES(GZip({"ResultCode":"0000","ScriptVersion":…,"Script":<malicious>}))]` → real
+  `AESCipher.decrypt`+`GZip.unzip`+`JSONParser` accept it → script **stored** in the real `ScriptManager`
+  (`getScriptContents` returns it verbatim) → real `ScriptEngine.a()` (Rhino `evaluateString`) **executes it**
+  (`Runtime.exec`, proof file created). See COOCON_SASAPI_TRIAGE.md §Attack path.
 - **GPA GAD BeanShell** → GAD_API_RUNTIME_CAPTURE.md. `gad.api.gpakorea.com/campaign/{setup,prepare2,
   script/entry}` push BeanShell executed in-process. The whole channel (+ `type=5` CPS + `x-tdi-client-secret`)
   is **undocumented to integrators** (public api-doc = list/join/status/complete, types 0–4 only). iOS SDK

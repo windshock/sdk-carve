@@ -1,16 +1,19 @@
 # Coocon SASAPI — server-driven JS scraping engine (in 4 KR financial apps)
 
 **Status:** cpg-confirmed on M-STOCK; string-confirmed across the fleet (`payload_decrypt.py`);
-**sandbox-escape PoC-confirmed → arbitrary in-process code IF a script runs** (see §Sandbox strength).
-**Severity: HIGH — active on-path MITM can inject arbitrary in-process code** (script channel is plain TCP,
-no signature, no `ClassShutter`, and the AES session key is recoverable from the cleartext seed in the
-request: `key = SHA-256(seed)[0:16]`, static-verified + dynamically confirmed; see §Attack path).
+**sandbox-escape PoC-confirmed**, and **full network→eval→RCE demonstrated live end-to-end** (see §Attack path).
+**Severity: HIGH — active on-path MITM RCE, CONFIRMED end-to-end.** The script channel is plain TCP with no
+signature and no `ClassShutter`, and the AES session key is recoverable from the cleartext seed in the request
+(`key = SHA-256(seed)[0:16]`, static-verified + dynamically confirmed). A single reproducible lab run against
+the app's **own bundled Coocon+Rhino classes** forged a MITM response → real `AESCipher.decrypt`+`GZip.unzip`+
+`JSONParser` accepted it → the malicious script was **stored** in the real `ScriptManager` → real
+`ScriptEngine.a()` (Rhino `evaluateString`) **executed it** (`Runtime.exec`, proof file created).
 **One line:** Four KR financial apps bundle **Coocon SASAPI** (`kr.co.coocon.sasapi`), a
 screen-scraping/aggregation SDK that **downloads JavaScript over plain TCP and executes it in-process via
 Rhino/V8 with no `ClassShutter`**; the delivery has no TLS and no signature, and its AES session key is a
-public hash of a **cleartext seed sent in the request**, so an **active on-path MITM can forge a malicious
-script → arbitrary Java in the bank app** (key-recovery + forge→eval each PoC-confirmed). Same channel class
-as GAD's BeanShell.
+public hash of a **cleartext seed sent in the request**, so an **active on-path MITM forges a malicious script
+→ arbitrary Java in the bank app — demonstrated live end-to-end** (forged wire response → decrypt → unzip →
+parse → store → `eval` → RCE, all real classes). Same channel class as GAD's BeanShell.
 
 ## Fleet presence (payload_decrypt base-apk dex scan)
 | App | mgmt server | kr.co.coocon refs | Rhino refs |
@@ -119,28 +122,40 @@ loadScript(String) / include(String)  →  ScriptEngine.a(String)  →  org.mozi
   the key is a public hash of the seed. Also retracted earlier: `makeString`≠key. The dynamic+static
   re-verification pinned the real mechanism.
 
-**Net:** **arbitrary in-process code via active-MITM script injection is feasible** (recoverable key + no
-authenticity + no ClassShutter; key-recovery and forge→real-AES-decrypt→GZip→`eval` each PoC-confirmed).
+**Net:** **arbitrary in-process code via active-MITM script injection is CONFIRMED** — full network→eval→RCE
+chain demonstrated live end-to-end (below), all against the app's own bundled Coocon+Rhino classes, no stand-ins.
 
 **Full wire protocol reversed** (from raw bytecode — `updateScript` is a ~2240-instruction control-flow-
 obfuscated method that jadx+CFR+Fernflower ALL fail to decompile; done via `javap -c` + a ByteBuddy dynamic
-lab). Message framing = `[6-digit ASCII len][body]` over plain TCP. Response the client accepts:
-```
-[6-digit len][2-byte type][ GZip( <4-char status "0000"><10-char version><SCRIPT> ) ]
-```
-— i.e. the client gunzips `body[2:]`, checks status=="0000", and takes the remainder as the script, which is
-**plaintext inside the gzip (no AES, no signature on this delivery path)**. So a MITM's forged response needs
-only `[6-len]["<type>"][GZip("0000"+"<ver>"+<malicious JS>)]` — no key, no crypto. (The request carries the
-`SecureRandom` seed + `AES(GZip(json))`; key=SHA-256(seed)[0:16].)
+lab). Message framing = `[6-digit ASCII len][body]` over plain TCP.
+- **Request** (client→server): `[6-len]["02" type][20B seed R][ AES/CBC( GZip(json_request) ) ]`.
+- **Response** the client actually consumes on `updateScript` (the AES-encrypted "2434" read path, *not* the
+  plaintext-gzip 643-path):
+  ```
+  [6-len][2-byte type][20-byte field][ AES/CBC( GZip( <json> ) ) ]     key = SHA-256(request seed R)[0:16]
+  <json> = {"ResultCode":"0000","ScriptVersion":"<10-char ver>","Script":"<malicious JS>"}
+  ```
+  The client AES-decrypts `body[22:]` with `SHA-256(R)[0:16]` — **the seed it itself just sent in cleartext** —
+  gunzips, `JSONParser.parse`s, requires `get("ResultCode")=="0000"`, and stores `get("Script")`. Keys =
+  `ScriptManager` static fields `o`/`n`/`p` (reflection-recovered). **No signature/MAC anywhere on this path.**
 
-**Live-lab status (honest):** drove the real `ScriptManager.updateScript` against a MITM mock and iterated to
-the exact decoded format above; the standalone lab does not yet show the client *accepting* end-to-end
-because this one method resists **both** decompilation (3 tools) **and** runtime ByteBuddy instrumentation of
-its own `a`/`b` readers (other classes hook fine), so a residual framing/sequence detail can't be flow-observed.
-This is **protocol plumbing, not a security unknown** — recoverable key, no TLS, no signature, no ClassShutter,
-and a **plaintext-script-in-gzip response** are all established; every exploit element is individually confirmed.
-→ Fixes (VENDOR_HARDENING_REQUESTS.md §4): still valuable defense-in-depth — TLS+pinning, **RSA-sign the
-script** (SHA256WithRSA already in the map), engine **ClassShutter** (contain any executed payload).
+**Live-lab status — FULL END-TO-END RCE CONFIRMED (2026-09-12).** Drove the **real** `ScriptManager.updateScript`
+(pure-Java, app's own dex2jar classes) against a MITM mock; ByteBuddy hooks confirmed every step of one
+reproducible run:
+1. MITM reads seed `R` from the cleartext request → `key = SHA-256(R)[0:16]`, `IV = ascii-hex(key[0:8])`.
+2. Forges the 2434-path response above. **Real `AESCipher.decrypt` + real `GZip.unzip`** round-trip the exact
+   forged JSON (hook-dumped); **real `JSONParser`** validates `ResultCode=="0000"` → **script stored** (no error).
+3. `containsScript("test") == true`; `getScriptContents("test")` returns the exact malicious JS off the wire.
+4. Real `ScriptEngine.a()` = `Context.evaluateString(scope, script, "JavaScript", …)` evals the stored script;
+   `system.getClass().forName('java.lang.Runtime')…exec('touch /tmp/coocon_e2e_pwned.txt')` → **file created.**
+
+The earlier "not yet accepting end-to-end" caveat is **retracted**. The gap was purely (a) the response framing
+(2434-path `[type][20B field][AES]`, `AES=body[22:]`, `key=SHA-256(request-seed)`) and (b) the exact JSON keys —
+both now pinned. The instrumentation limitation was root-caused: ByteBuddy `@Advice` methods using string `+`
+compile to `invokedynamic makeConcatWithConstants`, unwritable to the Java-6 target class → transform failed
+silently; moving all concat into helper methods made `ScriptManager`/`GZip` hooks fire. → Fixes
+(VENDOR_HARDENING_REQUESTS.md §4): TLS+pinning, **RSA-sign the script** (SHA256WithRSA already in the map),
+engine **ClassShutter** (contain any executed payload).
 
 ## Capability surface (carved CPG)
 - JS-EVAL: `ScriptEngine` (Rhino) **and** `V8ScriptEngine` (Google V8) — two interchangeable engines.
