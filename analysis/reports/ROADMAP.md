@@ -10,7 +10,10 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` dropped/blocked. 
 All P1 + the recommended-next-3 are done. Remaining P2/P3 are sequenced below so nothing is dropped;
 executing top-down, recommendation-first. `[x]`=done this session.
 1. [x] **C** — Adison SugarToken + allowlist → **C** vendor hardening docs (GAD/TNK/Adison) → **C** issue #5 writeup.
-2. [~] **B** — [x] Coocon version diff (4 apps) → [ ] Coocon `updateScript` server endpoint/protocol → [ ] drfn plain-HTTP payload.
+2. [x] **B** — [x] Coocon version diff (4 apps) → [x] `updateScript` server endpoint/protocol → [x] drfn
+   plain-HTTP → [x] **(9/12 deep-dive)** impact = in-process RCE → **live E2E RCE PoC reproduced on all 4 apps**
+   → decompiler-resistance root-caused + custom ASM deobf → recovered `updateScript` pseudocode + 4 new protocol
+   findings. Only **B-P3 (dynamic: what server JS collects/exfils)** remains, parked on runtime/server capture.
 3. [x] **A/D** — [x] find_decryptor 32-bit + arg-recon (arm64 6.9.20.x 0→104 str; arm32 locates+len/key)
    → [x] app string vault (Phase 3, reproducible unidbg recipe) → [x] packer-detect Toss string-enc heuristic.
 4. [x] **E/F** — [x] consolidated KR-RASP memo (+ GAD iOS symmetry) → [x] vendor notification drafts →
@@ -64,8 +67,31 @@ executing top-down, recommendation-first. `[x]`=done this session.
   override (script-source redirect knob), auth-txn `http://59.6.190.44:8900/cgi/sidea.authtr.cgi` (plain HTTP),
   local proxy `127.0.0.1:1024/1025`. Protocol: HTTP GET/POST, `+`-joined script names + 10-digit versions,
   SEED-decrypted JS → Rhino/V8. No pin observed. Folded into COOCON_SASAPI_TRIAGE.md.
-- [ ] **P3 — what the scraping scripts collect/exfil** — needs the server-supplied JS (dynamic run or
-  captured module). Same "server code channel" risk framing as GAD BeanShell.
+- [x] **P1 — impact of the channel (answering "is only JS executed?")** — DONE (2026-09-12). The engine sets
+  `initSafeStandardObjects` but **no `setClassShutter`**, so a server script escapes to **arbitrary in-process
+  Java** via `getClass().forName('java.lang.Runtime')…`. Not "just JS" — full in-process code exec (and via the
+  app's own injected `com.miraeasset.main.dc` it bridges to the app's secure-key crypto). Written up in
+  COOCON_SASAPI_TRIAGE.md §Sandbox strength + IMPACT analysis.
+- [x] **P1 — LIVE end-to-end active-MITM RCE PoC — reproduced on ALL 4 apps** — DONE (2026-09-12). ByteBuddy MITM
+  lab drives each app's own dex2jar'd `ScriptManager.updateScript` + `ScriptEngine` vs a localhost mock: MITM reads
+  the cleartext request seed → `key=SHA-256(seed)[0:16]` → forges `[6-len]["02"][seed][AES(GZip(JSON))]` → real
+  `AESCipher.decrypt`+`GZip.unzip`+`JSONParser` accept it → script **stored** → real `ScriptEngine.a()` Rhino
+  `evaluateString` → `Runtime.exec` (proof file). **M-STOCK / 신한(com.shinhan.spbs) / IBK(com.ibk.scbs) /
+  현대해상(m.hi.co.kr) = 4/4 `store=1 eval=1 RCE=YES`.** All identical preconditions (default iface `"02"`, same
+  `isas.coocon.co.kr:443` plain TCP, no signature/MAC, no `ClassShutter`); 신한 & 현대해상 needed `android.jar`
+  only for their request-build device-info (emulation-env gap, not a control). Lab/proof local, uncommitted.
+- [x] **P2 — defeat `updateScript` decompiler-resistance + recover source** — DONE (2026-09-12). All 5 decompilers
+  (CFR/Vineflower/Fernflower/Corpseflower/jadx) fail; root cause = 2-layer obfuscation (exception-table flattening:
+  1033 entries/225 ranges/~40 shared `ASTORE;GOTO` stubs/295 non-throwing traps + irreducible flow via
+  backward-GOTO finally-ladders). Built reusable ASM normalizer (`.agents/skills/sdk-carve/scripts/
+  ExFlattenNormalize.java`: `--redundant`/`--split`/`--unify`) → CFR decompiles clean. Recovered source confirms
+  the reversed protocol 1:1 (key=SHA-256(seed)[0:16] at source level) + **4 new findings**: legacy `"01"` arm =
+  plaintext GZip (no AES, even easier to forge); `"02"` client ignores response `[0:22]` (key from request seed
+  only); `"0001"`=delta/up-to-date + no version-monotonicity check → MITM `"0000"`+malicious forces store
+  regardless of cached version (downgrade). Folded into COOCON_SASAPI_TRIAGE.md + SKILL.md.
+- [-] **P3 — what the scraping scripts collect/exfil** — **PARKED (not now, per 2026-09-12 decision).** Needs the
+  server-supplied JS (dynamic run or live server capture); the design-level risk is already fully established.
+  Same "server code channel" framing as GAD BeanShell. Re-open only if a runtime/server capture becomes available.
 - [x] **P3 — drfn/chart plain-HTTP (218.38.18.171/smartPhone/*.php)** — DONE. `upload.php` multipart sends
   the chart image + `userId`/`userIp`/`deviceID` + charted `symbol`/`codeName`/`lcode` + `title`/`detail`
   memo; `delete.php` sends `deviceID` in the query. Cleartext HTTP to a hardcoded 3rd-party IP inside a
@@ -79,7 +105,7 @@ executing top-down, recommendation-first. `[x]`=done this session.
   lifecycle, `type=5` CPS, `x-tdi-client-secret`, and the BeanShell/eval channel are **absent from all
   public docs** → the covert channel is undocumented-to-integrators; item closed by public-doc absence.
   Bonus: README pins `syrup-0.8.0-rc.12` = my runtime capture → rc.4/rc.12 skew resolved.
-  *Remaining: iOS SDK (`gad-ios-sdk-syrup`) script-channel symmetry check.*
+  *(iOS SDK script-channel symmetry check — DONE, see E: v0.1.9 XCFramework is asymmetric, no interpreter.)*
 - [x] **P1 — TNK `SSLFactory` cert-pinning check** — DONE. `SSLFactory` = `SSLContext.init(null,null,
   null)` (default system-CA trust, TLS-only, forced https) with NO pinning; `PacketService`/`VideoCache`
   wire it via `setSSLSocketFactory` and set no HostnameVerifier. The trust-all `NullHostNameVerifier` is
@@ -115,6 +141,11 @@ executing top-down, recommendation-first. `[x]`=done this session.
   readable strings (words/desc per-MB ~50× below normal) → verdict DEGRADED (exit 10), "In-house DEX
   string encryption (Toss-class)". Validated: Toss 5.276.0 → flagged (7.9 words/MB, 313MB dex); plaintext
   control not false-positived (50× margin). In packer-detect.py + SKILL.md field note.
+- [x] **P2 — reusable exception-flattening deobfuscator** (`scripts/ExFlattenNormalize.java`) — DONE (2026-09-12).
+  ASM normalizer for methods that defeat all decompilers via exception-table flattening + irreducible flow:
+  `--redundant` (drop non-throwing traps) / `--split` (node-split terminal blocks → reducible) / `--unify`
+  (handlers → one try+multi-catch); strips Java-6 frames, `COMPUTE_MAXS`. Cracked Coocon `updateScript`
+  (CFR 0 failures after). Methodology bullet + error-evolution signal in SKILL.md.
 
 ## E. Reporting / outbound
 - [x] **P2 — consolidated KR-RASP supply-chain memo** — DONE. `KR_RASP_SUPPLY_CHAIN_MEMO.md` synthesizes
@@ -122,9 +153,9 @@ executing top-down, recommendation-first. `[x]`=done this session.
   actions. Includes the **GAD iOS symmetry** resolution: iOS SDK (v0.1.9 XCFramework) is asymmetric — shares
   API host + TDI but ships no script interpreter (WKWebView evaluateJavaScript only, no JSContext/BeanShell)
   → the RCE-by-design channel is Android-only. Folded into GAD_API_RUNTIME_CAPTURE.md too.
-- [x] **P3 — vendor notifications (DRAFTED, not sent)**: `VENDOR_NOTIFICATION_DRAFTS.md` — ready-to-send
-  coordinated-disclosure notices for NSHC, Coocon(+host banks), drfn(+Mirae), GPA GAD, TNK/Adison. Sends
-  remain gated on explicit sign-off (recipient/channel/timeline); no samples in first contact.
+- [-] **P3 — vendor notifications SEND** — **PARKED (not now, per 2026-09-12 decision).** Drafts DONE
+  (`VENDOR_NOTIFICATION_DRAFTS.md`, ready-to-send for NSHC, Coocon+host banks, drfn+Mirae, GPA GAD, TNK/Adison).
+  Actual sending stays gated on explicit user sign-off (recipient/channel/timeline); no samples in first contact.
 
 ## F. Low
 - [x] **P3 — Goldoson-TDI notii** service/view behavior + `tdi9.com` endpoint carve — DONE (local
@@ -136,9 +167,14 @@ executing top-down, recommendation-first. `[x]`=done this session.
 
 ---
 
-### Recommended next 3 (P1, cheap, high-leverage) — updated after channel confirmation
-1. ~~Confirm the Coocon channel on IBK/신한/현대해상~~ **DONE** (channel present + identical in all 4).
-2. **GAD api-doc cross-check** (C) → closes a long-standing vaulted-endpoint item with zero new setup.
-3. **TNK cert-pinning check** (C) → the low↔medium decider for the deser surface.
+### Status — CLOSED (2026-09-12)
+**All active roadmap items are DONE.** The Coocon deep-dive (B) went beyond the original scope: impact = in-process
+RCE, **live E2E RCE reproduced on all 4 apps (M-STOCK/신한/IBK/현대해상)**, decompiler-resistance defeated with a
+reusable ASM deobfuscator, `updateScript` source recovered + 4 new protocol findings.
 
-*(Old "32-bit find_decryptor port" demoted to P2 — payload_decrypt already covers server+inventory.)*
+**Only two items remain, both PARKED by decision (not now, each gated on something external):**
+- **B-P3** — what the server-supplied scraping JS collects/exfils → needs a runtime/live-server capture. Design
+  risk already fully established; re-open only if a capture becomes available.
+- **E-P3** — actually *sending* the vendor-notification drafts → gated on explicit user sign-off.
+
+Nothing else is open. (History: recommended-next-3 — Coocon channel confirm / GAD api-doc / TNK pinning — all done.)
