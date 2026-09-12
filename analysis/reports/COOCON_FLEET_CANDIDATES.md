@@ -29,9 +29,9 @@ no code-lineage claim*: `2007 client scraping iBASE 2.0 → 2013 server/cloud iB
 | **L4** | **exact dangerous config** — `b="02"`, 0 sig/MAC, 0 `ClassShutter` | `javap` deep-confirm (binary) |
 | **L5** | **controlled E2E** — full network→eval→RCE | ByteBuddy MITM lab |
 
-**Scoping (do NOT over-claim):** carrier identity / vulnerable-channel-present = **L3: 22 apps**. Exact dangerous
+**Scoping (do NOT over-claim):** carrier identity / vulnerable-channel-present = **L3: 28 apps**. Exact dangerous
 config = **L4: 6** (M-STOCK/신한/IBK/현대해상 + 체크페이 + BNK경남). E2E exploitability = **L5: 4** (M-STOCK/신한/IBK/현대해상).
-The other 16 carriers are L3 (real surface), pending L4/L5.
+The other 22 carriers are L3 (real surface), pending L4/L5.
 
 ## How to confirm (one step per APK)
 ```
@@ -42,7 +42,7 @@ d2j-dex2jar -f -o app.jar app.apk    # then javap deep-confirm (b=="02"? / 0 sig
 Acquisition: `research/acquisition/resolve.py <pkg> --allow-download` (apkeep/APKPure). One folder per app under
 `~/Downloads/<app>/`; **samples never committed.**
 
-## CARRIERS (L3) — `sasapi/scriptengine` in the shipped APK, all → `isas.coocon.co.kr:443:80`  · **22 apps**
+## CARRIERS (L3) — `sasapi/scriptengine` in the shipped APK, all → `isas.coocon.co.kr:443:80`  · **28 apps**
 | App | package | refs | max level | note |
 |---|---|---|---|---|
 | 미래에셋 M-STOCK | `com.miraeasset.trade` | 896 | **L5 live-E2E** | broker |
@@ -67,6 +67,26 @@ Acquisition: `research/acquisition/resolve.py <pkg> --allow-download` (apkeep/AP
 | 세모장부 (웹케시) | `com.webcash.semo` | — | L3 (+server) | 정책: 정보 스크래핑 + 증빙 데이터 제공 |
 | 모바일 경리나라 (웹케시) | `com.webcash.serp3_0` | — | L3 (+server) | 전은행 잔액/거래 실시간 조회 |
 | 비즈플레이 | `com.bizcard.bizplay` | 888 | L3 (+server) | dev-family reuse (TRIP+ 동일 개발사) |
+| BZPEXPENSE | `com.nextbiz.bzpexpense.aos` | 981 | L3 (+server) | com.nextbiz.* — identical refcount to TRIP+ |
+| 현대카드 비즈플레이 | `com.bizplay.hyundai` | 888 | L3 (+server) | white-label (888-cluster) |
+| 우리카드 비즈플레이 | `com.bizplay.woori` | 888 | L3 (+server) | white-label (888-cluster) |
+| 삼성카드 비즈플레이 | `com.bizplay.samsung` | 888 | L3 (+server) | white-label (888-cluster) |
+| 비즈플레이 On-Premise | `com.bizcard.bizplayPPPEnt` | 888 | L3 (+server) | On-Prem fork (888-cluster) |
+| 창원 누비전 (지역화폐) | `com.bizplay.bizzeropay.changwon` | 725 | L3 (+server) | bizzeropay line; 개인계좌 자동출금 |
+
+## SDK propagation tree — 비즈플레이/nextbiz dev-family (fingerprint ref-count clusters)
+The `kr/co/coocon` ref count is a build-lineage signature: apps sharing a code line carry the *same* count.
+Three clusters in the 비즈플레이(주) family, each a distinct integration of the same iSAS SDK:
+```
+981-cluster  com.nextbiz.*         TRIP+ (hdexpense) 981 · BZPEXPENSE (bzpexpense) 981         [expense line]
+888-cluster  com.bizcard.* /       비즈플레이 888 · On-Premise(bizplayPPPEnt) 888 ·               [corp-card / white-label]
+             com.bizplay.<card>    현대 888 · 우리 888 · 삼성 888
+725-cluster  com.bizplay.bizzeropay.* 창원 누비전 725                                             [지역화폐 line]
+```
+Read-out: the iSAS channel propagated across **all three** product lines of one vendor (expense, corporate-card
+white-labels, 지역화폐) — carrier status tracks the code line, not the customer brand. Card white-labels are
+byte-family (all 888). Same-vendor apps still packed (AppIron) can't be counted yet (see INDETERMINATE). This
+is a **within-vendor SDK propagation**, distinct from the cross-vendor supply picture above.
 
 ## NEGATIVE (L3-neg) — public "Coocon integration" but NO in-APK lib (readable dex; server-side/ASP/cloud)  · 8
 | App | package | androidx | why negative |
@@ -81,12 +101,17 @@ Acquisition: `research/acquisition/resolve.py <pkg> --allow-download` (apkeep/AP
 | HB저축은행 | `kr.co.essb.esbank` | 6286 | scraping supply is server-side here |
 > "readable" rules out packing, not DexGuard-style selective string encryption → "no in-APK lib in *this build*."
 
-## INDETERMINATE — 0 markers but PACKED (unpack, then re-fingerprint)  · 3
+## INDETERMINATE — 0 markers but PACKED (unpack, then re-fingerprint)  · 8
 | App | package | packer |
 |---|---|---|
 | 롯데캐피탈 | `com.lottecap.finance` | AppIron (`libAppIron-jni_v2.*`) — 업무위탁 lists 쿠콘-스크래핑 → likely carrier |
 | 수협 | `com.suhyup.psmb` | AppIron (`libAppIron-jni_v2.13.28`) |
 | 흥국화재 | `kr.co.hkfire.cyber` | AppIron (`libAppIron-RemoteBan` + `libAppIron-jni_v2.13.18`) — 위탁: 쿠콘 스크래핑 → likely carrier |
+| IBK 법인카드 | `com.ibk.bizcard` | AppIron (`libAppIron-Suite`) — 비즈플레이 family → likely carrier |
+| 비플법인카드 On-Premise | `com.bizplay.ippp.bizcard.aos` | AppIron (`libAppIron-Suite`) — 비즈플레이 family → likely carrier |
+| 춘천사랑상품권 | `com.bizplay.bizzeropay.chuncheon` | AppIron (`libAppIron-jni_v2.12.3`) — bizzeropay line (창원=carrier) |
+| 강원상품권 | `com.bizplay.bizzeropay.kangwon` | AppIron (`libAppIron-Suite`) — bizzeropay line |
+| 경남지역상품권 | `com.bizplay.bizzeropay.gyeongnam` | AppIron (`libAppIron-jni_v2.12.3`) — bizzeropay line |
 
 ## PENDING acquisition (zero versions on APKPure / apkmirror unconfigured — need official-channel APK)  · 6
 | App | package | note |
@@ -97,14 +122,21 @@ Acquisition: `research/acquisition/resolve.py <pkg> --allow-download` (apkeep/AP
 | ACT 액트 | `com.conduit.act` | KIND filing: 체크페이→자산관리→COOCON |
 | BNK캐피탈 | `com.bnkfg.bnkcapital` | Plug-In + We-Check |
 | 보맵플래너 | `kr.co.bomapp.planner` | 보맵 sibling |
+| 비씨카드 비즈플레이 | `com.bizplay.bccard` | white-label; 0 versions on APKPure |
+| 서울Pay+ | `com.bizplay.seoul.pay` | bizzeropay/pay line; 0 versions on APKPure |
+| 제주 탐나는전 | `com.bizplay.g2c.jeju` | 지역화폐; 0 versions on APKPure |
 
 ## Next-batch strategy — 비즈플레이 developer family (both TRIP+ AND 비즈플레이 = carriers ⇒ shared module)
 Enumerate the 비즈플레이(주) Play developer account and fingerprint the lot (need package IDs): 현대카드/우리카드/삼성카드
 비즈플레이, IBK 법인카드, BZPEXPENSE. Also worth: other 웹케시 apps (경리나라 계열). Same one-folder-per-app → fingerprint flow.
 
 ## Tally & lessons
-- **22 carriers (L3)** · 8 negatives · 3 indeterminate (packed) · 6 pending. 33 APKs fingerprinted.
-  New this batch (웹케시/핀다/비즈플레이 생태계): 핀다, 세모장부, 모바일 경리나라, 비즈플레이 — all carriers.
+- **28 carriers (L3)** · 8 negatives · 8 indeterminate (AppIron-packed) · 9 pending. 44 APKs fingerprinted.
+  Batch 5 = 비즈플레이(주) dev-family: 6 carriers (BZPEXPENSE, 현대/우리/삼성 비즈플레이, On-Premise, 창원 누비전) + 5
+  AppIron-packed indeterminate (IBK법인카드, 비플On-Prem, 춘천/강원/경남 지역화폐).
+- **Code-lineage (ref-count) is now a search axis stronger than vendor OSINT**: the iSAS SDK propagated across
+  one vendor's expense / corporate-card-white-label / 지역화폐 lines (981 / 888 / 725 clusters). See propagation tree.
+- Many 비즈플레이 family apps are AppIron-packed → unpacking is the next lever to convert INDETERMINATE→L3.
 - **iSAS/smart-scraping supply = strong predictor**; every *readable* smart-scraping supplyee scanned is a carrier
   (신한저축·부산·한투저축·우리·NH·IBK저축·우리저축·다올·OK저축·신협·OSB). **MyData-customer / ASP / cloud-scraping = weak/negative**
   (한화생명·밀리패스·페퍼-ASP·HB). Binary overrode OSINT twice: TRIP+ (guessed server-only) = carrier; OSB (guessed cloud) = carrier.

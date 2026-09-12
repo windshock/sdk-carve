@@ -18,9 +18,10 @@ same class as [[gpa-gad-beanshell]]:
    `gad.api.gpakorea.com` + the `campaign/{setup,prepare2,script}` lifecycle. Android-only (iOS SDK ships
    no interpreter — asymmetric).
 2. **Coocon SASAPI (= Coocon iSAS smart-scraping client)** — server **JavaScript** (Rhino/V8) scraping engine.
-   Originally found in 4 apps; a supply-history-driven sweep now puts **22 apps carrying the channel** (banks,
-   savings banks, insurers, cards/expense, 웹케시/핀다/비즈플레이 fintech) — see COOCON_FLEET_CANDIDATES.md.
-   (Carrier-identity=22; exact-config deep-confirmed=6; live-E2E RCE=4 — claims kept at their evidence level.)
+   Originally found in 4 apps; a supply-history- + code-lineage-driven sweep now puts **28 apps carrying the
+   channel** (banks, savings banks, insurers, cards/expense, 웹케시/핀다/비즈플레이 fintech incl. white-label card &
+   지역화폐 apps) — see COOCON_FLEET_CANDIDATES.md. (Carrier-identity=28; exact-config deep-confirmed=6; live-E2E
+   RCE=4 — claims kept at their evidence level; 8 more AppIron-packed candidates INDETERMINATE, pending unpack.)
 These are **RCE-by-design dependencies**, not bugs. Govern them like any "server can run code in our app"
 supply-chain surface: vendor server integrity, script signing, endpoint pinning, least-privilege scope.
 
