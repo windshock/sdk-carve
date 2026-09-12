@@ -6,7 +6,10 @@ is OSINT; **confirmation is binary.** Disciplines:
 
 1. **Public evidence ≠ binary confirmation** — separate columns; `CONFIRMED` only on an in-APK hit.
 2. **"Coocon present" ≠ "vulnerable channel present"** — `sasapi/scriptengine` (RCE surface) ≠ CheckPay(PG) / MyData Plug-In.
-3. **0 markers ≠ negative when PACKED** — a shielder (AppIron, …) hides class strings → report **INDETERMINATE**, unpack, re-scan.
+3. **0 markers → decide on DEX READABILITY, not shielder presence.** Only call INDETERMINATE when the dex is
+   *actually* stripped/encrypted (low readable class-descriptor density). A RASP `.so` alone ≠ encrypted dex —
+   **AppIron and the xShield variant leave the dex PLAINTEXT** (verified), so those are readable NEGATIVES, not
+   INDETERMINATE. Reserve INDETERMINATE for genuine dex/string encryption (e.g. Toss-class).
 4. **Do not collapse the evidence levels (below)** — "carrier identity" is not "exploit-proven."
 
 ## What the SDK is: Coocon **iSAS** (smart-scraping), binary-grounded
@@ -180,30 +183,37 @@ propagation signal — obfuscation/DEX-ordering/host-build differ; normalized co
   (normalized method bytecode) — the remaining step (G-3 code_hash). We claim structural + api-shape, not byte.
 - Extractor: `dexdump` defined-class-defs via a container-walker (apk/xapk/apks/jar) → `coocon-buildfamily.sh`.
 
-## NEGATIVE (L3-neg) — public "Coocon integration" but NO in-APK lib (readable dex; server-side/ASP/cloud)  · 8
-| App | package | androidx | why negative |
-|---|---|---|---|
-| 테이블링 | `com.mealant.tabling` | 682 | CheckPay PG not an in-APK SDK |
-| 밀리패스 | `kr.or.zeropay.mlps` | 9029 | Coocon named in policy but processing server-side |
-| 한화생명 | `com.hanwhalife.hiw` | 10163 | MyData "adopter" ≠ in-APK lib |
-| 캐시워크 | `com.cashwalk.cashwalk` | 42905 | |
-| 삼성카드/모니모 | `net.ib.android.smcard` | 51129 | |
-| 씨티모바일 | `kr.co.citibank.citimobile` | 8326 | 2016 supplyee, none in current build |
-| 디지털페퍼 (페퍼저축) | `kr.pepperbank.digital` | 10759 | 위탁: 스크래핑 **ASP** (server-side) |
-| HB저축은행 | `kr.co.essb.esbank` | 6286 | scraping supply is server-side here |
-> "readable" rules out packing, not DexGuard-style selective string encryption → "no in-APK lib in *this build*."
-
-## INDETERMINATE — 0 markers but PACKED (unpack, then re-fingerprint)  · 8
-| App | package | packer |
+## NEGATIVE (L3-neg) — no in-APK iSAS channel (readable dex; server-side/ASP/cloud, or shielder-but-plaintext)  · 16
+| App | package | why negative |
 |---|---|---|
-| 롯데캐피탈 | `com.lottecap.finance` | AppIron (`libAppIron-jni_v2.*`) — 업무위탁 lists 쿠콘-스크래핑 → likely carrier |
-| 수협 | `com.suhyup.psmb` | AppIron (`libAppIron-jni_v2.13.28`) |
-| 흥국화재 | `kr.co.hkfire.cyber` | AppIron (`libAppIron-RemoteBan` + `libAppIron-jni_v2.13.18`) — 위탁: 쿠콘 스크래핑 → likely carrier |
-| IBK 법인카드 | `com.ibk.bizcard` | AppIron (`libAppIron-Suite`) — 비즈플레이 family → likely carrier |
-| 비플법인카드 On-Premise | `com.bizplay.ippp.bizcard.aos` | AppIron (`libAppIron-Suite`) — 비즈플레이 family → likely carrier |
-| 춘천사랑상품권 | `com.bizplay.bizzeropay.chuncheon` | AppIron (`libAppIron-jni_v2.12.3`) — bizzeropay line (창원=carrier) |
-| 강원상품권 | `com.bizplay.bizzeropay.kangwon` | AppIron (`libAppIron-Suite`) — bizzeropay line |
-| 경남지역상품권 | `com.bizplay.bizzeropay.gyeongnam` | AppIron (`libAppIron-jni_v2.12.3`) — bizzeropay line |
+| 테이블링 | `com.mealant.tabling` | CheckPay PG not an in-APK SDK |
+| 밀리패스 | `kr.or.zeropay.mlps` | Coocon named in policy but processing server-side |
+| 한화생명 | `com.hanwhalife.hiw` | MyData "adopter" ≠ in-APK lib |
+| 캐시워크 | `com.cashwalk.cashwalk` | readable dex, no iSAS |
+| 삼성카드/모니모 | `net.ib.android.smcard` | readable dex, no iSAS |
+| 씨티모바일 | `kr.co.citibank.citimobile` | 2016 supplyee, none in current build |
+| 디지털페퍼 (페퍼저축) | `kr.pepperbank.digital` | 위탁: 스크래핑 **ASP** (server-side) |
+| HB저축은행 | `kr.co.essb.esbank` | scraping supply is server-side |
+| 롯데캐피탈 | `com.lottecap.finance` | **AppIron** (RASP), dex plaintext (classDesc≈20k), no iSAS — 업무위탁 쿠콘 스크래핑 is server-side |
+| 수협 | `com.suhyup.psmb` | **AppIron**, dex plaintext (≈43k), no iSAS |
+| 흥국화재 | `kr.co.hkfire.cyber` | **AppIron** (+RemoteBan), dex plaintext (≈28k), no iSAS — 위탁 쿠콘 스크래핑 server-side |
+| IBK 법인카드 | `com.ibk.bizcard` | **AppIron**, dex plaintext, no iSAS (비즈플레이 family but this build has no iSAS) |
+| 비플법인카드 On-Premise | `com.bizplay.ippp.bizcard.aos` | **AppIron**, dex plaintext, no iSAS |
+| 춘천사랑상품권 | `com.bizplay.bizzeropay.chuncheon` | **AppIron**, dex plaintext (≈13k), no iSAS (창원=carrier, but 춘천 build lacks it) |
+| 강원상품권 | `com.bizplay.bizzeropay.kangwon` | **AppIron**, dex plaintext, no iSAS |
+| 경남지역상품권 | `com.bizplay.bizzeropay.gyeongnam` | **AppIron**, dex plaintext, no iSAS |
+
+### AppIron finding — static "unpacking" resolved: nothing to unpack (2026-09-12)
+The 8 apps previously marked INDETERMINATE were **AppIron-shielded but their DEX is PLAINTEXT** — static-analysis
+of each shows normal readable class-descriptor density (≈4k–43k, i.e. **740–865 descriptors/MB, same as a
+readable carrier**), **no separate encrypted dex payload asset**, and **zero iSAS markers** (`ScriptEngine`/
+`ScriptManager`/`iSASXecure` all 0). So **AppIron (`libAppIron-jni_*` / `-Suite` / `-RemoteBan`) is RASP/anti-tamper
+only — it does NOT encrypt or string-encrypt the dex** (same posture as the xShield variant). ⇒ no unpacking is
+needed, and **all 8 are genuine NEGATIVES** for the vulnerable channel (any Coocon use is server-side, like the
+ASP/cloud cases). **Tool correction:** `coocon-fingerprint.sh` no longer emits INDETERMINATE on mere shielder-`.so`
+presence — it decides on **actual readable class-descriptor density** (INDETERMINATE only when the dex is truly
+stripped/encrypted, e.g. Toss-class string encryption). This removed 8 false-INDETERMINATEs.
+> INDETERMINATE (packed/encrypted, genuinely unreadable): **0** apps in the current set.
 
 ## PENDING acquisition (zero versions on APKPure / apkmirror unconfigured — need official-channel APK)  · 6
 | App | package | note |
@@ -223,7 +233,8 @@ Enumerate the 비즈플레이(주) Play developer account and fingerprint the lo
 비즈플레이, IBK 법인카드, BZPEXPENSE. Also worth: other 웹케시 apps (경리나라 계열). Same one-folder-per-app → fingerprint flow.
 
 ## Tally & lessons
-- **37 carriers (L3)** · 8 negatives · 8 indeterminate (AppIron-packed) · 9 pending. 53 APKs fingerprinted.
+- **37 carriers (L3)** · **16 negatives** · **0 indeterminate** (the 8 AppIron ones resolved to readable
+  negatives — AppIron is RASP-only, dex plaintext) · 9 pending. 53 APKs fingerprinted.
   VT batch = 9/9 fingerprinted are carriers: KB스타뱅킹, KB저축, NH콕뱅크, **InBody, GC케어, 웰체크 (healthcare)**,
   **셔클, 똑타 (mobility)**, **NAVER (portal super-app — relation-nature verified: iSAS compiled into base-apk dex,
   incl. `iSASXecure`; not a runtime contact)**.

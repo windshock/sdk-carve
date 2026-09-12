@@ -180,9 +180,11 @@ Reframed from "Coocon customer" OSINT to **iSAS/smart-scraping supply history + 
   healthcare), BNK부산≡NAVER (bank/portal), 신한저축≡신협≡세모장부, OK저축≡KB저축≡셔클≡똑타, bizplay-family+다올(6), TRIP+≡BZPEXPENSE,
   보맵≡창원. Claim scoped: structural + same-API (NOT byte-identical). **Remaining: code_hash** (normalized bytecode
   via dexdump -d, strip pool-idx/offsets) to close "same build" fully.
-- [ ] **G-1 AppIron unpacking** — 8 INDETERMINATE staged at `~/Downloads/AppIron/` (`UNPACK_PLAN.md`). Goal =
-  recover runtime L3 evidence (any of `sasapi.*`/`SASManager`/`iSASXecure`/`isas.coocon.co.kr` in loaded code),
-  NOT a generic unpacker. Approach: frida-dexdump / unidbg emul of `libAppIron-jni`. **PREPARED, not started.**
+- [x] **G-1 AppIron unpacking — RESOLVED (static, 2026-09-12): nothing to unpack.** Static analysis of all 8
+  staged targets shows **AppIron is RASP/anti-tamper only — the DEX is PLAINTEXT** (readable class-descriptor
+  density 740–865/MB, no encrypted payload asset), so the "packed" premise was wrong. All 8 have **zero iSAS
+  markers → genuine NEGATIVES** (any Coocon use is server-side). Fixed `coocon-fingerprint.sh` to decide on
+  actual dex readability, not shielder-`.so` presence (removed 8 false-INDETERMINATEs). Negatives 8→16, indet 8→0.
 - [ ] **G-2 acquire the pending-9** (official-channel APK / `APKMD_CLI`): 메디팜핏 (P0, L2), 세모리포트, 신협기업,
   ACT, BNK캐피탈, 보맵플래너, 비씨카드 비즈플레이, 서울Pay+, 제주 탐나는전.
 - [ ] **G-4 L3→L4** on one representative app per build-family (javap b/sig/ClassShutter) → then **G-5 vendor

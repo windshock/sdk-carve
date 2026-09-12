@@ -49,16 +49,18 @@ fp_one() {
     case "$in" in *.apk) echo "       NOTE: single .apk — if this is a split/base, the SDK may ride another split. Prefer the universal/XAPK." ;; esac
     rc=1
   else
-    # 0 markers: distinguish a genuine NEGATIVE from a packer/string-encryption FALSE NEGATIVE.
-    local packer adx
+    # 0 markers: INDETERMINATE only if the DEX IS ACTUALLY UNREADABLE (stub / string- or whole-dex encryption).
+    # A shielder .so alone does NOT imply that — many KR RASPs (AppIron, this xShield variant) leave the dex
+    # PLAINTEXT and only do runtime anti-tamper. Decide on readable class-descriptor density, not .so presence.
+    local packer classdesc
     packer=$(grep -aoiE 'lib(AppIron|covault|dexhelper|jiagu|shell[a-z]*|secureproxy|secuen|appguard|pairip[a-z]*|DexProtector|whitecryptor|ksetup|mpaas|tup|xg)[^/]*\.so|appsealing|libDexHelper|libexecmain' "$ents" 2>/dev/null | sort -u | tr '\n' ' ')
-    adx=$(c 'androidx')
-    if [ -n "$packer" ] || [ "$adx" -lt 50 ]; then
-      echo "    => INDETERMINATE — no Coocon strings, but the dex looks PACKED/stripped (androidx refs=$adx${packer:+, packer=$packer})."
-      echo "       A packer hides class strings -> cannot call this a negative. Unpack (see xShield/packer-detect) then re-fingerprint."
+    classdesc=$(grep -acE 'L[a-z]+/[a-z]+/[A-Za-z0-9/$]+;' "$hay" 2>/dev/null)   # readable class descriptors (strings)
+    if [ "${classdesc:-0}" -lt 300 ]; then
+      echo "    => INDETERMINATE — dex looks stripped/encrypted (readable class-descriptors=$classdesc${packer:+; shielder=$packer})."
+      echo "       Class strings are hidden -> can't call it a negative. Unpack/deobfuscate then re-fingerprint."
       rc=4
     else
-      echo "    => NEGATIVE — no Coocon markers, dex is readable (androidx refs=$adx) -> genuinely no in-APK Coocon lib."
+      echo "    => NEGATIVE — no Coocon markers; dex is READABLE (class-descriptors=$classdesc)${packer:+ [shielder present but dex plaintext: $packer]} -> genuinely no in-APK iSAS channel."
       rc=3
     fi
   fi
