@@ -36,9 +36,14 @@ The two `dxshield.com` apps (Mirae, IBK) are the most Coocon-embedded; both are 
 `updateScript`→Rhino chain below was CPG-verified on M-STOCK; the other three carry the same package +
 comparable ref counts (same engine). SK증권 has only a 10-ref stub (interface, not the full engine).
 
-### Fleet exploitability — the RCE chain applies to all 4 apps (dex2jar-verified, 2026-09-12)
-The M-STOCK live E2E was re-checked against 신한/IBK/현대해상 by decompiling each app's own `ScriptManager`
-+ `ScriptEngine`. **Build hashes differ per app (4 distinct SDK builds) but every exploit precondition is
+### Fleet exploitability — full live E2E RCE reproduced on ALL 4 apps (2026-09-12)
+The M-STOCK live lab was **re-run against each app's own dex2jar'd `ScriptManager` + `ScriptEngine`** (same
+ByteBuddy MITM mock; per-app proof file). **4/4 stored the forged script AND eval'd it to `Runtime.exec`
+(proof file created):** M-STOCK, 신한 (`com.shinhan.spbs`), IBK (`com.ibk.scbs`), 현대해상 (`m.hi.co.kr`) —
+`store=1 eval=1 RCE=YES` for all four. 신한 & 현대해상 additionally needed `android.jar` on the lab classpath
+because their `"02"` request-build gathers device info via `android.app.ActivityManager`/`Context` (absent on a
+bare JVM) — an **emulation-environment gap in the request path, not a security control**; the injection→eval
+chain was untouched. **Build hashes differ per app (4 distinct SDK builds) but every exploit precondition is
 identical:**
 
 | App | `ScriptManager.class` sha1 | default iface ver (`b`) | `setInterfaceVersion` caller | script server | `"02"` AES path present | sig/MAC in `updateScript` | `ScriptEngine.setClassShutter` |
@@ -50,9 +55,9 @@ identical:**
 
 Read-out: all four **default to the `"02"` JSON+AES path** (none downgrades to `"01"`, but none needs to — `"02"`
 is fully forgeable); all point at the **same `isas.coocon.co.kr:443` over plain TCP**; **none verifies a
-signature/MAC**; **none installs a `ClassShutter`**. So the forged-response → decrypt → store → `eval` → RCE
-chain proven live on M-STOCK is a **static-confirmed match on 신한/IBK/현대해상** (only the live lab run itself was
-M-STOCK-specific; the client acceptance logic + sandbox gap are byte-equivalent in behavior across the fleet).
+signature/MAC**; **none installs a `ClassShutter`**. The forged-response → decrypt → store → `eval` → RCE chain
+is therefore **live-reproduced end-to-end on all four apps** (not merely inferred): each ran its own real
+`ScriptManager.updateScript` + `ScriptEngine` against the MITM mock and executed the injected `Runtime.exec`.
 
 ### Channel confirmed (not just the package) across all 4 apps
 Carved `kr/co/coocon` straight from the **plaintext** base-apk dexes (no decrypt — this xShield variant
