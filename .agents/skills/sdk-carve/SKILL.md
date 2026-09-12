@@ -67,6 +67,12 @@ family-agnostic until a family is actually identified.
    Goldoson C2 hosts across the whole bytecode) + `scripts/detect.py` (exact renamed
    Goldoson root, with a structural WiFi∩BT fallback). If the container looks packed
    (`aapt` says "corrupt", tiny decoy dex), run the pre-carve stage below FIRST.
+   - **SDK fleet fingerprinting** (e.g. Coocon): `scripts/coocon-fingerprint.sh app.xapk` does a fast
+     dex-string classify — distinguishes the *vulnerable* component (`sasapi/scriptengine` server-JS-eval)
+     from generic presence (CheckPay/other). **Scan the universal/XAPK, not `base`** — SDKs often ride a
+     split (M-STOCK: base had ~1 Coocon ref, universal had 896 + `scriptengine`). "Coocon customer" (OSINT)
+     ≠ "vulnerable channel in the APK"; keep evidence vs binary-confirmed as separate columns
+     (see analysis/reports/COOCON_FLEET_CANDIDATES.md).
 4. **Carve every non-`~` flagged root and run the FULL Method below — no tiering.**
    "It's an identified commercial SDK" is NOT a reason to skip analyzers: every carve
    gets Joern inventory + entry→sink reachability, CodeQL source DB, Semgrep, and
