@@ -36,28 +36,45 @@ javap    -p -cp app.jar kr.co.coocon.sasapi.scriptengine.ScriptEngine | grep -c 
 | 현대해상 | `m.hi.co.kr` | insurer | ✅ SE+V8+SM | ✅ yes | **CONFIRMED — live E2E RCE** |
 | SK증권 주파수3 | (broker) | broker | ⚠️ ~10-ref Coocon **stub** | ❌ interface stub, not full engine | present-but-not-the-engine |
 
-## Candidates — public evidence gathered, **APK not yet acquired (binary = PENDING)**
-Tiers by likelihood the Coocon lib is *in the APK*: **① Plug-In/CheckPay lineage** (ships Infrastructure+App+UI →
-most likely in-APK) · **② app-integrated We-Check/payment** · **③ server-API-only** (least likely to bundle a lib).
+## Binary fingerprint results — 12 candidates acquired & scanned (2026-09-12)
+Acquired via `research/acquisition/resolve.py` (apkeep/APKPure), one folder per app under `~/Downloads/<app>/`,
+scanned with `coocon-fingerprint.sh` on the universal/XAPK. **OSINT vs binary diverged sharply: 6 of 10 scanned
+"Coocon customers" carry NO in-APK Coocon library.**
 
-| Pri | App | package | tier | public-source evidence | binary status |
-|---|---|---|---|---|---|
-| 0 | 체크페이 (CheckPay) | `com.cp.checkpay` | ① | Coocon's own app — reference/base | ⏳ PENDING (baseline) |
-| 1 | ACT 액트 | `com.conduit.act` | ① | in-app 체크페이(Coocon) 통합자산관리; KIND filing shows flow 체크페이→자산관리→COOCON | ⏳ PENDING |
-| 2 | 테이블링 | `com.mealant.tabling` | ①/② | official help: CheckPay = Coocon PG for pay/auth/account-register/charge/withdraw; Coocon case study "테이블링페이" | ⏳ PENDING |
-| 3 | 밀리패스 | `kr.or.zeropay.mlps` | ① | privacy policy names **Coocon** as processor for "MyData 현역/증명 정보 송수신 + infra 설치·유지보수" | ⏳ PENDING (newly found) |
-| 4 | BNK부산은행 | `kr.co.busanbank.mbp` | ① | Coocon **MyData Plug-In** adopter (Coocon IR/사업보고서) | ⏳ PENDING |
-| 5 | BNK경남은행 | `com.knb.psb` | ① | Coocon MyData Plug-In adopter | ⏳ PENDING |
-| 6 | BNK캐피탈 | `com.bnkfg.bnkcapital` | ① | Coocon MyData Plug-In + We-Check | ⏳ PENDING |
-| 7 | 한화생명 | `com.hanwhalife.hiw` | ① | Coocon MyData Plug-In adopter | ⏳ PENDING |
-| 8 | 캐시워크 | `com.cashwalk.cashwalk` | ① | Coocon MyData Plug-In adopter (notable: non-financial) | ⏳ PENDING |
-| 9 | 삼성카드/모니모 | `net.ib.android.smcard` | ②/③ | past Plug-In adopter; current APK residency unverified | ⏳ PENDING |
-| 10 | 수협 | `com.suhyup.psmb` | ③ | appears in past Coocon MyData material | ⏳ PENDING |
-| 11 | TRIP+ | `com.nextbiz.hdexpense.aos` | ③ | Bizplay–Coocon data linkage + in-app MyData | ⏳ PENDING |
+### NEW — binary-confirmed carriers of the vulnerable channel (`sasapi/scriptengine`)
+All point at the same `isas.coocon.co.kr:443:80` server (dex-string verified).
+| App | package | fingerprint | deep-confirm (b / sig / ClassShutter) | verdict |
+|---|---|---|---|---|
+| 체크페이 (CheckPay) | `com.cp.checkpay` | 890 refs, SE+V8+SM, CheckPay=63 | **b="02", 0 sig/MAC, 0 ClassShutter** | ✅ **EXPLOITABLE-config confirmed** (Coocon's own app) |
+| BNK경남은행 | `com.knb.psb` | 1001 refs, SE+V8+SM | **b="02", 0 sig/MAC, 0 ClassShutter** | ✅ **EXPLOITABLE-config confirmed** |
+| BNK부산은행 | `kr.co.busanbank.mbp` | 1027 refs, SE+V8+SM | dex2jar crashed → javap pending | ✅ VULN CHANNEL + same server (deep-confirm pending) |
+| TRIP+ (Bizplay) | `com.nextbiz.hdexpense.aos` | 981 refs, SE+V8+SM | dex2jar crashed → javap pending | ✅ VULN CHANNEL + same server (was guessed tier③ — wrong; it bundles the lib) |
 
-**Note on Plug-In vs plain API:** Coocon's MyData Plug-In is documented as **Infrastructure + App + Screen
-View(UI)** (not "server-side API only"), so the ① adopters are the group most likely to carry an in-APK Coocon
-lib — the right first targets for the fingerprint. Server-API-only integrations (③) may show no client library.
+→ **Fleet total: 8 binary-confirmed carriers** (original 4 live-E2E: M-STOCK/신한/IBK/현대해상 + these 4). checkpay
+& 경남은행 additionally match the exploitable config 1:1; 부산은행 & TRIP+ have the channel + server, deep-confirm
+only blocked by a dex2jar crash (retry with a different converter).
+
+### NEGATIVE — public "Coocon integration" but NO in-APK library (this build)
+The two-column discipline earning its keep — these use Coocon **server-side / via redirect**, not an embedded lib.
+| App | package | fingerprint | note |
+|---|---|---|---|
+| 테이블링 | `com.mealant.tabling` | 0 coocon / 0 checkpay (base-apk hand-verified) | CheckPay PG here is not an in-APK SDK |
+| 밀리패스 | `kr.or.zeropay.mlps` | 0 coocon | privacy policy names Coocon, but the processing is server-side |
+| 한화생명 | `com.hanwhalife.hiw` | 0 coocon | MyData Plug-In "adopter" ≠ in-APK lib |
+| 캐시워크 | `com.cashwalk.cashwalk` | 0 coocon | — |
+| 삼성카드/모니모 | `net.ib.android.smcard` | 0 coocon | — |
+| 수협 | `com.suhyup.psmb` | 0 coocon | — |
+> Caveat: "0 markers" = no *plaintext* Coocon class strings in any dex; a packed/string-encrypted build could
+> hide them (none tripped the packer heuristic, but note it before calling a hard negative).
+
+### PENDING acquisition (zero versions on APKPure; apkmirror backend unconfigured — need official-channel APK)
+| App | package | note |
+|---|---|---|
+| ACT 액트 | `com.conduit.act` | KIND filing shows 체크페이→자산관리→COOCON flow |
+| BNK캐피탈 | `com.bnkfg.bnkcapital` | Plug-In + We-Check adopter |
+
+**Tier heuristic vs reality:** ① Plug-In/CheckPay-lineage mostly held (checkpay/부산/경남 = carriers) but is **not**
+reliable alone — 한화생명 (①) carries nothing in-APK, while TRIP+ (guessed ③) does. Only the binary settles it.
 
 ## Method / provenance
 Fingerprint: `coocon-fingerprint.sh` (validated: 4/4 confirmed apps → exit 0; 부국증권 negative → exit 3).
