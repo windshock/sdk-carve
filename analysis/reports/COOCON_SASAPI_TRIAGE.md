@@ -186,6 +186,11 @@ otherwise (PRODUCTION default)           →  ScriptManager.initInstance("isas.c
 ```
 - **Production connects to `isas.coocon.co.kr` on port 443 (failover 80) over PLAIN `java.net.Socket` — not TLS**
   (a custom binary protocol on the HTTPS port, unencrypted). `updateScript` iterates the port array `r=[443,80]`.
+- **The channel is genuinely wired in the shipping app, not just present:** the app's base Activity
+  `com.daewoo.mainlib.DWSmartBaseActivity` calls `SASManager.initInstance()` (+ `setContext`/`setCryptoMode`/
+  `setDebugMode`) at startup — so the production address above is what real installs use — and the scraper
+  `com.daewoo.mainlib.Scrap.aa` later does `SASManager.getInstance()` + `setObject(new com.miraeasset.main.dc(), …)`
+  before driving the script, injecting the app's own crypto bridge object into the same engine scope.
 - `ScriptManager`'s hardcoded default **`c = "127.0.0.1:1024:1025"`** (format `host:port:port`, primary+failover;
   a legacy *local SAS-proxy* deployment) is used only by the **no-arg** `initInstance()` overload — **`SASManager`
   never calls it**, so `c` is a dormant default, not the production target. It shares the exact `host:port:port`
