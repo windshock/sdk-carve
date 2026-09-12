@@ -29,9 +29,9 @@ no code-lineage claim*: `2007 client scraping iBASE 2.0 → 2013 server/cloud iB
 | **L4** | **exact dangerous config** — `b="02"`, 0 sig/MAC, 0 `ClassShutter` | `javap` deep-confirm (binary) |
 | **L5** | **controlled E2E** — full network→eval→RCE | ByteBuddy MITM lab |
 
-**Scoping (do NOT over-claim):** carrier identity / vulnerable-channel-present = **L3: 36 apps**. Exact dangerous
+**Scoping (do NOT over-claim):** carrier identity / vulnerable-channel-present = **L3: 37 apps**. Exact dangerous
 config = **L4: 6** (M-STOCK/신한/IBK/현대해상 + 체크페이 + BNK경남). E2E exploitability = **L5: 4** (M-STOCK/신한/IBK/현대해상).
-The other 30 carriers are L3 (real surface), pending L4/L5.
+The other 31 carriers are L3 (real surface), pending L4/L5.
 
 ## Candidate generation — VT domain pivot (now the primary method)
 Reversing from the binary beats OSINT guessing: pull **VirusTotal relations for `isas.coocon.co.kr`** (the iSAS
@@ -57,7 +57,7 @@ d2j-dex2jar -f -o app.jar app.apk    # then javap deep-confirm (b=="02"? / 0 sig
 Acquisition: `research/acquisition/resolve.py <pkg> --allow-download` (apkeep/APKPure). One folder per app under
 `~/Downloads/<app>/`; **samples never committed.**
 
-## CARRIERS (L3) — `sasapi/scriptengine` in the shipped APK, all → `isas.coocon.co.kr:443:80`  · **36 apps**
+## CARRIERS (L3) — `sasapi/scriptengine` in the shipped APK, all → `isas.coocon.co.kr:443:80`  · **37 apps**
 | App | package | refs | max level | note |
 |---|---|---|---|---|
 | 미래에셋 M-STOCK | `com.miraeasset.trade` | 896 | **L5 live-E2E** | broker |
@@ -96,6 +96,7 @@ Acquisition: `research/acquisition/resolve.py <pkg> --allow-download` (apkeep/AP
 | 웰체크 (WellCheck) | `biz.mcircle.cdpc` | 1005 | L3 (+server) | **VT-derived · HEALTHCARE** |
 | 셔클 (현대차 모빌리티) | `com.hyundai.airlab.shucle` | 985 | L3 (+server) | **VT-derived · MOBILITY** (no prior OSINT — binary found it) |
 | 똑타 (경기교통公 GMaaS) | `com.hyundai.shucle.gmaas` | 985 | L3 (+server) | **VT-derived · MOBILITY** (985 = 셔클, same code line) |
+| NAVER | `com.nhn.android.search` | 1001 | L3 (+server) | **VT-derived · PORTAL/super-app** — relation-nature VERIFIED: class descriptors (incl. `iSASXecure`) **compiled into base-apk dex** (classes7/14) + `isas.coocon.co.kr` string (also `:80:443` variant); NOT a runtime WebView contact. v12.23.50 |
 
 ## SDK propagation tree — 비즈플레이/nextbiz dev-family (fingerprint ref-count clusters)
 The `kr/co/coocon` ref count is a build-lineage signature: apps sharing a code line carry the *same* count.
@@ -150,16 +151,16 @@ white-labels are byte-family (all 888). A separate same-code-line cluster shows 
 | 비씨카드 비즈플레이 | `com.bizplay.bccard` | white-label; 0 versions on APKPure |
 | 서울Pay+ | `com.bizplay.seoul.pay` | bizzeropay/pay line; 0 versions on APKPure |
 | 제주 탐나는전 | `com.bizplay.g2c.jeju` | 지역화폐; 0 versions on APKPure |
-| NAVER | `com.nhn.android.search` | **VT-lead, UNVERIFIED** — download failed (huge app); *and* verify the VT relation nature (WebView-contacted domain vs DEX ref) before treating as a candidate at all |
 
 ## Next-batch strategy — 비즈플레이 developer family (both TRIP+ AND 비즈플레이 = carriers ⇒ shared module)
 Enumerate the 비즈플레이(주) Play developer account and fingerprint the lot (need package IDs): 현대카드/우리카드/삼성카드
 비즈플레이, IBK 법인카드, BZPEXPENSE. Also worth: other 웹케시 apps (경리나라 계열). Same one-folder-per-app → fingerprint flow.
 
 ## Tally & lessons
-- **36 carriers (L3)** · 8 negatives · 8 indeterminate (AppIron-packed) · 10 pending. 52 APKs fingerprinted.
-  VT batch = 8/8 fingerprinted are carriers: KB스타뱅킹, KB저축, NH콕뱅크, **InBody, GC케어, 웰체크 (healthcare)**,
-  **셔클, 똑타 (mobility)**. NAVER = VT-lead, unverified (see PENDING).
+- **37 carriers (L3)** · 8 negatives · 8 indeterminate (AppIron-packed) · 9 pending. 53 APKs fingerprinted.
+  VT batch = 9/9 fingerprinted are carriers: KB스타뱅킹, KB저축, NH콕뱅크, **InBody, GC케어, 웰체크 (healthcare)**,
+  **셔클, 똑타 (mobility)**, **NAVER (portal super-app — relation-nature verified: iSAS compiled into base-apk dex,
+  incl. `iSASXecure`; not a runtime contact)**.
 - **VT domain pivot >> OSINT guessing** (8/8 hit). And **iSAS is not finance-only** — proven at L3 in healthcare
   (InBody/GC케어/웰체크) and mobility (셔클/똑타). New verticals to sweep, not just banks.
 - **Code-lineage (ref-count) as a search axis**: propagation clusters 981/888/725 (비즈플레이) and 985 (현대 AirLab
