@@ -5,7 +5,8 @@
 #
 # Usage:  coocon-fingerprint.sh <app.apk | app.xapk | app.jar>  [more ...]
 # Exit (last arg): 0 = VULN CHANNEL present (sasapi/scriptengine), 1 = Coocon present (other component),
-#                  3 = no Coocon, 2 = usage/error. Elevate to CONFIRMED only on this binary evidence.
+#                  3 = NEGATIVE (no Coocon, dex readable), 4 = INDETERMINATE (0 markers but packed/stripped —
+#                  NOT a negative), 2 = usage/error. Elevate to CONFIRMED only on binary evidence (0/1).
 set -u
 [ $# -ge 1 ] || { echo "usage: $0 <apk|xapk|jar> [...]"; exit 2; }
 
@@ -13,16 +14,16 @@ fp_one() {
   local in="$1" tmp rc=3
   tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' RETURN
   shopt -s nullglob
-  local hay="$tmp/hay.txt"; : > "$hay"
-  # build a text haystack: `strings` of every dex (class descriptors are readable) + jar entry NAMES.
+  local hay="$tmp/hay.txt" ents="$tmp/ents.txt"; : > "$hay"; : > "$ents"
+  # haystack = `strings` of every dex (class descriptors are readable); ents = archive entry names (for .so/packer).
   harvest_dex() { for d in "$@"; do [ -f "$d" ] && strings -a "$d" >> "$hay"; done; }
   case "$in" in
     *.xapk|*.apkm|*.zip) # split bundle: scan EVERY inner apk's dex (SDK often rides a split, not the base)
       unzip -oq "$in" -d "$tmp/xapk" 2>/dev/null
       for a in "$tmp/xapk"/*.apk "$tmp/xapk"/**/*.apk; do
-        [ -f "$a" ] && { unzip -oq "$a" 'classes*.dex' -d "$tmp/d" 2>/dev/null; harvest_dex "$tmp/d"/*.dex; rm -f "$tmp/d"/*.dex; }
+        [ -f "$a" ] && { unzip -Z1 "$a" >> "$ents" 2>/dev/null; unzip -oq "$a" 'classes*.dex' -d "$tmp/d" 2>/dev/null; harvest_dex "$tmp/d"/*.dex; rm -f "$tmp/d"/*.dex; }
       done ;;
-    *.apk) unzip -oq "$in" 'classes*.dex' -d "$tmp" 2>/dev/null; harvest_dex "$tmp"/*.dex ;;
+    *.apk) unzip -Z1 "$in" >> "$ents" 2>/dev/null; unzip -oq "$in" 'classes*.dex' -d "$tmp" 2>/dev/null; harvest_dex "$tmp"/*.dex ;;
     *.jar) unzip -Z1 "$in" >> "$hay" 2>/dev/null ;;   # jar: match on .class entry names
     *) echo "  ? unsupported: $in"; return 2 ;;
   esac
@@ -48,8 +49,18 @@ fp_one() {
     case "$in" in *.apk) echo "       NOTE: single .apk — if this is a split/base, the SDK may ride another split. Prefer the universal/XAPK." ;; esac
     rc=1
   else
-    echo "    => no Coocon markers."
-    rc=3
+    # 0 markers: distinguish a genuine NEGATIVE from a packer/string-encryption FALSE NEGATIVE.
+    local packer adx
+    packer=$(grep -aoiE 'lib(AppIron|covault|dexhelper|jiagu|shell[a-z]*|secureproxy|secuen|appguard|pairip[a-z]*|DexProtector|whitecryptor|ksetup|mpaas|tup|xg)[^/]*\.so|appsealing|libDexHelper|libexecmain' "$ents" 2>/dev/null | sort -u | tr '\n' ' ')
+    adx=$(c 'androidx')
+    if [ -n "$packer" ] || [ "$adx" -lt 50 ]; then
+      echo "    => INDETERMINATE — no Coocon strings, but the dex looks PACKED/stripped (androidx refs=$adx${packer:+, packer=$packer})."
+      echo "       A packer hides class strings -> cannot call this a negative. Unpack (see xShield/packer-detect) then re-fingerprint."
+      rc=4
+    else
+      echo "    => NEGATIVE — no Coocon markers, dex is readable (androidx refs=$adx) -> genuinely no in-APK Coocon lib."
+      rc=3
+    fi
   fi
   return $rc
 }
