@@ -101,15 +101,16 @@ loadScript(String) / include(String)  →  ScriptEngine.a(String)  →  org.mozi
 |---|---|---|
 | in-process JS sandbox | **no `ClassShutter`** | any *executed* script → arbitrary Java (PoC v1–v3, incl. via the app's own injected `dc`) |
 | delivery authenticity | **no signature/MAC** (no `Signature.verify`/`Mac`/RSA-sign in `updateScript`; SHA-256 present is unkeyed) | a **correctly-keyed** AES(GZip(script)) blob is decrypted+eval'd verbatim (forge PoC v4) |
-| transport TLS | **none** (raw `java.net.Socket`) | traffic is plain TCP (interceptable without a CA) |
+| transport TLS | **none** (raw `java.net.Socket` to `isas.coocon.co.kr:443`, failover `:80`) | plain TCP on the HTTPS port; interceptable by an on-path MITM with no CA and nothing to strip |
 | disk cache | **none** (scripts memory-only) | no local-file tamper path |
 
 **And the session key IS network-recoverable (static-verified + dynamically confirmed) → active-MITM injection is feasible:**
 - Ran the **real `ScriptManager.updateScript`** (pure-Java; no Android) against a localhost mock, with
   **ByteBuddy hooking `AESCipher.setKey`/`setIV`/`decrypt`**. Static bytecode of the key setup:
   `R = SecureRandom.nextBytes(20)`; `key = SHA-256(R)[0:16]`; `IV = ascii-hex(key[0:8])`.
-- **The seed `R` is sent IN CLEARTEXT in the request.** The request framing is `[8B header "00013402"]
-  [20B seed R][AES/CBC(GZip(json)) body]`. Dynamically confirmed **across runs**: `key == SHA-256(middle-20B)
+- **The seed `R` is sent IN CLEARTEXT in the request.** The request framing is `[6-digit len]["02" type]
+  [20B seed R][AES/CBC(GZip(json)) body]` (e.g. a captured 134-byte request starts `"00013402"` = len `000134`
+  + type `02`). Dynamically confirmed **across runs**: `key == SHA-256(middle-20B)
   [0:16]` (true every time) — i.e. the 20-byte middle field is exactly the seed, and the key is a *public*
   function of it. (No RSA/DH key-wrap: `RSAEngine.processBlock` never fired; the key is not protected at all.)
 - **Therefore an on-path attacker: reads `R` from the plaintext request → computes `key = SHA-256(R)[0:16]`
@@ -151,11 +152,55 @@ reproducible run:
 
 The earlier "not yet accepting end-to-end" caveat is **retracted**. The gap was purely (a) the response framing
 (2434-path `[type][20B field][AES]`, `AES=body[22:]`, `key=SHA-256(request-seed)`) and (b) the exact JSON keys —
-both now pinned. The instrumentation limitation was root-caused: ByteBuddy `@Advice` methods using string `+`
-compile to `invokedynamic makeConcatWithConstants`, unwritable to the Java-6 target class → transform failed
-silently; moving all concat into helper methods made `ScriptManager`/`GZip` hooks fire. → Fixes
-(VENDOR_HARDENING_REQUESTS.md §4): TLS+pinning, **RSA-sign the script** (SHA256WithRSA already in the map),
-engine **ClassShutter** (contain any executed payload).
+both now pinned.
+
+### Why the code resisted observation (and how it was overcome)
+The delay to a full E2E was **tooling friction, not a security unknown** — worth recording because it recurs on
+obfuscated Java SDKs:
+1. **Decompilation resistance.** `updateScript` is a single ~2240-instruction, **control-flow-obfuscated**
+   method: **jadx** ("Method not decompiled"), **CFR** (`ConfusedCFRException TRYBLOCK`) and **Fernflower**
+   ("couldn't be decompiled") all fail on it. → Worked from raw `javap -c` bytecode; slices like the response
+   parse (`decrypt`→`GZip.unzip`→`JSONParser.parse`→`get(o/n/p)`→`equals("0000")`) were read instruction-by-
+   instruction, and the JSON key names (`ResultCode`/`ScriptVersion`/`Script`) recovered by **reflection** on
+   the `ScriptManager` static fields `o`/`n`/`p`.
+2. **Runtime-instrumentation failure (the real blocker).** ByteBuddy hooked peripheral classes fine
+   (`AESCipher`, `GZip`) but **silently would not transform `ScriptManager`** — so the read/parse flow was
+   invisible. Root cause (found via an `AgentBuilder` error `Listener`): `@Advice` methods that used Java string
+   `+` concatenation compile to **`invokedynamic makeConcatWithConstants`** (a Java-9+ bootstrap), and ByteBuddy
+   cannot write an invokedynamic instruction into a **class-file-version-50 (Java 6)** target — the app's SDK
+   classes are Java-6. The transform threw `IllegalStateException: Cannot write invoke dynamic instruction for
+   class file version Java 6 (50)` **and was swallowed**. **Fix:** keep *all* string concat out of `@Advice`
+   bodies — move it into static helper methods on the (Java-17) instrumenting class. After that, `ScriptManager`
+   and `GZip` transformed, hooks fired, and the decrypt→unzip→parse→store flow became fully observable.
+   *(Lesson for the toolchain: an `@Advice` body should contain no `+` on Strings when the target may be an
+   older class-file version; this is now noted in the lab notes.)*
+
+### Preconditions — what a real-world attack requires (honest threat model)
+The lab used **loopback (`127.0.0.1`) purely to stand in for the attacker's on-path position** — it faked the
+*network location*, not the crypto or the parsing (those ran on the app's real classes, identical to
+production). What actually connects where is decided in `SASManager.initInstance()`:
+```
+devel.mode == "true"  &&  local.ip set   →  ScriptManager.initInstance(local.ip, "PUSANAPP", "A")   (dev machine)
+devel.mode == "true"  &&  local.ip unset →  ScriptManager.initInstance("183.111.160.145:443:80", …) (fallback IP)
+otherwise (PRODUCTION default)           →  ScriptManager.initInstance("isas.coocon.co.kr:443:80", …)
+```
+- **Production connects to `isas.coocon.co.kr` on port 443 (failover 80) over PLAIN `java.net.Socket` — not TLS**
+  (a custom binary protocol on the HTTPS port, unencrypted). `updateScript` iterates the port array `r=[443,80]`.
+- `ScriptManager`'s hardcoded default **`c = "127.0.0.1:1024:1025"`** (format `host:port:port`, primary+failover;
+  a legacy *local SAS-proxy* deployment) is used only by the **no-arg** `initInstance()` overload — **`SASManager`
+  never calls it**, so `c` is a dormant default, not the production target. It shares the exact `host:port:port`
+  shape of the production string, which is why it stands out.
+- **So the single condition that gates real exploitation is attacker network position:** an **active on-path
+  MITM** for the app→`isas.coocon.co.kr:443` TCP flow (rogue/again Wi-Fi AP, LAN ARP spoof, malicious proxy,
+  DNS spoof of `isas.coocon.co.kr`, or a compromised upstream router/ISP). No app-internal special state is
+  needed; `devel.mode` is **not** required — the default production path is the exploitable one. Because the
+  channel is plain TCP, the bar is **lower** than attacking TLS (nothing to strip, no pin to defeat).
+- **Not attempted (out of scope):** a live MITM against the real third-party `isas.coocon.co.kr` server. What is
+  proven is the **client's acceptance logic** — which applies identically no matter who emits the bytes — so the
+  only unproven-in-the-wild element is the attacker obtaining that on-path position.
+
+→ Fixes (VENDOR_HARDENING_REQUESTS.md §4): TLS+pinning on the script channel, **RSA-sign the script**
+(SHA256WithRSA already in the map), engine **ClassShutter** (contain any executed payload).
 
 ## Capability surface (carved CPG)
 - JS-EVAL: `ScriptEngine` (Rhino) **and** `V8ScriptEngine` (Google V8) — two interchangeable engines.
