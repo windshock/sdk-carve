@@ -29,9 +29,24 @@ no code-lineage claim*: `2007 client scraping iBASE 2.0 → 2013 server/cloud iB
 | **L4** | **exact dangerous config** — `b="02"`, 0 sig/MAC, 0 `ClassShutter` | `javap` deep-confirm (binary) |
 | **L5** | **controlled E2E** — full network→eval→RCE | ByteBuddy MITM lab |
 
-**Scoping (do NOT over-claim):** carrier identity / vulnerable-channel-present = **L3: 28 apps**. Exact dangerous
+**Scoping (do NOT over-claim):** carrier identity / vulnerable-channel-present = **L3: 36 apps**. Exact dangerous
 config = **L4: 6** (M-STOCK/신한/IBK/현대해상 + 체크페이 + BNK경남). E2E exploitability = **L5: 4** (M-STOCK/신한/IBK/현대해상).
-The other 22 carriers are L3 (real surface), pending L4/L5.
+The other 30 carriers are L3 (real surface), pending L4/L5.
+
+## Candidate generation — VT domain pivot (now the primary method)
+Reversing from the binary beats OSINT guessing: pull **VirusTotal relations for `isas.coocon.co.kr`** (the iSAS
+server) → the APKs VT associates with that host are direct candidates → verify each with a **current official-APK
+L3 fingerprint**. Discipline: a VT relation is a *lead, not a verdict* — its meaning depends on the relation type
+(APK string/DEX reference vs a domain merely *contacted at runtime*, e.g. via WebView), so never call carrier from
+VT alone; confirm at L3 on the shipping APK. (Also: VT lists must be normalized — drop bare DEX fragments,
+multi-version dups, and the **Windows iSAS** artifacts `NXISAS`/`nxisas.exe`/`iSASNXWS.exe` — those are
+product-family attribution for iSAS on Windows, **not** part of the Android `sasapi` mobile-vuln claim.)
+
+## Verticals — iSAS is not finance-only
+Coocon's official case studies place iSAS/healthcare-package beyond banking: **[인바디]** and **[GC케어]** are
+published Coocon customer cases ("헬스케어 패키지…맞춤형 건강관리"). Coocon's personal-data product also brokers
+건강보험공단/국민연금/국세청 data (income/proof). So the SDK surface plausibly spans **finance · corporate-expense ·
+healthcare · public/transit** — verify each vertical at L3 rather than assuming.
 
 ## How to confirm (one step per APK)
 ```
@@ -42,7 +57,7 @@ d2j-dex2jar -f -o app.jar app.apk    # then javap deep-confirm (b=="02"? / 0 sig
 Acquisition: `research/acquisition/resolve.py <pkg> --allow-download` (apkeep/APKPure). One folder per app under
 `~/Downloads/<app>/`; **samples never committed.**
 
-## CARRIERS (L3) — `sasapi/scriptengine` in the shipped APK, all → `isas.coocon.co.kr:443:80`  · **28 apps**
+## CARRIERS (L3) — `sasapi/scriptengine` in the shipped APK, all → `isas.coocon.co.kr:443:80`  · **36 apps**
 | App | package | refs | max level | note |
 |---|---|---|---|---|
 | 미래에셋 M-STOCK | `com.miraeasset.trade` | 896 | **L5 live-E2E** | broker |
@@ -73,6 +88,14 @@ Acquisition: `research/acquisition/resolve.py <pkg> --allow-download` (apkeep/AP
 | 삼성카드 비즈플레이 | `com.bizplay.samsung` | 888 | L3 (+server) | white-label (888-cluster) |
 | 비즈플레이 On-Premise | `com.bizcard.bizplayPPPEnt` | 888 | L3 (+server) | On-Prem fork (888-cluster) |
 | 창원 누비전 (지역화폐) | `com.bizplay.bizzeropay.changwon` | 725 | L3 (+server) | bizzeropay line; 개인계좌 자동출금 |
+| KB스타뱅킹 | `com.kbstar.kbbank` | 1006 | L3 (+server) | **VT-derived**; major bank |
+| KB저축은행 키위뱅크 | `com.kbsavings.android` | 979 | L3 (+server) | VT-derived |
+| NH콕뱅크 | `nh.smart.nhcok` | 1023 | L3 (+server) | VT-derived; NH family (w/ NH스마트뱅킹) |
+| InBody | `com.inbody2014.inbody` | 976 | L3 (+server) | **VT-derived · HEALTHCARE** (Coocon 공식 고객사례) |
+| 어떠케어 (GC케어) | `com.gchc.combination` | 1012 | L3 (+server) | **VT-derived · HEALTHCARE** (Coocon 공식 고객사례) |
+| 웰체크 (WellCheck) | `biz.mcircle.cdpc` | 1005 | L3 (+server) | **VT-derived · HEALTHCARE** |
+| 셔클 (현대차 모빌리티) | `com.hyundai.airlab.shucle` | 985 | L3 (+server) | **VT-derived · MOBILITY** (no prior OSINT — binary found it) |
+| 똑타 (경기교통公 GMaaS) | `com.hyundai.shucle.gmaas` | 985 | L3 (+server) | **VT-derived · MOBILITY** (985 = 셔클, same code line) |
 
 ## SDK propagation tree — 비즈플레이/nextbiz dev-family (fingerprint ref-count clusters)
 The `kr/co/coocon` ref count is a build-lineage signature: apps sharing a code line carry the *same* count.
@@ -82,11 +105,13 @@ Three clusters in the 비즈플레이(주) family, each a distinct integration o
 888-cluster  com.bizcard.* /       비즈플레이 888 · On-Premise(bizplayPPPEnt) 888 ·               [corp-card / white-label]
              com.bizplay.<card>    현대 888 · 우리 888 · 삼성 888
 725-cluster  com.bizplay.bizzeropay.* 창원 누비전 725                                             [지역화폐 line]
+
+985-cluster  com.hyundai.shucle.*  셔클(airlab.shucle) 985 · 똑타(shucle.gmaas) 985             [mobility/GMaaS — 현대차 AirLab]
 ```
-Read-out: the iSAS channel propagated across **all three** product lines of one vendor (expense, corporate-card
-white-labels, 지역화폐) — carrier status tracks the code line, not the customer brand. Card white-labels are
-byte-family (all 888). Same-vendor apps still packed (AppIron) can't be counted yet (see INDETERMINATE). This
-is a **within-vendor SDK propagation**, distinct from the cross-vendor supply picture above.
+Read-out: within 비즈플레이(주) the iSAS channel propagated across **all three** product lines (expense,
+corporate-card white-labels, 지역화폐) — carrier status tracks the code line, not the customer brand; card
+white-labels are byte-family (all 888). A separate same-code-line cluster shows up in 현대차 AirLab mobility
+(셔클/똑타 = 985). Same-vendor apps still packed (AppIron) can't be counted yet (see INDETERMINATE).
 
 ## NEGATIVE (L3-neg) — public "Coocon integration" but NO in-APK lib (readable dex; server-side/ASP/cloud)  · 8
 | App | package | androidx | why negative |
@@ -125,18 +150,21 @@ is a **within-vendor SDK propagation**, distinct from the cross-vendor supply pi
 | 비씨카드 비즈플레이 | `com.bizplay.bccard` | white-label; 0 versions on APKPure |
 | 서울Pay+ | `com.bizplay.seoul.pay` | bizzeropay/pay line; 0 versions on APKPure |
 | 제주 탐나는전 | `com.bizplay.g2c.jeju` | 지역화폐; 0 versions on APKPure |
+| NAVER | `com.nhn.android.search` | **VT-lead, UNVERIFIED** — download failed (huge app); *and* verify the VT relation nature (WebView-contacted domain vs DEX ref) before treating as a candidate at all |
 
 ## Next-batch strategy — 비즈플레이 developer family (both TRIP+ AND 비즈플레이 = carriers ⇒ shared module)
 Enumerate the 비즈플레이(주) Play developer account and fingerprint the lot (need package IDs): 현대카드/우리카드/삼성카드
 비즈플레이, IBK 법인카드, BZPEXPENSE. Also worth: other 웹케시 apps (경리나라 계열). Same one-folder-per-app → fingerprint flow.
 
 ## Tally & lessons
-- **28 carriers (L3)** · 8 negatives · 8 indeterminate (AppIron-packed) · 9 pending. 44 APKs fingerprinted.
-  Batch 5 = 비즈플레이(주) dev-family: 6 carriers (BZPEXPENSE, 현대/우리/삼성 비즈플레이, On-Premise, 창원 누비전) + 5
-  AppIron-packed indeterminate (IBK법인카드, 비플On-Prem, 춘천/강원/경남 지역화폐).
-- **Code-lineage (ref-count) is now a search axis stronger than vendor OSINT**: the iSAS SDK propagated across
-  one vendor's expense / corporate-card-white-label / 지역화폐 lines (981 / 888 / 725 clusters). See propagation tree.
-- Many 비즈플레이 family apps are AppIron-packed → unpacking is the next lever to convert INDETERMINATE→L3.
+- **36 carriers (L3)** · 8 negatives · 8 indeterminate (AppIron-packed) · 10 pending. 52 APKs fingerprinted.
+  VT batch = 8/8 fingerprinted are carriers: KB스타뱅킹, KB저축, NH콕뱅크, **InBody, GC케어, 웰체크 (healthcare)**,
+  **셔클, 똑타 (mobility)**. NAVER = VT-lead, unverified (see PENDING).
+- **VT domain pivot >> OSINT guessing** (8/8 hit). And **iSAS is not finance-only** — proven at L3 in healthcare
+  (InBody/GC케어/웰체크) and mobility (셔클/똑타). New verticals to sweep, not just banks.
+- **Code-lineage (ref-count) as a search axis**: propagation clusters 981/888/725 (비즈플레이) and 985 (현대 AirLab
+  mobility). Carrier tracks the code line, not the brand.
+- Next levers: **AppIron unpacking** (8 packed → L3) and **more VT-relation pivots** per newly-found vertical.
 - **iSAS/smart-scraping supply = strong predictor**; every *readable* smart-scraping supplyee scanned is a carrier
   (신한저축·부산·한투저축·우리·NH·IBK저축·우리저축·다올·OK저축·신협·OSB). **MyData-customer / ASP / cloud-scraping = weak/negative**
   (한화생명·밀리패스·페퍼-ASP·HB). Binary overrode OSINT twice: TRIP+ (guessed server-only) = carrier; OSB (guessed cloud) = carrier.
