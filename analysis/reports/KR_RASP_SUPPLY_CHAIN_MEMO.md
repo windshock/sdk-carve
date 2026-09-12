@@ -45,7 +45,11 @@ supply-chain surface: vendor server integrity, script signing, endpoint pinning,
   response `[type][20B field][AES(GZip({"ResultCode":"0000","ScriptVersion":…,"Script":<malicious>}))]` → real
   `AESCipher.decrypt`+`GZip.unzip`+`JSONParser` accept it → script **stored** in the real `ScriptManager`
   (`getScriptContents` returns it verbatim) → real `ScriptEngine.a()` (Rhino `evaluateString`) **executes it**
-  (`Runtime.exec`, proof file created). See COOCON_SASAPI_TRIAGE.md §Attack path.
+  (`Runtime.exec`, proof file created). **Fleet-confirmed (dex2jar, all 4 apps):** every precondition identical —
+  each defaults to interface version `"02"`, same `isas.coocon.co.kr:443` plain-TCP server, no signature/MAC in
+  `updateScript`, no `ClassShutter` (only SDK build hashes differ) → the chain applies to 신한/IBK/현대해상 as to
+  M-STOCK. `updateScript` also has a legacy `"01"` arm (plaintext GZip, no AES — even easier to forge); none of
+  the four defaults to it. See COOCON_SASAPI_TRIAGE.md §Attack path.
 - **GPA GAD BeanShell** → GAD_API_RUNTIME_CAPTURE.md. `gad.api.gpakorea.com/campaign/{setup,prepare2,
   script/entry}` push BeanShell executed in-process. The whole channel (+ `type=5` CPS + `x-tdi-client-secret`)
   is **undocumented to integrators** (public api-doc = list/join/status/complete, types 0–4 only). iOS SDK

@@ -36,6 +36,24 @@ The two `dxshield.com` apps (Mirae, IBK) are the most Coocon-embedded; both are 
 `updateScript`→Rhino chain below was CPG-verified on M-STOCK; the other three carry the same package +
 comparable ref counts (same engine). SK증권 has only a 10-ref stub (interface, not the full engine).
 
+### Fleet exploitability — the RCE chain applies to all 4 apps (dex2jar-verified, 2026-09-12)
+The M-STOCK live E2E was re-checked against 신한/IBK/현대해상 by decompiling each app's own `ScriptManager`
++ `ScriptEngine`. **Build hashes differ per app (4 distinct SDK builds) but every exploit precondition is
+identical:**
+
+| App | `ScriptManager.class` sha1 | default iface ver (`b`) | `setInterfaceVersion` caller | script server | `"02"` AES path present | sig/MAC in `updateScript` | `ScriptEngine.setClassShutter` |
+|---|---|---|---|---|---|---|---|
+| M-STOCK | `2a48e3df…` | **`"02"`** | none | `isas.coocon.co.kr:443:80` (fb `183.111.160.145`) | yes | **0** | **absent** (`initSafeStandardObjects` only) |
+| 신한 spbs | `968181359…` | **`"02"`** | none | same | yes | **0** | **absent** |
+| IBK scbs | `3b273b01…` | **`"02"`** | none | same | yes | **0** | **absent** |
+| 현대해상 hi | `e5bce80f…` | **`"02"`** | none | same | yes | **0** | **absent** |
+
+Read-out: all four **default to the `"02"` JSON+AES path** (none downgrades to `"01"`, but none needs to — `"02"`
+is fully forgeable); all point at the **same `isas.coocon.co.kr:443` over plain TCP**; **none verifies a
+signature/MAC**; **none installs a `ClassShutter`**. So the forged-response → decrypt → store → `eval` → RCE
+chain proven live on M-STOCK is a **static-confirmed match on 신한/IBK/현대해상** (only the live lab run itself was
+M-STOCK-specific; the client acceptance logic + sandbox gap are byte-equivalent in behavior across the fleet).
+
 ### Channel confirmed (not just the package) across all 4 apps
 Carved `kr/co/coocon` straight from the **plaintext** base-apk dexes (no decrypt — this xShield variant
 leaves app dexes in the clear). All four apps carry a **byte-identical Coocon class structure**:
@@ -139,6 +157,25 @@ lab). Message framing = `[6-digit ASCII len][body]` over plain TCP.
   The client AES-decrypts `body[22:]` with `SHA-256(R)[0:16]` — **the seed it itself just sent in cleartext** —
   gunzips, `JSONParser.parse`s, requires `get("ResultCode")=="0000"`, and stores `get("Script")`. Keys =
   `ScriptManager` static fields `o`/`n`/`p` (reflection-recovered). **No signature/MAC anywhere on this path.**
+
+**Two protocol versions + extra weaknesses (from the deobfuscated `updateScript` — see recovered pseudocode).**
+`updateScript` branches on `getInterfaceVersion()` (static field `b`, **default `"02"`**, settable to `"01"` via
+`setInterfaceVersion`). This unifies the two response formats seen earlier — they are the same method's two
+version arms, not two hosts:
+- **`"02"` (default; M-STOCK live-confirmed) — JSON + AES:** as above. **The client IGNORES the first 22 bytes
+  of the response** (`cipher = resp[e+j=22:]`); the AES key is derived **only from the request seed** — so an
+  attacker need not echo the type/field bytes at all, just append `AES(GZip(json))`.
+- **`"01"` (legacy) — plaintext, NO AES at all:** request `[2B ver][GZip(makeString-padded fields + name)]`,
+  response parsed as `GZip.unzip(resp[2:])` → positional `status(4)|version(10)|script`. **No encryption and no
+  signature** — forging a malicious script needs only a GZip wrapper, no key derivation. Any Coocon app pinned
+  to `"01"` is *even more* trivially injectable than the `"02"` fleet. (This is the old "643-path".) The `"01"`
+  request also ships `getDeviceInfo()` in the clear inside the gzip.
+- **Delta/downgrade:** the request carries the client's currently-cached `ScriptVersion`; the server may answer
+  `"0001"` = "up to date, no change" (client stores nothing) or `"0000"` = here is the (new) script. **The client
+  performs no version-monotonicity check**, so a MITM answering `"0000"` + malicious **always** forces a store,
+  regardless of the client's cached version (forced update / rollback of a previously-good script).
+- Also across both arms: **single request→response round-trip, no ACK; no MAC/signature; ports tried `443` then
+  `80`, both plain TCP.**
 
 **Live-lab status — FULL END-TO-END RCE CONFIRMED (2026-09-12).** Drove the **real** `ScriptManager.updateScript`
 (pure-Java, app's own dex2jar classes) against a MITM mock; ByteBuddy hooks confirmed every step of one
