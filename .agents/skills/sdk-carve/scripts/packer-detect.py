@@ -104,6 +104,24 @@ SIGS = [
   dict(name="Virbox", vendor="SenseShield", category="shielder",
        assets=[r"assets/virbox.*", r"libsandhook.*\.so"], impact=dict(strings=True, dex=True, rasp=True),
        note="Native VM interpreter; expert-level."),
+  # ---- KR commercial (observed 2026-09, cross-checked on real KR finance apps) ----
+  dict(name="APKSHIELD", vendor="ahope / Penta Security (ISSAC)", category="packer",
+       libs=[r"libahope(_[no])?\.so", r"libIWAndroid\.so", r"libwbaes\.so"],
+       pkgs=[r"com/apk_shield/", r"com/goggles/", r"com/ahope/app_shields/"],
+       assets=[r"assets/asorg$", r"assets/tables$"],
+       impact=dict(strings=False, dex=True, rasp=True),
+       note="Whole-app WHITE-BOX-AES packer. Stub loader com.goggles.ApkApp -> Native.c() loadLibrary(wbaes)+"
+            "feed assets/tables (WBAES key tables) -> WBAES-decrypt assets/asorg (block-aligned ct) -> "
+            "filesDir/asorg.zip -> real dexes -> newApplication(real). Native: libwbaes (decWbAesInit/Update/"
+            "DoFinal, BcCreateAndInitWhiteBox), libIWAndroid (Penta ISSAC BCIPHER_Decrypt), libahope_[no] "
+            "(apkshield_native/obfuscation.c, RegisterNatives). Self-string 'APKSHIELD_USE_CLASS_LOADER_LIB'. "
+            "Static unpack = xShield Phase-2 unidbg emul of the WBAES decrypt (tables+asorg); real code is BLIND to carve."),
+  dict(name="AppIron", vendor="SFA (앱아이언)", category="shielder",
+       libs=[r"libAppIron-(jni_v[0-9.]+|Suite|RemoteBan-jni_[0-9.]+)\.so"],
+       impact=dict(strings=False, dex=False, rasp=True),
+       note="RASP / anti-tamper ONLY — leaves the DEX PLAINTEXT (verified on 8 KR finance apps: readable "
+            "class-descriptor density 740-865/MB, no encrypted payload). Runtime root/debug/hook/remote-control "
+            "block. dex=False -> carve is VALID; do NOT mark INDETERMINATE on this .so alone."),
 
   # ---- Malware packers / loaders (AWAKE 'malware' + families sdk-carve already handles) ----
   dict(name="Hqwar (malware DEX packer)", vendor="RU underground", category="malware",
