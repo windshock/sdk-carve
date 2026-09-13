@@ -104,6 +104,28 @@ intra-proc-taint evidence together is conclusive; a full cross-class flow would 
 
 CPGs (local only): `/tmp/cpg_sec.bin` · `/tmp/cpg_jeohuk.bin` (not committed).
 
+### Did deobfuscating updateScript change the CPG? No — verified, not assumed
+The first CPG was built on the **obfuscated** `ScriptManager` (819/1033 exception rows). To check whether Soot
+mis-modeled the flattened method, we swapped the `ExFlattenNormalize`-normalized `ScriptManager` into the jar and
+**re-parsed + re-queried**. Intra-`updateScript` dataflow (scoped to the method) came out **identical**:
+
+| intra-`updateScript` flow | 증권 obf → norm | 저축 obf → norm |
+|---|---|---|
+| AST nodes in updateScript | 2814 → **1732** | 3792 → **1601** |
+| `read/getInputStream` → `decrypt` | 1 → 1 | 1 → 1 |
+| `decrypt` → `parse` | 0 → 0 | 2 → 2 |
+| `parse` → `get(Script)` | 6 → 6 | 6 → 6 |
+| `SecureRandom/digest` → `setKey/encrypt` | 2 → 2 | 2 → 2 |
+
+Only the AST node count shrank (~40%, the removed synthetic exception scaffolding) — **every dataflow count is
+unchanged.** Reason: the exception-table-flattening / irreducible-flow obfuscation defeats *decompilers* (they need
+a reducible CFG to emit Java), but **Soot/`jimple2cpg` builds the CPG from raw Jimple IR and tolerates arbitrary
+(irreducible) CFGs**, so the taint model was already sound. ⇒ **CPG did not need the deobfuscation**; the normalizer
+was necessary only for human-readable source recovery (the L4 *source-level* confirmation + reading the crypto), not
+for the graph/dataflow. (Consistency notes: `decrypt→parse`=0 on 증권 is a Joern tracking gap through the
+`new String(GZip.unzip(..))` wrapper — present in *both* CPGs, not an obfuscation artifact; the cross-class
+socket→eval hop is still field-mediated and unchanged by normalization.)
+
 ## Carved artifacts (local only)
 `~/Downloads/coocon/carve_shinhansec_kr/` · `~/Downloads/coocon/carve_shinhanjeohuk_kr/` (kr/co/coocon class trees).
 Not committed.
