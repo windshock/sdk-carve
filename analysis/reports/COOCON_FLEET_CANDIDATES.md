@@ -33,8 +33,8 @@ no code-lineage claim*: `2007 client scraping iBASE 2.0 → 2013 server/cloud iB
 | **L5** | **controlled E2E** — full network→eval→RCE | ByteBuddy MITM lab |
 
 **Scoping (do NOT over-claim):** carrier identity / vulnerable-channel-present = **L3: 44 apps**. Exact dangerous
-config = **L4: 6** (M-STOCK/신한/IBK/현대해상 + 체크페이 + BNK경남). E2E exploitability = **L5: 4** (M-STOCK/신한/IBK/현대해상).
-The other 38 carriers are L3 (real surface), pending L4/L5.
+config = **L4: 7** (M-STOCK/신한저축/IBK/현대해상 + 체크페이 + BNK경남 + 신한투자증권). E2E exploitability = **L5: 4**
+(M-STOCK/신한저축/IBK/현대해상). The other 37 carriers are L3 (real surface), pending L4/L5.
 
 ## Candidate generation — VT domain pivot (now the primary method)
 Reversing from the binary beats OSINT guessing: pull **VirusTotal relations for `isas.coocon.co.kr`** (the iSAS
@@ -120,7 +120,7 @@ Acquisition: `research/acquisition/resolve.py <pkg> --allow-download` (apkeep/AP
 | NAVER | `com.nhn.android.search` | 1001 | L3 (+server) | **VT-derived · PORTAL/super-app** — relation-nature VERIFIED: class descriptors (incl. `iSASXecure`) **compiled into base-apk dex** (classes7/14) + `isas.coocon.co.kr` string (also `:80:443` variant); NOT a runtime WebView contact. v12.23.50 |
 | 네이버페이 | `com.naverfin.payapp` | 283 | L3 (+server) | **VT/OSINT · PAY** (네이버 super-app 계열, 별도 앱) |
 | NH기업뱅크 | `nh.smart.ncbank` | 990 | L3 (+server) | nh.smart.* 계보 (NH스마트뱅킹·NH콕뱅크와 함께 NH 3-carrier) |
-| 신한투자증권 (SOL증권) | `com.shinhaninvest.nsmts` | 736 | L3 (+server) | **google-play**; broker (신한 계열) |
+| 신한투자증권 (SOL증권) | `com.shinhaninvest.nsmts` | 736 | **L4** | **google-play**; broker (신한 계열); deep-confirm 2026-09-13: 0 ClassShutter / 0 sig / `iSASXecure` / `02`+`127.0.0.1:1024:1025` — see SHINHAN_SDK_CARVE.md |
 | NH올원뱅크 | `com.nonghyup.nhallonebank` | 997 | L3 (+server) | **google-play**; NH 계보 4-carrier |
 | 세모리포트 (웹케시) | `com.webcash.semor` | 979 | L3 (+server) | **google-play**; 웹케시 3rd (세모장부·경리나라와) |
 | 신협 ON뱅크 기업 | `kr.co.cu.bizonbank` | 985 | L3 (+server) | **google-play**; 신협 2nd (온뱅크와) |
@@ -190,7 +190,7 @@ propagation signal — obfuscation/DEX-ordering/host-build differ; normalized co
   (normalized method bytecode) — the remaining step (G-3 code_hash). We claim structural + api-shape, not byte.
 - Extractor: `dexdump` defined-class-defs via a container-walker (apk/xapk/apks/jar) → `coocon-buildfamily.sh`.
 
-## NEGATIVE (L3-neg) — no in-APK iSAS channel (readable dex/unpacked; server-side/ASP/cloud, shielder-plaintext, or unpacked)  · 30
+## NEGATIVE (L3-neg) — no in-APK iSAS channel (readable dex/unpacked; server-side/ASP/cloud, shielder-plaintext, or unpacked)  · 31
 | App | package | why negative |
 |---|---|---|
 | 테이블링 | `com.mealant.tabling` | CheckPay PG not an in-APK SDK |
@@ -217,6 +217,7 @@ propagation signal — obfuscation/DEX-ordering/host-build differ; normalized co
 | 토스 | `viva.republica.toss` | readable (860 class-desc/MB, this apk-pure build not string-enc), no iSAS |
 | KB Pay | `com.kbcard.cxh.appcard` | **APKSHIELD white-box packer — statically UNPACKED** (unidbg keys→offline AES-CBC→14 real dexes); real code has **0 Coocon (ANY component)** — payment & MyData are in-house `com.kbcard.*`; the CheckPay/MyData/isas hits are false-positives (`CheckPayment…`/KB MyData/`disassemble`) |
 | 신한생명 (SOL라이프) | `com.AFSSHLife` | readable, no iSAS (신한증권=carrier지만 생명 빌드엔 없음) |
+| 신한카드 신한SOL페이 | `com.shcard.smartpay` | readable, no iSAS (WIZVERA+AhnLab V3 stack; 신한 카드 flagship) — 2026-09-13 |
 | 하나원큐 (하나은행) | `com.hanabank.oqf` | readable, no iSAS |
 | ACT 액트 | `com.conduit.act` | readable, no iSAS (KIND filing의 체크페이→COOCON는 redirect/server, in-APK 아님) |
 | BNK캐피탈 | `com.bnkfg.bnkcapital` | readable, no iSAS |
@@ -253,7 +254,13 @@ Enumerate the 비즈플레이(주) Play developer account and fingerprint the lo
 비즈플레이, IBK 법인카드, BZPEXPENSE. Also worth: other 웹케시 apps (경리나라 계열). Same one-folder-per-app → fingerprint flow.
 
 ## Tally & lessons
-- **44 carriers (L3)** · **30 negatives** · **0 indeterminate** · **1 pending** (메디팜핏). 74 APKs fingerprinted.
+- **44 carriers (L3)** · **31 negatives** · **0 indeterminate** · **1 pending** (메디팜핏). 75 APKs fingerprinted.
+- **신한 family full sdk-carve (2026-09-13, see SHINHAN_SDK_CARVE.md):** 5 apps — 2 carriers (신한저축=L5, 신한증권
+  **promoted L3→L4** via carve/javap deep-confirm: 0 ClassShutter / 0 sig / `iSASXecure`), 3 negatives (슈퍼SOL 은행,
+  생명, 카드 신한SOL페이 [new]). All 5 carve-VALID (no packer). Two integration lineages: 저축·카드 = WIZVERA+AhnLab V3;
+  은행·생명·증권 = INITECH INISAFE + Raon/TouchEn. Coocon iSAS rides only the two aggregation apps (savings + broker),
+  not the flagship bank/life/card. Device-side iSAS overrides brand: within one chaebol group both carriers and
+  clean apps coexist — carrier status tracks the *product's data-aggregation function*, not the corporate owner.
 - google-play batch (12/13 APKPure-missing apps): +5 carriers (신한증권, NH올원뱅크, 세모리포트, 신협기업, 비씨카드비즈플레이)
   + 7 negatives; official Play provenance. NH계보=4 carriers (스마트/콕/기업/올원); 웹케시=3 (세모장부/경리나라/세모리포트).
 - Latest batch (financial/pay): NH기업뱅크·네이버페이 = carriers; KB스타기업·신한슈퍼SOL·현대카드·삼성화재·카카오페이·토스 = readable
