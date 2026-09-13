@@ -41,12 +41,22 @@ rebuild the JVM **method descriptor** `(L…;L…;… ×65530)V`, which overflow
   output class count against the source dex.** (Real case: a per-dex "recovery" jar had 34154 classes yet 0
   `com.infinigru`, because infinigru's dexes were the bombed ones.)
 
-**Two variants observed in the wild (fleet sweep, 9/88 KR apps, 2026-09):**
-- **Variant A — STEALIEN AppSuit (confirmed):** class `STLudc`/`STL*` prefix, method `a_stl_d2j_lock`, 65,530
-  params; app carries `APPSUIT`/`AppSuit` strings. Seen: 신한 슈퍼SOL은행, 하나원큐, 삼성 모니모.
-- **Variant B — unattributed protector:** synthetic class `L<realclass>$$0;` (appended to androidx/3rd-party
-  classes), method `a`, **65,534** params, no name marker. Seen: 부산은행, NH올원/스마트/콕/기업, 우리WON.
+**Two variants observed in the wild (fleet sweep, 9/88 KR apps, 2026-09), each attributed by its product .so:**
+- **Variant A — STEALIEN AppSuit:** native `libAppSuit.so` + `APPSUIT`/`AppSuit` strings + `STL*` classes; bomb
+  `STLudc.a_stl_d2j_lock`, 65,530 params. Seen: 신한 슈퍼SOL은행, 하나원큐, 삼성 모니모.
+- **Variant B — EverSafe (Everspin):** native `libeversafe.so` + `libeversafe-loader.so` (present in all 6
+  Variant-B apps, absent in A/clean = clean discriminator); bomb `L<realclass>$$0;.a`, **65,534** params, no name
+  marker. Seen: 부산은행, NH올원/스마트/콕/기업, 우리WON.
 `detect-anti-decompile.py` catches both via the shorty-length rule (markers only add names for A).
+
+**Precise mechanism (DEX↔JVM representational mismatch, not just "a big string"):** DEX proto params live in a
+`type_list` whose `.size` is a **uint32** → far larger than JVM allows. JVM has *two* limits: method descriptor
+**≤255 params** (JVMS) and `CONSTANT_Utf8` **≤65535 B** (16-bit length); dex2jar/ASM crashes on the latter but the
+root is the mismatch. And the bombed method is **not callable** — DEX `invoke-*/range` arg count is 8-bit (≤255) —
+so it never runs; it exists only to be walked by the converter = an **analyzer landmine / tool bomb**. (Say "ART
+runs the app", not "ART invokes the 65530-param method".) See the workspace `~/Downloads/dex-anti-decompilation/`
+(prior-art-and-taxonomy.md) for the broader 6–8-family taxonomy, the "Cross-IR Differential Anti-Analysis" framing,
+and prior art (Balachandran 2016 CFF; Mauthe 2023 decompiler-failure study; Yang 2016 RAPID direct-DEX; OBAD).
 
 **Do NOT mis-diagnose it as "a >64 KB string constant/embedded blob."** Verify the *actual* cause: parse the
 DEX string table — if no string exceeds 65535 B, it is the descriptor bomb, not a data string. (Lesson: don't
