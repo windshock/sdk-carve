@@ -227,7 +227,10 @@ stripped/encrypted, e.g. Toss-class string encryption). This removed 8 false-IND
 > (unidbg key-extraction → offline AES-128-CBC → 14 real dexes) and resolved to NEGATIVE (0 iSAS markers in the real code).
 > See analysis/reports (APKSHIELD unpack) + packer-detect.py APKSHIELD note. No app currently INDETERMINATE.
 
-## PENDING acquisition (zero versions on APKPure / apkmirror unconfigured — need official-channel APK)  · 6
+## PENDING acquisition · 13 (packages ALL confirmed) — acquire via apkeep **google-play** (official) or ADB
+> These are KR finance/health apps absent from APKPure. `resolve.py` now tries **google-play FIRST** (needs
+> Play auth once: GP_EMAIL+GP_AAS_TOKEN env or ~/.config/apkeep/apkeep.ini) with `split_apk=true,locale=ko_KR`,
+> then apk-pure, then on-device **ADB** (`pm path`→`adb pull`, best provenance). Batch seed: research/acquisition/coocon_pending.txt.
 | App | package | note |
 |---|---|---|
 | 메디팜핏 | `com.aromit.hmds_app_normal` | **P0, L2** — dev blog shows `SASManager.run()` + MethodChannel `*.coocon`; strongest un-scanned candidate |
@@ -239,8 +242,8 @@ stripped/encrypted, e.g. Toss-class string encryption). This removed 8 false-IND
 | 비씨카드 비즈플레이 | `com.bizplay.bccard` | white-label; 0 versions on APKPure |
 | 서울Pay+ | `com.bizplay.seoul.pay` | bizzeropay/pay line; 0 versions on APKPure |
 | 제주 탐나는전 | `com.bizplay.g2c.jeju` | 지역화폐; 0 versions on APKPure |
-| 신한투자증권 | `com.shinhaninvest.*` (신한알파/SOL증권; pkg 미확정) | not on APKPure; need correct pkg / official APK |
-| 신한생명(신한라이프) | `com.shinhanlife.*` (pkg 미확정) | not on APKPure; need correct pkg / official APK |
+| 신한투자증권 (SOL증권) | `com.shinhaninvest.nsmts` | not on APKPure → apkeep **google-play** / ADB |
+| 신한생명 (SOL라이프) | `com.AFSSHLife` | not on APKPure → apkeep **google-play** / ADB |
 | NH올원뱅크 | `com.nonghyup.nhallonebank` | 0 versions on APKPure |
 | 하나원큐 | `com.hanabank.oqf` | 0 versions on APKPure |
 

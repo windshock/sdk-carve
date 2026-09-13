@@ -1,0 +1,17 @@
+# Coocon fleet — PENDING acquisition (packages confirmed; not on APKPure -> use apkeep google-play or ADB).
+# batch:  while read p l _; do python3 resolve.py "$p" --order google-play,apkeep,adb --allow-download --out-dir ~/Downloads/"$l"; done < <(grep -v '^#' coocon_pending.txt)
+# needs Play auth once (GP_EMAIL+GP_AAS_TOKEN env or ~/.config/apkeep/apkeep.ini). split_apk=true is on by default.
+# pkg                              label            evidence
+com.aromit.hmds_app_normal         medipharmfit     L2 source: SASManager.run() + MethodChannel *.coocon (P0)
+com.shinhaninvest.nsmts            shinhansec       신한 SOL증권 (구 com.shinhaninvest.mts 종료 2026-07)
+com.AFSSHLife                      shinhanlife      신한 SOL라이프 (신한생명/신한라이프)
+com.nonghyup.nhallonebank          nhallone         NH올원뱅크
+com.hanabank.oqf                   hanaoneq         하나원큐
+com.webcash.semor                  semoreport       세모리포트 (웹케시; 쿠콘 스크래핑 위탁)
+kr.co.cu.bizonbank                 cubizonbank      신협 ON뱅크 기업 (신협 온뱅크 sibling=carrier)
+com.conduit.act                    act              ACT 액트 (KIND: 체크페이->자산관리->COOCON)
+com.bnkfg.bnkcapital               bnkcapital       BNK캐피탈 (Plug-In + We-Check)
+kr.co.bomapp.planner               bomapp-planner   보맵플래너 (보맵 sibling=carrier)
+com.bizplay.bccard                 bp-bc            비씨카드 비즈플레이 (bizplay white-label)
+com.bizplay.seoul.pay              seoulpay         서울Pay+ (bizzeropay/pay line)
+com.bizplay.g2c.jeju               jeju             제주 탐나는전 (지역화폐)

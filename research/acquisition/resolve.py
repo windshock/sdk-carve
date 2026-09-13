@@ -115,6 +115,23 @@ VALID_VER = re.compile(r"^[A-Za-z0-9_.+-]*$")
 _AZKEY = "@ANDROZOO_APIKEY@"  # replaced (not shell-expanded) with the env value at run time
 
 ADAPTERS = {
+    "google-play": {"bin": "apkeep",
+                  "argv": ["apkeep", "-a", "{package}", "-d", "google-play",
+                           "-e", "{gp_email}", "-t", "{gp_aas_token}", "-o", "{gp_opts}", "{outdir}"],
+                  "note": "apkeep EFForg Google-Play DIRECT backend — OFFICIAL distribution (best provenance) + "
+                          "split/DFM APKs. Auth once: `apkeep -e <acct> --oauth-token oauth2_4/...` -> AAS token; "
+                          "set GP_EMAIL+GP_AAS_TOKEN env (or ~/.config/apkeep/apkeep.ini [google] email/aas_token — "
+                          "then the -e/-t are auto-dropped). gp_opts defaults to locale=ko_KR,timezone=Asia/Seoul,"
+                          "split_apk=true (KR store + fetch ALL splits — SDK carrier may ride a split, not base). "
+                          "Respect Play ToS: keep request volume modest. Preferred over apk-pure when creds exist."},
+    "adb":       {"bin": "adb",
+                  "argv": ["bash", "-c",
+                           "set -e; PKG='{package}'; OUT='{outdir}'; mkdir -p \"$OUT\"; "
+                           "adb shell pm path \"$PKG\" | sed 's/^package://' | tr -d '\\r' | "
+                           "while read -r A; do adb pull \"$A\" \"$OUT/$(basename \"$A\")\"; done"],
+                  "note": "Fallback for hardened KR finance apps: install from official Play on a device, then "
+                          "`pm path` (base+all splits) -> `adb pull`. Cleanest evidence (Play-official on-device). "
+                          "Availability-gated on a connected device; some hardened builds allow pm path but block pull."},
     "fdroid":    {"bin": "python3",
                   "argv": ["python3", "-c",
                            "import sys,json,urllib.request as u; pkg=sys.argv[1];"
@@ -161,6 +178,12 @@ ADAPTERS = {
                   "note": "full archive; scraper, less stable"},
 }
 
+def _gp_creds() -> bool:
+    if os.environ.get("GP_EMAIL") and os.environ.get("GP_AAS_TOKEN"):
+        return True
+    ini = os.path.expanduser("~/.config/apkeep/apkeep.ini")
+    return os.path.isfile(ini) and "aas_token" in open(ini, encoding="utf-8", errors="ignore").read()
+
 def adapter_available(name: str) -> bool:
     a = ADAPTERS[name]
     if "env" in a and not os.environ.get(a["env"]):
@@ -168,10 +191,17 @@ def adapter_available(name: str) -> bool:
     if "pip" in a:
         try: __import__(a["pip"])
         except Exception: return False
+    if name == "google-play" and not _gp_creds():
+        return False  # apkeep present but no Play auth (env or apkeep.ini) -> skip
+    if name == "adb":  # need a connected device
+        try: return shutil.which("adb") is not None and \
+                    subprocess.run(["adb","get-state"],capture_output=True,text=True,timeout=10).stdout.strip()=="device"
+        except Exception: return False
     return shutil.which(a["bin"]) is not None
 
 # ------------------------- resolve -------------------------
-DEFAULT_ORDER = ["local", "fdroid", "androzoo", "apkeep", "apkmirror", "apkcombo", "apkpure", "play", "uptodown"]
+# google-play FIRST (official distribution, best provenance) -> apk-pure mirror -> device ADB -> other mirrors.
+DEFAULT_ORDER = ["local", "google-play", "apkeep", "adb", "fdroid", "androzoo", "apkmirror", "apkcombo", "apkpure", "play", "uptodown"]
 
 def local_lookup(package: str, version: str | None, corpus: str) -> str | None:
     if not os.path.isdir(corpus): return None
@@ -195,6 +225,9 @@ def resolve(package: str, version: str | None, order: list[str], corpus: str,
                   outdir=out_dir,
                   apkmd_cli=os.environ.get("APKMD_CLI", ""),   # path to apkmirror-downloader dist/cli.js
                   apkcd_cli=os.environ.get("APKCD_CLI", ""),   # path to apkcombo-downloader  dist/cli.js
+                  gp_email=os.environ.get("GP_EMAIL", ""),
+                  gp_aas_token=os.environ.get("GP_AAS_TOKEN", ""),
+                  gp_opts=os.environ.get("GP_OPTS", "locale=ko_KR,timezone=Asia/Seoul,split_apk=true"),
                   out=os.path.join(out_dir, f"{package}-{version or 'latest'}.apk"))
     for src in order:
         if src == "local":
@@ -208,6 +241,11 @@ def resolve(package: str, version: str | None, order: list[str], corpus: str,
         # build argv WITHOUT a shell; each element is templated then value-substituted
         argv = [os.environ.get("ANDROZOO_APIKEY", "").join(el.split(_AZKEY)) if _AZKEY in el
                 else el.format(**fields) for el in ADAPTERS[src]["argv"]]
+        if src == "google-play" and not (fields["gp_email"] and fields["gp_aas_token"]):
+            # auth via ~/.config/apkeep/apkeep.ini -> drop the empty "-e '' -t ''" so apkeep reads the ini
+            for flag in ("-e", "-t"):
+                if flag in argv:
+                    i = argv.index(flag); del argv[i:i+2]
         if not allow_download:
             print(f"[{src}] DRY-RUN (auth gate; --allow-download to run): "
                   + " ".join(shlex.quote(x) for x in argv), file=sys.stderr); continue
