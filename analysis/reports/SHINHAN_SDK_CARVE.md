@@ -126,6 +126,64 @@ for the graph/dataflow. (Consistency notes: `decrypt→parse`=0 on 증권 is a J
 `new String(GZip.unzip(..))` wrapper — present in *both* CPGs, not an obfuscation artifact; the cross-class
 socket→eval hop is still field-mediated and unchanged by normalization.)
 
+## FULL analyzer set (SKILL.md Method steps 2–5 — completing the mandated pass)
+The first write-up stopped at carve + javap + a partial CPG. Per sdk-carve the FULL Method requires, *per carve*:
+class-map → Joern source/sink **+ entry→sink reachability** → **scoped CodeQL** → **Semgrep** → **scope-closure**,
+with a **cross-verification table (analyzer × root)** and the closure result. Ran the lot on the Coocon carve of
+both carriers (`kr/co/coocon`, 714 / 951 classes). Tools: joern 4.0.370, codeql (build-mode=none), semgrep, jadx.
+
+**class-map.py** (fast deep pass): `DeviceInfo`/`CertImplements` → `getMacAddress`/`getHardwareAddress` (device-id
+collectors); `SASManager`/`HttpManager` → `isas.coocon.co.kr` / `coocon.co.kr` (endpoints).
+**behavior-sweep.py**: 1 flagged root `kr/co/coocon` = 3-category `[collect.identity · dyn.load · sink.network]`
+(collector+sink shape).
+
+### Cross-verification table (analyzer × the Coocon channel, 신한증권; 신한저축 identical)
+| signal | manual/CFR | Joern (bytecode CPG) | CodeQL (source DB) | Semgrep (regex/source) |
+|---|---|---|---|---|
+| Rhino eval sink (RCE) | ✅ `ScriptEngine.a` | ✅ `evaluateString @ a` | ✅ `rhino-eval @ ScriptEngine.a` | ✅ `rhino-eval-server-script` |
+| no `ClassShutter` sandbox | ✅ (0 in source) | ✅ `setClassShutter=0` | — | ✅ `no-classshutter-sandbox` |
+| net-in source | ✅ Socket read | ✅ `getInputStream @ updateScript/SASEngineTask.run` | ✅ `getInputStream @ SASEngineTask.run` | — |
+| decrypt source | ✅ `AESCipher.decrypt` | ✅ `decrypt @ updateScript/AESCipher` | ✅ `decrypt @ AESCipher/ARIACipher/CustomCipher` | — |
+| device-id source | ✅ `DeviceInfo` | ✅ `getMacAddress` | ✅ `getMacAddress @ CertImplements.MoaSign` | — |
+| net-out sink | ✅ Socket write | ✅ `getOutputStream @ updateScript/ASTXComm.trx` | ✅ `getOutputStream @ ASTXComm.trx` (+crypto FPs) | — |
+| `Runtime.exec` | ✅ (V8 lib chmod) | ✅ `exec @ chmod` | — | ✅ `runtime-exec @ v8/LibraryLoader` |
+
+Three independent tools agree on the core chain. **CodeQL name-match caveat (honest):** its `getOutputStream`
+"net-out" hits include ~15 `spongycastle`/PKCS12 `ByteArrayOutputStream` writes that are **crypto, not network** —
+a build-mode=none name-matching limitation, not real exfil; the real net-out is `ASTXComm.trx`/`SASEngineTask.run`.
+
+### Entry→sink reachability (the step the first pass lacked) — capability PROVEN
+Joern `repeat(_.callee)` from entries `{updateScript, runScript, run, initInstance}`, maxDepth 6:
+| sink | 신한증권 | 신한저축 |
+|---|---|---|
+| `evaluateString` (Rhino eval / RCE) | **reachable=true** (1 site) | **reachable=true** (1 site) |
+| `getOutputStream` (net-out) | true (16) | true (14) |
+| `exec` (Runtime.exec) | true (1) | true (2) |
+| `toJSONString` | true (11) | true (15) |
+| methods reachable ≤6 | 649 | 804 |
+
+The Rhino eval sink **is reachable from the update/run entry points** — the call-graph path exists (stronger than
+the earlier field-mediated auto-taint=0; that limit is about *value* flow across a field, not call reachability).
+
+### Scope-closure (step 5 — carve completeness PROVEN)
+| app | distinct callee owners | external (non-lib, non-scope) | what's external |
+|---|---|---|---|
+| 신한증권 | 854 | 7 | all `com.sun.net.httpserver.*` (JDK) |
+| 신한저축 | 1073 | 9 | `com.sun.net.httpserver.*` + `com.xshield.dc` (RASP) + `kr.co.useb.AES256$$ExternalSynthetic…` (R8 synthetic) |
+
+Everything the carve calls outside `kr.co.coocon` is **framework / the xShield RASP class / an R8 synthetic** — **no
+missed Coocon SDK logic**, so the carve scope is complete. New observation: the SDK bundles a **local HTTP server**
+(`com.sun.net.httpserver`) — the `c="127.0.0.1:1024:1025"` SAS-proxy component confirmed structurally.
+
+**Artifacts (local only):** CPGs `/tmp/cpg_{sec,jeohuk}.bin`; CodeQL DB `/tmp/db_sec`; jadx src `/tmp/src_sec`;
+adapted scripts `/tmp/coocon_{ss,sinks,reach,sc}.sc`, `/tmp/qlpack/flows.ql`, `/tmp/coocon_semgrep.yml`. Not committed.
+
+### Still not done (honest scope of THIS pass)
+- Full analyzer set was run on the **Coocon carve** (the security-relevant target) of the **two carriers** only.
+  Not run: whole-app `behavior-sweep.py` on all 5 apps to carve the *other* bundled SDKs (PKI/AV/adtech) — those
+  were only string-counted in the inventory table, not carved+analyzed. The 3 negatives got fingerprint+inventory,
+  not a full per-SDK carve (no Coocon target in them).
+
 ## Carved artifacts (local only)
 `~/Downloads/coocon/carve_shinhansec_kr/` · `~/Downloads/coocon/carve_shinhanjeohuk_kr/` (kr/co/coocon class trees).
 Not committed.
