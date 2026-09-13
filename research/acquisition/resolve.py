@@ -179,10 +179,9 @@ ADAPTERS = {
 }
 
 def _gp_creds() -> bool:
-    if os.environ.get("GP_EMAIL") and os.environ.get("GP_AAS_TOKEN"):
-        return True
-    ini = os.path.expanduser("~/.config/apkeep/apkeep.ini")
-    return os.path.isfile(ini) and "aas_token" in open(ini, encoding="utf-8", errors="ignore").read()
+    # apkeep 1.0.0 does NOT read ~/.config/apkeep/apkeep.ini (it prompts interactively then fails) — so
+    # resolve.py drives it via env creds passed as -e/-t. Require env (the path we actually pass).
+    return bool(os.environ.get("GP_EMAIL") and os.environ.get("GP_AAS_TOKEN"))
 
 def adapter_available(name: str) -> bool:
     a = ADAPTERS[name]
