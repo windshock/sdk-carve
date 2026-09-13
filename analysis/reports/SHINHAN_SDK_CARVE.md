@@ -53,6 +53,45 @@ signature/MAC on the pushed script, no Rhino `ClassShutter` sandbox** → a MITM
 - **신한증권**: was L3 (fingerprint only). This pass carves + `javap`-confirms all L4 preconditions → **promoted L3→L4**.
   Not yet live-run, but structurally identical to the four L5 apps.
 
+## Obfuscation — present (packer absent ≠ obfuscation absent)
+`packer-detect: VALID (obfuscation-only at most)` means **no packer / no runtime dex encryption** — it does NOT
+mean the code is un-obfuscated. Two obfuscation layers are present:
+
+1. **Host-app identifier renaming (R8/ProGuard), selective.** Short (1–2 char) class names are present in every
+   app — full-dex ratio ≈ **신한저축 2% · 신한증권 4%** of all descriptors. The ratio is modest because these apps
+   *keep* the names of bundled libraries/SDKs (Coocon `kr/co/coocon`, PKI vendors, AhnLab, androidx, kotlin) and
+   rename mainly their own business logic. The 3 negatives are R8-renamed the same way (app logic renamed, libs kept).
+   → **This is why fingerprinting/carve works at all: the Coocon package names are preserved** (951 / 714 classes).
+2. **Method-level control-flow obfuscation on the Coocon SDK's sensitive method** — the real anti-analysis layer.
+   `ScriptManager.updateScript` is exception-table-flattened: **신한저축 = 1033 exception-table rows / 2240 instrs;
+   신한증권 = 819 rows / 1466 instrs** (a normal method has single digits). This defeats every stock decompiler
+   (CFR/jadx/Vineflower/Fernflower/Corpseflower — established on the reference build) and requires the
+   `ExFlattenNormalize` ASM normalizer to recover source. 신한저축's 1033 rows match the reference build exactly.
+
+Net: **not un-obfuscated** — R8 on the host app + heavy CFO on the Coocon channel; only the *packer* is absent.
+
+## CPG (Joern) — source→sink, run on the two carriers this pass
+Ran `jimple2cpg` (`-Xmx6g`) on the carved `kr/co/coocon` jars (798 / 1048 classes) and queried the channel.
+**Identical result on both carriers** (and matches the M-STOCK reference chain):
+
+| CPG signal | 신한증권 | 신한저축 v2.2.9 |
+|---|---|---|
+| `evaluateString` (Rhino eval) sink | 1 | 1 |
+| eval-wrapper method | `avoid(String)` (obf-renamed `ScriptEngine.a`) | `avoid(String)` |
+| `updateScript` sensitive callees | `connect·getInputStream·getOutputStream·decrypt·unzip·parse·toJSONString` | *(same)* |
+| `setClassShutter` (Rhino sandbox) | **0** | **0** |
+| FLOW eval-param → `evaluateString` (intra-proc taint) | **3 paths** | **3 paths** |
+| FLOW socket-read/decrypt → `evaluateString` (cross-method) | 0 | 0 |
+
+Read-out: CPG independently confirms the **source side** (`updateScript` pulls bytes off a socket → AES-decrypt →
+GZip-unzip → JSON-parse) and the **sink side** (a Rhino `evaluateString` with **no `ClassShutter`** anywhere), and
+taint-proves the last hop (wrapper param → eval). The socket→eval auto-flow is **0 only because the hop is
+field-mediated across classes** (`updateScript` stores the script, `ScriptEngine` loads it later) — Joern's default
+taint doesn't stitch field-store→field-load across classes; the same 0 was seen on M-STOCK. The structural + javap +
+intra-proc-taint evidence together is conclusive; a full cross-class flow would need a custom field-store→load rule.
+
+CPGs (local only): `/tmp/cpg_sec.bin` · `/tmp/cpg_jeohuk.bin` (not committed).
+
 ## Carved artifacts (local only)
 `~/Downloads/coocon/carve_shinhansec_kr/` · `~/Downloads/coocon/carve_shinhanjeohuk_kr/` (kr/co/coocon class trees).
 Not committed.
