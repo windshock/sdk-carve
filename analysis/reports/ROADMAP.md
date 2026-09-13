@@ -189,6 +189,24 @@ Reframed from "Coocon customer" OSINT to **iSAS/smart-scraping supply history + 
   ACT, BNK캐피탈, 보맵플래너, 비씨카드 비즈플레이, 서울Pay+, 제주 탐나는전.
 - [ ] **G-4 L3→L4** on one representative app per build-family (javap b/sig/ClassShutter) → then **G-5 vendor
   disclosure** scoped by build-family representative. (Growing 37→50 < proving how few builds they collapse into.)
+- [x] **G-6 신한 family full sdk-carve (2026-09-13, SHINHAN_SDK_CARVE.md)** — 5 apps: 2 carriers (신한저축 L5, 신한증권
+  promoted L3→**L4 at source level** — ExFlattenNormalize defeated the `updateScript` CFO on both builds
+  [819→39 / 1033→40], CFR clean, `grep Signature/verify=0`), 3 negatives (슈퍼SOL 은행/생명/카드[new]). Completed the
+  MANDATED analyzer set on the Coocon carve of both carriers: class-map + Joern source/sink + **entry→sink
+  reachability** (`evaluateString` reachable-from-entry=true) + **scoped CodeQL** + **Semgrep** + **scope-closure**
+  (clean) + cross-verification table (manual/CFR × Joern × CodeQL × Semgrep all agree). Verified CPG unchanged
+  obf-vs-norm (Soot tolerates irreducible CFG; deobf only needed for human-readable source).
+- [x] **G-7 iSASService local HTTPS server (Item 1, 2026-09-13)** — scope-closure surfaced `com.sun.net.httpserver`:
+  Coocon bundles a standalone **local HTTPS server** (`sasapi/engine/listener/HttpListener`, iSASService, default
+  port 35751) that `createContext("/", new HttpTask)` → `HttpTask.handle → ScriptEngine.contextEnter` (exposes the
+  server-JS-eval engine over local HTTPS), TLS keystore fetched via the unauthenticated `updateScript("sas/SASKey")`
+  channel (JKS password `webcash123`). **On Android it is bundled but NOT started** — only `HttpListener.main()`
+  starts it (standalone JVM); the on-device path is `SASManager.initInstance() → connect OUT to
+  isas.coocon.co.kr:443:80`. This is the "방화벽 확인" SAS-proxy architecture; the `c="127.0.0.1:1024:1025"` field is
+  the dormant local-proxy default. Confirm against whole-app grep (G-8) that no host code calls HttpListener.
+- [~] **G-8 신한 whole-app sdk-carve (IN PROGRESS, 2026-09-13)** — dex2jar each of the 5 apps → `behavior-sweep.py`
+  to enumerate ALL bundled SDK roots (not just Coocon) → carve every non-`~` flagged root (PKI/AV/adtech) + run the
+  full analyzer set per SKILL.md triage step 4. Also verifies no host code invokes the iSASService (G-7).
 
 ---
 
@@ -196,8 +214,10 @@ Reframed from "Coocon customer" OSINT to **iSAS/smart-scraping supply history + 
 **A–F done.** The Coocon deep-dive went beyond scope: impact = in-process RCE, **live E2E RCE on all 4 original
 apps**, decompiler-resistance defeated (reusable ASM deobfuscator), `updateScript` source recovered.
 
-**Then the fleet expanded into a corpus effort (track G, ACTIVE):** 28 iSAS carriers confirmed at L3; the next
-lever is **G-1 AppIron unpacking** (8 packed candidates staged, not started).
+**Then the fleet expanded into a corpus effort (track G, ACTIVE):** **44 iSAS carriers at L3 / 7 L4 / 4 L5**, 31
+negatives, 0 indeterminate, 1 pending (메디팜핏), 75 APKs fingerprinted. AppIron resolved (G-1, RASP-only). Current
+work: **G-6 신한 family carve DONE**, **G-8 신한 whole-app carve IN PROGRESS**; next fleet lever = **G-3 code_hash** +
+**G-4 L3→L4 per build-family**.
 
 **Parked (external gate):** B-P3 (server-JS exfil — needs runtime/server capture); E-P3 (vendor-notification
 send — needs explicit sign-off).

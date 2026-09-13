@@ -172,8 +172,27 @@ the earlier field-mediated auto-taint=0; that limit is about *value* flow across
 | 신한저축 | 1073 | 9 | `com.sun.net.httpserver.*` + `com.xshield.dc` (RASP) + `kr.co.useb.AES256$$ExternalSynthetic…` (R8 synthetic) |
 
 Everything the carve calls outside `kr.co.coocon` is **framework / the xShield RASP class / an R8 synthetic** — **no
-missed Coocon SDK logic**, so the carve scope is complete. New observation: the SDK bundles a **local HTTP server**
-(`com.sun.net.httpserver`) — the `c="127.0.0.1:1024:1025"` SAS-proxy component confirmed structurally.
+missed Coocon SDK logic**, so the carve scope is complete.
+
+### Item 1 — the bundled local HTTPS server (iSASService / SAS-proxy)
+The `com.sun.net.httpserver` external owner led to `sasapi/engine/listener/HttpListener` + `engine/task/HttpTask`:
+- **`HttpListener` is a standalone local HTTPS server** ("iSASService", default port **35751**, tunable via system
+  props `debug.port`/`http.mode`). `run()` stands up an `HttpsServer` and `createContext("/", new HttpTask())`.
+- **`HttpTask implements HttpHandler`** and its `handle()` calls `ScriptEngine.contextEnter()` → the local server
+  **exposes the same server-JS-eval engine over local HTTPS**.
+- Its TLS keystore is fetched over the **unauthenticated `updateScript("sas/SASKey")` channel** and loaded as a JKS
+  with hardcoded password **`webcash123`** (webcash = Coocon's affiliate). Startup failure logs *"방화벽을 확인 하시기
+  바랍니다"* — the exact "check your firewall" wording seen in customer scraping notices.
+- **On Android it is bundled but NOT started**: the only caller of `new HttpListener(...).start()` is
+  `HttpListener.main()` (a standalone-JVM entry). The on-device path is `SASManager.initInstance()` → connect **out**
+  to `isas.coocon.co.kr:443:80` (client mode; hardcoded default appId `"PUSANAPP"`, plus an HTTP `Proxy` setup). The
+  `c="127.0.0.1:1024:1025"` field is the **dormant** legacy local-proxy default.
+
+⇒ So this is the desktop/PC **iSASService** code shipped inside the mobile artifact. It does **not** add mobile
+attack surface (not invoked on-device) — but it documents the SAS-proxy design and a second place the same
+no-signature `updateScript` channel delivers security material (a TLS private key). *Caveat:* verified within the
+Coocon carve only; the **whole-app** grep (does any `com.shinhan*`/`com.shinhaninvest*` host code call `HttpListener`?)
+is the G-8 whole-app pass — pending.
 
 **Artifacts (local only):** CPGs `/tmp/cpg_{sec,jeohuk}.bin`; CodeQL DB `/tmp/db_sec`; jadx src `/tmp/src_sec`;
 adapted scripts `/tmp/coocon_{ss,sinks,reach,sc}.sc`, `/tmp/qlpack/flows.ql`, `/tmp/coocon_semgrep.yml`. Not committed.
