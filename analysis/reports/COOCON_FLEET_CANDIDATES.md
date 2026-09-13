@@ -32,9 +32,9 @@ no code-lineage claim*: `2007 client scraping iBASE 2.0 → 2013 server/cloud iB
 | **L4** | **exact dangerous config** — `b="02"`, 0 sig/MAC, 0 `ClassShutter` | `javap` deep-confirm (binary) |
 | **L5** | **controlled E2E** — full network→eval→RCE | ByteBuddy MITM lab |
 
-**Scoping (do NOT over-claim):** carrier identity / vulnerable-channel-present = **L3: 37 apps**. Exact dangerous
+**Scoping (do NOT over-claim):** carrier identity / vulnerable-channel-present = **L3: 39 apps**. Exact dangerous
 config = **L4: 6** (M-STOCK/신한/IBK/현대해상 + 체크페이 + BNK경남). E2E exploitability = **L5: 4** (M-STOCK/신한/IBK/현대해상).
-The other 31 carriers are L3 (real surface), pending L4/L5.
+The other 33 carriers are L3 (real surface), pending L4/L5.
 
 ## Candidate generation — VT domain pivot (now the primary method)
 Reversing from the binary beats OSINT guessing: pull **VirusTotal relations for `isas.coocon.co.kr`** (the iSAS
@@ -78,7 +78,7 @@ d2j-dex2jar -f -o app.jar app.apk    # then javap deep-confirm (b=="02"? / 0 sig
 Acquisition: `research/acquisition/resolve.py <pkg> --allow-download` (apkeep/APKPure). One folder per app under
 `~/Downloads/<app>/`; **samples never committed.**
 
-## CARRIERS (L3) — `sasapi/scriptengine` in the shipped APK, all → `isas.coocon.co.kr:443:80`  · **37 apps**
+## CARRIERS (L3) — `sasapi/scriptengine` in the shipped APK, all → `isas.coocon.co.kr:443:80`  · **39 apps**
 | App | package | refs | max level | note |
 |---|---|---|---|---|
 | 미래에셋 M-STOCK | `com.miraeasset.trade` | 896 | **L5 live-E2E** | broker |
@@ -118,6 +118,8 @@ Acquisition: `research/acquisition/resolve.py <pkg> --allow-download` (apkeep/AP
 | 셔클 (현대차 모빌리티) | `com.hyundai.airlab.shucle` | 985 | L3 (+server) | **VT-derived · MOBILITY** (no prior OSINT — binary found it) |
 | 똑타 (경기교통公 GMaaS) | `com.hyundai.shucle.gmaas` | 985 | L3 (+server) | **VT-derived · MOBILITY** (985 = 셔클, same code line) |
 | NAVER | `com.nhn.android.search` | 1001 | L3 (+server) | **VT-derived · PORTAL/super-app** — relation-nature VERIFIED: class descriptors (incl. `iSASXecure`) **compiled into base-apk dex** (classes7/14) + `isas.coocon.co.kr` string (also `:80:443` variant); NOT a runtime WebView contact. v12.23.50 |
+| 네이버페이 | `com.naverfin.payapp` | 283 | L3 (+server) | **VT/OSINT · PAY** (네이버 super-app 계열, 별도 앱) |
+| NH기업뱅크 | `nh.smart.ncbank` | 990 | L3 (+server) | nh.smart.* 계보 (NH스마트뱅킹·NH콕뱅크와 함께 NH 3-carrier) |
 
 ## SDK propagation tree — 비즈플레이/nextbiz dev-family (fingerprint ref-count clusters)
 The `kr/co/coocon` ref count is a build-lineage signature: apps sharing a code line carry the *same* count.
@@ -183,7 +185,7 @@ propagation signal — obfuscation/DEX-ordering/host-build differ; normalized co
   (normalized method bytecode) — the remaining step (G-3 code_hash). We claim structural + api-shape, not byte.
 - Extractor: `dexdump` defined-class-defs via a container-walker (apk/xapk/apks/jar) → `coocon-buildfamily.sh`.
 
-## NEGATIVE (L3-neg) — no in-APK iSAS channel (readable dex; server-side/ASP/cloud, or shielder-but-plaintext)  · 16
+## NEGATIVE (L3-neg) — no in-APK iSAS channel (readable dex; server-side/ASP/cloud, or shielder-but-plaintext)  · 22
 | App | package | why negative |
 |---|---|---|
 | 테이블링 | `com.mealant.tabling` | CheckPay PG not an in-APK SDK |
@@ -202,6 +204,12 @@ propagation signal — obfuscation/DEX-ordering/host-build differ; normalized co
 | 춘천사랑상품권 | `com.bizplay.bizzeropay.chuncheon` | **AppIron**, dex plaintext (≈13k), no iSAS (창원=carrier, but 춘천 build lacks it) |
 | 강원상품권 | `com.bizplay.bizzeropay.kangwon` | **AppIron**, dex plaintext, no iSAS |
 | 경남지역상품권 | `com.bizplay.bizzeropay.gyeongnam` | **AppIron**, dex plaintext, no iSAS |
+| KB스타기업뱅킹 | `com.kbstar.kbbiz` | readable (57k class-desc), no iSAS (KB스타뱅킹 carrier지만 기업뱅킹 빌드엔 없음) |
+| 신한 슈퍼SOL (신한은행) | `com.shinhan.sbanking` | readable, no iSAS |
+| 현대카드 | `com.hyundaicard.appcard` | readable, no iSAS |
+| 삼성화재 라운지 | `sam.myanycar.samsungFire` | readable, no iSAS |
+| 카카오페이 | `com.kakaopay.app` | readable, no iSAS |
+| 토스 | `viva.republica.toss` | readable (860 class-desc/MB, this apk-pure build not string-enc), no iSAS |
 
 ### AppIron finding — static "unpacking" resolved: nothing to unpack (2026-09-12)
 The 8 apps previously marked INDETERMINATE were **AppIron-shielded but their DEX is PLAINTEXT** — static-analysis
@@ -213,7 +221,11 @@ needed, and **all 8 are genuine NEGATIVES** for the vulnerable channel (any Cooc
 ASP/cloud cases). **Tool correction:** `coocon-fingerprint.sh` no longer emits INDETERMINATE on mere shielder-`.so`
 presence — it decides on **actual readable class-descriptor density** (INDETERMINATE only when the dex is truly
 stripped/encrypted, e.g. Toss-class string encryption). This removed 8 false-INDETERMINATEs.
-> INDETERMINATE (packed/encrypted, genuinely unreadable): **0** apps in the current set.
+### INDETERMINATE — genuinely packed (stub dex + encrypted payload) · 1
+| App | package | why |
+|---|---|---|
+| KB Pay | `com.kbcard.cxh.appcard` | **stub dex** (1 dex, 212 class-descriptors <300) → real code encrypted by a NON-AppIron packer. Correct INDETERMINATE (contrast AppIron=plaintext). Needs real unpack to decide. |
+> This is the *correct* use of INDETERMINATE — a truly unreadable dex — vs the 8 AppIron apps (plaintext → NEGATIVE).
 
 ## PENDING acquisition (zero versions on APKPure / apkmirror unconfigured — need official-channel APK)  · 6
 | App | package | note |
@@ -227,14 +239,20 @@ stripped/encrypted, e.g. Toss-class string encryption). This removed 8 false-IND
 | 비씨카드 비즈플레이 | `com.bizplay.bccard` | white-label; 0 versions on APKPure |
 | 서울Pay+ | `com.bizplay.seoul.pay` | bizzeropay/pay line; 0 versions on APKPure |
 | 제주 탐나는전 | `com.bizplay.g2c.jeju` | 지역화폐; 0 versions on APKPure |
+| 신한투자증권 | `com.shinhaninvest.*` (신한알파/SOL증권; pkg 미확정) | not on APKPure; need correct pkg / official APK |
+| 신한생명(신한라이프) | `com.shinhanlife.*` (pkg 미확정) | not on APKPure; need correct pkg / official APK |
+| NH올원뱅크 | `com.nonghyup.nhallonebank` | 0 versions on APKPure |
+| 하나원큐 | `com.hanabank.oqf` | 0 versions on APKPure |
 
 ## Next-batch strategy — 비즈플레이 developer family (both TRIP+ AND 비즈플레이 = carriers ⇒ shared module)
 Enumerate the 비즈플레이(주) Play developer account and fingerprint the lot (need package IDs): 현대카드/우리카드/삼성카드
 비즈플레이, IBK 법인카드, BZPEXPENSE. Also worth: other 웹케시 apps (경리나라 계열). Same one-folder-per-app → fingerprint flow.
 
 ## Tally & lessons
-- **37 carriers (L3)** · **16 negatives** · **0 indeterminate** (the 8 AppIron ones resolved to readable
-  negatives — AppIron is RASP-only, dex plaintext) · 9 pending. 53 APKs fingerprinted.
+- **39 carriers (L3)** · **22 negatives** · **1 indeterminate** (KB Pay = genuinely packed/stub dex; the 8 AppIron
+  ones are readable NEGATIVES — RASP-only) · 13 pending. 62 APKs fingerprinted.
+- Latest batch (financial/pay): NH기업뱅크·네이버페이 = carriers; KB스타기업·신한슈퍼SOL·현대카드·삼성화재·카카오페이·토스 = readable
+  NEGATIVES (big pay/portal apps that do NOT bundle iSAS); KB Pay = genuinely packed (real INDETERMINATE).
   VT batch = 9/9 fingerprinted are carriers: KB스타뱅킹, KB저축, NH콕뱅크, **InBody, GC케어, 웰체크 (healthcare)**,
   **셔클, 똑타 (mobility)**, **NAVER (portal super-app — relation-nature verified: iSAS compiled into base-apk dex,
   incl. `iSASXecure`; not a runtime contact)**.

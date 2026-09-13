@@ -19,10 +19,10 @@ same class as [[gpa-gad-beanshell]]:
    no interpreter — asymmetric).
 2. **Coocon SASAPI (= Coocon iSAS smart-scraping client)** — server **JavaScript** (Rhino/V8) scraping engine.
    Originally found in 4 apps; a supply-history + code-lineage + **VirusTotal `isas.coocon.co.kr` domain-pivot**
-   sweep now puts **37 apps carrying the channel across multiple industries** — finance (banks/savings/brokers/
+   sweep now puts **39 apps carrying the channel across multiple industries** — finance (banks/savings/brokers/
    insurers/cards), corporate-expense (웹케시/비즈플레이), **healthcare (InBody, GC케어, 웰체크)**, **mobility
    (셔클, 똑타)**, and the **NAVER portal super-app** (iSAS compiled into the base-apk dex, relation-nature
-   verified — not a runtime contact) — see COOCON_FLEET_CANDIDATES.md. (Carrier-identity=36; exact-config deep-confirmed=6; live-E2E
+   verified — not a runtime contact) — see COOCON_FLEET_CANDIDATES.md. (Carrier-identity=39; exact-config deep-confirmed=6; live-E2E
    RCE=4 — claims kept at their evidence level; 8 more AppIron-packed candidates INDETERMINATE, pending unpack.)
    The VT domain pivot (candidates from the shipping binary, not OSINT) hit 8/8; iSAS is **not finance-only.**
 These are **RCE-by-design dependencies**, not bugs. Govern them like any "server can run code in our app"
