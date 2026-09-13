@@ -252,8 +252,22 @@ local HTTPS server is confirmed **not started on-device**.
   that yields the SDK verdict). A full per-root Joern/CodeQL/scope-closure pass was **not** run on every root
   (~15 roots × up to 5 apps). Remaining mandated work (flagged): full CPG source→sink on the two high-privacy
   collectors **infinigru** (APK-upload path) and **interezen** (fingerprint→network).
-- dex2jar hard-failed on 슈퍼SOL은행 + 카드 → their inventory is from the direct-dex root scan (presence-level), not a
-  carved CPG. Alternate converter (e.g. `enjarify`/jadx-jar) is the follow-on to carve those two.
+- dex2jar failed on 슈퍼SOL은행 + 카드 → root-caused (see below). Their SDK matrix is from the **direct-dex presence
+  scan** (reliable); behavior-sweep capability-shapes on them are limited (dex2jar output is unsafe here).
+
+### dex2jar failure root-cause + recovery (슈퍼SOL은행 / 카드)
+Both flagship apps fail dex2jar with `IllegalArgumentException: UTF8 string too large` (ASM `ByteVector.putUTF8`) —
+a class holds a **string constant > 64 KB**, over the JVM `CONSTANT_Utf8` limit (65535 B). Two failure modes:
+- **whole-apk mode** → propagates the exception → **hard 0-byte jar**.
+- **per-dex mode** → **exits 0 but silently drops** the offending class(es): the "recovered" sbank jar had 34154
+  classes yet **0 `com.infinigru`** even though infinigru is really in `classes15.dex` (312 refs) + `classes9.dex`.
+  ⇒ **per-dex here = silent data loss; its class list is not trustworthy.**
+
+**Reliable paths (used):** (1) **direct-dex presence scan** (raw grep on `classesN.dex`) — this is why the SDK matrix
+above correctly lists infinigru for sbank while dex2jar missed it; (2) **jimple2cpg reads DEX directly** (Soot
+dexpler, no 64 KB limit) — proven by wrapping `classes15.dex` as a minimal apk → `jimple2cpg` built a valid CPG with
+the real classes (also surfaced `com.inzisoft` eKYC in that dex) where dex2jar produced nothing. Lesson recorded in
+ROADMAP G-9: **a converter exiting 0 ≠ a complete jar — always cross-check the class count against the source dex.**
 
 ## Carved artifacts (local only)
 `~/Downloads/coocon/carve_shinhansec_kr/` · `~/Downloads/coocon/carve_shinhanjeohuk_kr/` (kr/co/coocon class trees).

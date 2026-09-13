@@ -213,6 +213,22 @@ Reframed from "Coocon customer" OSINT to **iSAS/smart-scraping supply history + 
   **G-7 confirmed**: no host code calls `HttpListener` → iSASService not started on-device. **Gaps (honest):** full
   per-root CPG/CodeQL not run on every root (Coocon got it); infinigru+interezen full source→sink = follow-on;
   슈퍼SOL은행+카드 need an alt converter (enjarify/jadx-jar) for a carved CPG (presence-level only for now).
+- [x] **G-9 dex2jar-failure root-cause + recovery (2026-09-13) — RESOLVED.** **Root cause NOT OOM / NOT dex version**
+  (035/037 both fine): dex2jar's ASM backend throws `IllegalArgumentException: UTF8 string too large` at
+  `ByteVector.putUTF8` — a class holds a **string constant > 64 KB**, overflowing the JVM class-file `CONSTANT_Utf8`
+  limit (65535 B; common when an app embeds a large blob — web bundle / cert / JSON / minified JS — as a Java string).
+  Affected 슈퍼SOL은행 (19 dex) + 카드 (15 dex); here **all 19 sbank dexes** hit it. **TWO distinct failure modes:**
+  (a) **whole-apk mode** propagates the exception → **hard 0-byte jar**; (b) **per-dex mode exits 0 but silently
+  drops** the offending class(es) → a jar that *looks* complete (34154 cls) but is **missing packages** — verified:
+  the per-dex sbank jar had **0 `com.infinigru` classes** though infinigru is really in `classes15.dex` (312 refs) +
+  `classes9.dex`. **⇒ per-dex is UNSAFE here (silent data loss); do NOT trust its class list.** **Reliable paths
+  (both used):** (1) **direct-dex presence scan** (raw `grep` on `classesN.dex`) — what the G-8 SDK matrix used, and
+  why it correctly found infinigru in sbank while dex2jar missed it; (2) **jimple2cpg reads DEX/APK directly** (Soot
+  dexpler, no 64 KB limit) — proven: wrapped `classes15.dex` as a minimal apk → `jimple2cpg` built a CPG with the
+  real classes (surfaced `com.inzisoft` eKYC too) where dex2jar produced nothing. **Tooling TODO (filed):**
+  `carve.sh`/`packer-detect.py` must (i) detect "UTF8 too large", (ii) NEVER treat an exit-0 dex2jar run as complete
+  without a class-count sanity check vs the dex, (iii) auto-fall back to **jimple2cpg-direct** (not per-dex) or the
+  direct-dex scan. Lesson: **a converter exiting 0 ≠ a complete jar — cross-check against the source dex.**
 
 ---
 
