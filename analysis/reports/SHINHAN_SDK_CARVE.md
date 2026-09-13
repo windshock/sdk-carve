@@ -62,13 +62,25 @@ mean the code is un-obfuscated. Two obfuscation layers are present:
    *keep* the names of bundled libraries/SDKs (Coocon `kr/co/coocon`, PKI vendors, AhnLab, androidx, kotlin) and
    rename mainly their own business logic. The 3 negatives are R8-renamed the same way (app logic renamed, libs kept).
    → **This is why fingerprinting/carve works at all: the Coocon package names are preserved** (951 / 714 classes).
-2. **Method-level control-flow obfuscation on the Coocon SDK's sensitive method** — the real anti-analysis layer.
+2. **Method-level control-flow obfuscation on the Coocon SDK's sensitive method — DEFEATED this pass.**
    `ScriptManager.updateScript` is exception-table-flattened: **신한저축 = 1033 exception-table rows / 2240 instrs;
    신한증권 = 819 rows / 1466 instrs** (a normal method has single digits). This defeats every stock decompiler
-   (CFR/jadx/Vineflower/Fernflower/Corpseflower — established on the reference build) and requires the
-   `ExFlattenNormalize` ASM normalizer to recover source. 신한저축's 1033 rows match the reference build exactly.
+   (CFR/jadx/Vineflower/Fernflower/Corpseflower). We did **not** leave it there — ran the `ExFlattenNormalize`
+   (`CooconDeobf`) ASM normalizer (`--redundant --split --unify`) on both Shinhan builds:
+   - 신한증권: exception-table `819→39` (−217 redundant), gotos `48→11`, node-split `+37` → **CFR clean, 0 errors**.
+   - 신한저축 v2.2.9: `1033→40` (−295), gotos `39→8`, split `+31` → **CFR clean, 0 errors** — pass counts match the
+     reference build exactly (same SDK build).
 
-Net: **not un-obfuscated** — R8 on the host app + heavy CFO on the Coocon channel; only the *packer* is absent.
+   The recovered source confirms the protocol **1:1 at source level** in both:
+   `getInterfaceVersion()` branch `"01"`(plaintext GZip) / `"02"`(JSON+AES); `SecureRandom.nextBytes(seed)` →
+   `MessageDigest(SHA-256).digest()` = key; IV = `Bytes.bytesToHexString(key).substring(0,16)`;
+   `new Socket()`→`InetSocketAddress(this.q,this.r[i])`; response `GZip.unzip(AESCipher.decrypt(..))` →
+   `JSONObject.parse` → `.get(o/n/p)` = ResultCode/ScriptVersion/Script; `"0000"` store / `"0001"` up-to-date.
+   **Grep for `Signature`/`verify`/`RSA`/`MAC` in the recovered `updateScript` = 0** in both → no integrity gate,
+   confirming the L4 finding at *source* level (not just javap-structural). Recovered source local only, not committed.
+
+Net: **not un-obfuscated** — R8 on the host app + heavy CFO on the Coocon channel (now decompiled); only the
+*packer* is absent.
 
 ## CPG (Joern) — source→sink, run on the two carriers this pass
 Ran `jimple2cpg` (`-Xmx6g`) on the carved `kr/co/coocon` jars (798 / 1048 classes) and queried the channel.
