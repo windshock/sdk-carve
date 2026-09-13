@@ -185,7 +185,7 @@ propagation signal — obfuscation/DEX-ordering/host-build differ; normalized co
   (normalized method bytecode) — the remaining step (G-3 code_hash). We claim structural + api-shape, not byte.
 - Extractor: `dexdump` defined-class-defs via a container-walker (apk/xapk/apks/jar) → `coocon-buildfamily.sh`.
 
-## NEGATIVE (L3-neg) — no in-APK iSAS channel (readable dex; server-side/ASP/cloud, or shielder-but-plaintext)  · 22
+## NEGATIVE (L3-neg) — no in-APK iSAS channel (readable dex/unpacked; server-side/ASP/cloud, shielder-plaintext, or unpacked)  · 23
 | App | package | why negative |
 |---|---|---|
 | 테이블링 | `com.mealant.tabling` | CheckPay PG not an in-APK SDK |
@@ -210,6 +210,7 @@ propagation signal — obfuscation/DEX-ordering/host-build differ; normalized co
 | 삼성화재 라운지 | `sam.myanycar.samsungFire` | readable, no iSAS |
 | 카카오페이 | `com.kakaopay.app` | readable, no iSAS |
 | 토스 | `viva.republica.toss` | readable (860 class-desc/MB, this apk-pure build not string-enc), no iSAS |
+| KB Pay | `com.kbcard.cxh.appcard` | **APKSHIELD white-box packer — statically UNPACKED** (unidbg keys→offline AES-CBC→14 real dexes); real code has 0 iSAS |
 
 ### AppIron finding — static "unpacking" resolved: nothing to unpack (2026-09-12)
 The 8 apps previously marked INDETERMINATE were **AppIron-shielded but their DEX is PLAINTEXT** — static-analysis
@@ -221,11 +222,10 @@ needed, and **all 8 are genuine NEGATIVES** for the vulnerable channel (any Cooc
 ASP/cloud cases). **Tool correction:** `coocon-fingerprint.sh` no longer emits INDETERMINATE on mere shielder-`.so`
 presence — it decides on **actual readable class-descriptor density** (INDETERMINATE only when the dex is truly
 stripped/encrypted, e.g. Toss-class string encryption). This removed 8 false-INDETERMINATEs.
-### INDETERMINATE — genuinely packed (stub dex + encrypted payload) · 1
-| App | package | why |
-|---|---|---|
-| KB Pay | `com.kbcard.cxh.appcard` | **stub dex** (1 dex, 212 class-descriptors <300) → real code encrypted by a NON-AppIron packer. Correct INDETERMINATE (contrast AppIron=plaintext). Needs real unpack to decide. |
-> This is the *correct* use of INDETERMINATE — a truly unreadable dex — vs the 8 AppIron apps (plaintext → NEGATIVE).
+### INDETERMINATE — genuinely packed, unresolved · 0
+> KB Pay (com.kbcard.cxh.appcard, APKSHIELD white-box-AES packer) was the one INDETERMINATE — now **statically UNPACKED**
+> (unidbg key-extraction → offline AES-128-CBC → 14 real dexes) and resolved to NEGATIVE (0 iSAS markers in the real code).
+> See analysis/reports (APKSHIELD unpack) + packer-detect.py APKSHIELD note. No app currently INDETERMINATE.
 
 ## PENDING acquisition (zero versions on APKPure / apkmirror unconfigured — need official-channel APK)  · 6
 | App | package | note |
@@ -249,8 +249,8 @@ Enumerate the 비즈플레이(주) Play developer account and fingerprint the lo
 비즈플레이, IBK 법인카드, BZPEXPENSE. Also worth: other 웹케시 apps (경리나라 계열). Same one-folder-per-app → fingerprint flow.
 
 ## Tally & lessons
-- **39 carriers (L3)** · **22 negatives** · **1 indeterminate** (KB Pay = genuinely packed/stub dex; the 8 AppIron
-  ones are readable NEGATIVES — RASP-only) · 13 pending. 62 APKs fingerprinted.
+- **39 carriers (L3)** · **23 negatives** · **0 indeterminate** (KB Pay APKSHIELD packer statically unpacked → NEGATIVE;
+  8 AppIron apps are readable NEGATIVES — RASP-only) · 13 pending. 62 APKs fingerprinted.
 - Latest batch (financial/pay): NH기업뱅크·네이버페이 = carriers; KB스타기업·신한슈퍼SOL·현대카드·삼성화재·카카오페이·토스 = readable
   NEGATIVES (big pay/portal apps that do NOT bundle iSAS); KB Pay = genuinely packed (real INDETERMINATE).
   VT batch = 9/9 fingerprinted are carriers: KB스타뱅킹, KB저축, NH콕뱅크, **InBody, GC케어, 웰체크 (healthcare)**,

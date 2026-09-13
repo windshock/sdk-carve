@@ -115,7 +115,12 @@ SIGS = [
             "filesDir/asorg.zip -> real dexes -> newApplication(real). Native: libwbaes (decWbAesInit/Update/"
             "DoFinal, BcCreateAndInitWhiteBox), libIWAndroid (Penta ISSAC BCIPHER_Decrypt), libahope_[no] "
             "(apkshield_native/obfuscation.c, RegisterNatives). Self-string 'APKSHIELD_USE_CLASS_LOADER_LIB'. "
-            "Static unpack = xShield Phase-2 unidbg emul of the WBAES decrypt (tables+asorg); real code is BLIND to carve."),
+            "STATIC UNPACK (DEFEATED, no device/Frida): the white-box only protects KEY DERIVATION, not bulk "
+            "crypto. unidbg-load the 4 libs, Native.callMethodV(\"I\") + callMethodW(\"WI\",assets/tables) [wb init], "
+            "then direct-symbol call callMethod(\"K\",idx) idx 0..3 -> four 16-byte AES keys; then OFFLINE "
+            "AES-128-CBC (asorg = key idx 0, IV = the hardcoded 16-byte string-crypto IV from Native.b) -> PK zip "
+            "of the real dexes. Verified: KB Pay com.kbcard.cxh.appcard -> 14 dexes recovered. Harness pattern in "
+            "AppShield/kbpay/WbKeyExtract.java (local)."),
   dict(name="AppIron", vendor="SFA (앱아이언)", category="shielder",
        libs=[r"libAppIron-(jni_v[0-9.]+|Suite|RemoteBan-jni_[0-9.]+)\.so"],
        impact=dict(strings=False, dex=False, rasp=True),
