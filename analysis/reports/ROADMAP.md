@@ -204,9 +204,15 @@ Reframed from "Coocon customer" OSINT to **iSAS/smart-scraping supply history + 
   starts it (standalone JVM); the on-device path is `SASManager.initInstance() → connect OUT to
   isas.coocon.co.kr:443:80`. This is the "방화벽 확인" SAS-proxy architecture; the `c="127.0.0.1:1024:1025"` field is
   the dormant local-proxy default. Confirm against whole-app grep (G-8) that no host code calls HttpListener.
-- [~] **G-8 신한 whole-app sdk-carve (IN PROGRESS, 2026-09-13)** — dex2jar each of the 5 apps → `behavior-sweep.py`
-  to enumerate ALL bundled SDK roots (not just Coocon) → carve every non-`~` flagged root (PKI/AV/adtech) + run the
-  full analyzer set per SKILL.md triage step 4. Also verifies no host code invokes the iSASService (G-7).
+- [~] **G-8 신한 whole-app sdk-carve (2026-09-13, SHINHAN_SDK_CARVE.md — mostly done, gaps noted)** — dex2jar +
+  `behavior-sweep.py` on 저축/증권/생명 (24928/33520/64262 classes); flagship 슈퍼SOL은행+카드 hard-fail dex2jar → direct-dex
+  root scan. **Per-app SDK matrix** built for all 5. Non-Coocon collectors surfaced (missed by Coocon-only carve):
+  **infinigru PhishingEyes** (4/5 apps — installed-app list + **APK-file upload** → pelib.phishingeyes.com),
+  **interezen IPInside** (저축 — MAC/IP fingerprint), **drfn/dooriworld** (증권 — plain-HTTP bare-IP 218.38.18.171,
+  same as M-STOCK), + martech (Insider/Airbridge/Hackle/AppsFlyer) + PKI/AV (Raon/WIZVERA/INITECH/AhnLab/nProtect).
+  **G-7 confirmed**: no host code calls `HttpListener` → iSASService not started on-device. **Gaps (honest):** full
+  per-root CPG/CodeQL not run on every root (Coocon got it); infinigru+interezen full source→sink = follow-on;
+  슈퍼SOL은행+카드 need an alt converter (enjarify/jadx-jar) for a carved CPG (presence-level only for now).
 
 ---
 

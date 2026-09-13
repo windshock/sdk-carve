@@ -203,6 +203,58 @@ adapted scripts `/tmp/coocon_{ss,sinks,reach,sc}.sc`, `/tmp/qlpack/flows.ql`, `/
   were only string-counted in the inventory table, not carved+analyzed. The 3 negatives got fingerprint+inventory,
   not a full per-SDK carve (no Coocon target in them).
 
+## Whole-app sdk-carve (G-8) — ALL bundled SDKs, not just Coocon
+Per SKILL.md triage: dex2jar the whole app → `behavior-sweep.py` (family-agnostic capability-cluster) → carve every
+non-`~` flagged root. dex2jar succeeded on 신한저축/증권/생명 (149/40/80 MB jars, 24928/33520/64262 classes); the two
+**flagship apps 슈퍼SOL은행 + 카드 hard-fail dex2jar** (`Dex2jar.doTranslate` error → 0-byte jar, even per-dex + `-Xmx6g`)
+— for those the SDK set was recovered by a **direct-dex package-root scan** (works without dex2jar).
+
+### Per-app SDK matrix (✓ = package root present in the shipped APK)
+| SDK (vendor / purpose) | 저축 | 증권 | 슈퍼SOL은행 | 생명 | 카드 |
+|---|:--:|:--:|:--:|:--:|:--:|
+| **Coocon iSAS** (scraping / server-JS-eval channel) | ✓ | ✓ | | | |
+| **infinigru PhishingEyes** (anti-phishing: installed-app list + **APK-file upload** → `pelib.phishingeyes.com`) | ✓ | | ✓ | | ✓ |
+| **interezen IPInside** (real-IP / device fingerprint: MAC/conn/applist → openConnection) | ✓ | | | | |
+| **Insider** (`useinsider` martech / engagement) | | ✓ | | | |
+| **Airbridge** (`ab180` attribution) | | ✓ | | | |
+| **Hackle** (`io.hackle` A/B + analytics) | | | | ✓ | |
+| **AppsFlyer** (attribution) | ✓ | | | | |
+| **drfn / dooriworld** (chart SDK — **plain-HTTP bare-IP** `218.38.18.171/smartPhone/{dnload,uploads}`) | | ✓ | | | |
+| AhnLab V3 (AV) | ✓ | ✓ | | ✓ | ✓ |
+| RaonSecure (TouchEn/OnePass keypad/FIDO) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| WIZVERA Delfino (PKI) | ✓ | | | | ✓ |
+| INITECH (PKI/SSO) | | ✓ | ✓ | ✓ | |
+| nProtect seculog / secuchart | | ✓ | | ✓(secuchart) | |
+
+Read-out: **carrier status (Coocon) is orthogonal to the rest of the stack** — every Shinhan app carries a
+RaonSecure keypad + a PKI vendor + (usually) AhnLab AV; on top of that each app bundles *different* data SDKs.
+The **notable non-Coocon collectors** the whole-app pass surfaced (would have been missed by a Coocon-only carve):
+
+- **infinigru PhishingEyes (4 of 5 apps).** `PeBackgroundService`/`PeJobService` + `ReportTargetWorker` →
+  `getInstalledPackages`; `SendApkFileWorker` + `ApiRequestService.sendApkFileByRequest`/`send_large_apk` →
+  **uploads installed APK files (chunked) to `https://pelib.phishingeyes.com/v1`**. Legitimate anti-fraud purpose,
+  but a high-privacy capability (full installed-app inventory + APK bytes leave the device). Behavior-sweep flagged
+  it 6-cat incl. `evade`+`persist`+`dyn.load`.
+- **interezen IPInside (저축).** `info/*` → `getHardwareAddress`/`getMacAddress`/`getConnectionInfo`/
+  `getInstalledPackages` → `openConnection`. Client device/network fingerprint agent.
+- **drfn/dooriworld chart (증권).** Chart data over **plain HTTP to a bare IP** (`218.38.18.171/smartPhone/*`) —
+  same hygiene flag found earlier in M-STOCK; cross-app confirmed.
+- Martech/attribution (Insider, Airbridge, Hackle, AppsFlyer) — expected analytics, listed for completeness.
+
+**iSASService (G-7) whole-app closure:** grep of the full 저축/증권 jars shows **no host code
+(`com.shinhan*`/`com.shinhaninvest*`) references `HttpListener`** — only Coocon's own package does → the bundled
+local HTTPS server is confirmed **not started on-device**.
+
+### Honest scope of the analyzer depth (do not over-claim)
+- **Coocon carve** got the FULL mandated set (class-map + Joern source/sink + reachability + CodeQL + Semgrep +
+  scope-closure + cross-verify) on both carriers.
+- **Other flagged roots** got behavior-sweep + carve + `class-map.py` + endpoint identification (the fast deep pass
+  that yields the SDK verdict). A full per-root Joern/CodeQL/scope-closure pass was **not** run on every root
+  (~15 roots × up to 5 apps). Remaining mandated work (flagged): full CPG source→sink on the two high-privacy
+  collectors **infinigru** (APK-upload path) and **interezen** (fingerprint→network).
+- dex2jar hard-failed on 슈퍼SOL은행 + 카드 → their inventory is from the direct-dex root scan (presence-level), not a
+  carved CPG. Alternate converter (e.g. `enjarify`/jadx-jar) is the follow-on to carve those two.
+
 ## Carved artifacts (local only)
 `~/Downloads/coocon/carve_shinhansec_kr/` · `~/Downloads/coocon/carve_shinhanjeohuk_kr/` (kr/co/coocon class trees).
 Not committed.
