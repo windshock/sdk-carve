@@ -234,9 +234,36 @@ Reframed from "Coocon customer" OSINT to **iSAS/smart-scraping supply history + 
   trust an exception message's *implied* cause — measure it (the "too large string" was a 65530-param method); (ii)
   exit 0 ≠ complete jar.**
 
+## H. DEX anti-decompilation — skill + protector families (AppSuit / EverSafe)  — ACTIVE
+Spun out of G-9: the anti-analysis constructs are a study of their own. New skill
+`.agents/skills/dex-anti-decompile/` + local doc/evidence workspace `~/Downloads/dex-anti-decompilation/`.
+- [x] **H-1 skill `dex-anti-decompile`** — `detect-anti-decompile.py` (DEX-parse descriptor-bomb detector, exit 2)
+  + `check-flattening.sh` (post-conversion javap exception-row detector). Two families: descriptor bomb
+  (anti-converter) vs exception-flattening (anti-decompiler); both exploit the **DEX↔JVM impedance mismatch** →
+  Soot/jimple2cpg (dalvik-direct) is immune. Verified: 19 bomb hits 슈퍼SOL / 819–1033 rows Coocon updateScript.
+- [x] **H-2 AppSuit (STEALIEN, Variant A) analysis-prep** — `~/Downloads/AppSuit/` (3 apps staged: 슈퍼SOL은행/
+  하나원큐/모니모). Attribution: `libAppSuit.so` + `APPSUIT`/`AppSuit` strings + `STL*` classes; bomb
+  `STLudc.a_stl_d2j_lock` 65,530 params.
+- [x] **H-3 EverSafe (Everspin, Variant B) analysis-prep** — `~/Downloads/EverSafe/` (6 apps staged, all Coocon
+  carriers: 부산은행/NH올원·스마트·콕·기업/우리WON). Attribution: `libeversafe.so`+`libeversafe-loader.so` (6/6, absent
+  in A/clean = clean discriminator); bomb `L<class>$$0;.a` 65,534 params. ⇒ these carriers need jimple2cpg-direct.
+- [x] **H-4 workspace recorded** — README, techniques/{01-flattening,02-bomb}.md, evidence/findings.md,
+  prior-art-and-taxonomy.md (6–8-family taxonomy, Cross-IR Differential Anti-Analysis framing, prior art, corrections:
+  uint32 type_list / JVM 255-param & 65535-UTF8 double limit / invoke 8-bit → not-callable tool bomb), tooling-landscape.md.
+- [ ] **H-5 tooling roadmap (from OSS-landscape review)** — (a) evolve `ExFlattenNormalize` from an ASM
+  `.class` post-processor to a **DEX-native pass** (ReDex custom pass / dexlib2) so the `.class` round-trip is avoided
+  entirely; (b) add **`strip-anti-decompile`** (dexlib2) — remove the bomb **method/proto reference** (NOT the whole
+  class, since the bomb rides real classes) → dex2jar works again; (c) an **Androguard CFG predictor** that flags
+  DEX methods whose CFG will explode the `.class` exception table (predict flattening pre-conversion); (d) a
+  **tool × technique compatibility matrix** (Deoptfuscator/ReDex/Simplify/jadx/Enjarify/dex2jar × flattening/bomb) —
+  turns the notes into a benchmark result. Ref: Deoptfuscator (IEEE Access 2022, BH USA 2020 Arsenal; DexGuard CFF,
+  not this exception-flattening), ReDex, Simplify, google/smali+dexlib2, Androguard(dex-bytecode), Enjarify, jimple2cpg.
+- [ ] **H-6 protector native-lib RE** — `libAppSuit.so` / `libeversafe.so`(+loader): RASP checks + how/where the
+  descriptor bomb is injected + AppSuit(65530) vs EverSafe(65534) param-count/scheme diff. (ghidra2cpg native track.)
+
 ---
 
-### Status (2026-09-12) — tracks A–F CLOSED; track G ACTIVE
+### Status (2026-09-13) — tracks A–F CLOSED; G + H ACTIVE
 **A–F done.** The Coocon deep-dive went beyond scope: impact = in-process RCE, **live E2E RCE on all 4 original
 apps**, decompiler-resistance defeated (reusable ASM deobfuscator), `updateScript` source recovered.
 
