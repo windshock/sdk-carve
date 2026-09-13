@@ -41,6 +41,13 @@ rebuild the JVM **method descriptor** `(L…;L…;… ×65530)V`, which overflow
   output class count against the source dex.** (Real case: a per-dex "recovery" jar had 34154 classes yet 0
   `com.infinigru`, because infinigru's dexes were the bombed ones.)
 
+**Two variants observed in the wild (fleet sweep, 9/88 KR apps, 2026-09):**
+- **Variant A — STEALIEN AppSuit (confirmed):** class `STLudc`/`STL*` prefix, method `a_stl_d2j_lock`, 65,530
+  params; app carries `APPSUIT`/`AppSuit` strings. Seen: 신한 슈퍼SOL은행, 하나원큐, 삼성 모니모.
+- **Variant B — unattributed protector:** synthetic class `L<realclass>$$0;` (appended to androidx/3rd-party
+  classes), method `a`, **65,534** params, no name marker. Seen: 부산은행, NH올원/스마트/콕/기업, 우리WON.
+`detect-anti-decompile.py` catches both via the shorty-length rule (markers only add names for A).
+
 **Do NOT mis-diagnose it as "a >64 KB string constant/embedded blob."** Verify the *actual* cause: parse the
 DEX string table — if no string exceeds 65535 B, it is the descriptor bomb, not a data string. (Lesson: don't
 trust an exception message's *implied* cause; measure it.)
