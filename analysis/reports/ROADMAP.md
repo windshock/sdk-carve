@@ -213,22 +213,26 @@ Reframed from "Coocon customer" OSINT to **iSAS/smart-scraping supply history + 
   **G-7 confirmed**: no host code calls `HttpListener` → iSASService not started on-device. **Gaps (honest):** full
   per-root CPG/CodeQL not run on every root (Coocon got it); infinigru+interezen full source→sink = follow-on;
   슈퍼SOL은행+카드 need an alt converter (enjarify/jadx-jar) for a carved CPG (presence-level only for now).
-- [x] **G-9 dex2jar-failure root-cause + recovery (2026-09-13) — RESOLVED.** **Root cause NOT OOM / NOT dex version**
-  (035/037 both fine): dex2jar's ASM backend throws `IllegalArgumentException: UTF8 string too large` at
-  `ByteVector.putUTF8` — a class holds a **string constant > 64 KB**, overflowing the JVM class-file `CONSTANT_Utf8`
-  limit (65535 B; common when an app embeds a large blob — web bundle / cert / JSON / minified JS — as a Java string).
-  Affected 슈퍼SOL은행 (19 dex) + 카드 (15 dex); here **all 19 sbank dexes** hit it. **TWO distinct failure modes:**
-  (a) **whole-apk mode** propagates the exception → **hard 0-byte jar**; (b) **per-dex mode exits 0 but silently
-  drops** the offending class(es) → a jar that *looks* complete (34154 cls) but is **missing packages** — verified:
-  the per-dex sbank jar had **0 `com.infinigru` classes** though infinigru is really in `classes15.dex` (312 refs) +
-  `classes9.dex`. **⇒ per-dex is UNSAFE here (silent data loss); do NOT trust its class list.** **Reliable paths
-  (both used):** (1) **direct-dex presence scan** (raw `grep` on `classesN.dex`) — what the G-8 SDK matrix used, and
-  why it correctly found infinigru in sbank while dex2jar missed it; (2) **jimple2cpg reads DEX/APK directly** (Soot
-  dexpler, no 64 KB limit) — proven: wrapped `classes15.dex` as a minimal apk → `jimple2cpg` built a CPG with the
-  real classes (surfaced `com.inzisoft` eKYC too) where dex2jar produced nothing. **Tooling TODO (filed):**
-  `carve.sh`/`packer-detect.py` must (i) detect "UTF8 too large", (ii) NEVER treat an exit-0 dex2jar run as complete
-  without a class-count sanity check vs the dex, (iii) auto-fall back to **jimple2cpg-direct** (not per-dex) or the
-  direct-dex scan. Lesson: **a converter exiting 0 ≠ a complete jar — cross-check against the source dex.**
+- [x] **G-9 dex2jar-failure root-cause — RESOLVED (2026-09-13; CORRECTED after a skepticism check).** First guess
+  ("a > 64 KB embedded string constant") was **WRONG.** Parsed the dex string table directly: **no string exceeds
+  65535 B** (max = 65531). Real cause = a **deliberate anti-dex2jar bomb**: a synthetic class **`STLudc`** with method
+  **`a_stl_d2j_lock`** ("d2j lock") whose proto has a **65,530-parameter `type_list`** (shorty `V`+65530×`L`,
+  confirmed by parsing proto_ids). DEX stores params in an unbounded `type_list`; dex2jar must rebuild the JVM
+  **method descriptor** `(L…;×65530)V`, which overflows the class-file `CONSTANT_Utf8` 65535-B limit → ASM
+  `IllegalArgumentException: UTF8 string too large` (stack: `collectBasicMethodInfo→visitMethod→MethodWriter.<init>→
+  addConstantUtf8→putUTF8`). Legal in DEX/ART, unrepresentable in a `.class` → defeats dex2jar and any dalvik→.class
+  round-trip (jadx-to-jar, enjarify), NOT Soot/ART. **Scope corrected:** bomb is **only in 슈퍼SOL은행** (11 of 19
+  dexes carry `a_stl_d2j_lock`); **신한카드 has NO bomb** — its whole-apk dex2jar merely hung on 118k classes and
+  **per-dex fully recovered it (123,664 cls, verified complete — infinigru/AhnLab/WIZVERA/Raon all present)** →
+  behavior-swept OK. **Two failure modes:** (a) whole-apk → propagates → 0-byte jar; (b) per-dex on a bombed dex →
+  **exits 0 but silently drops** that dex's classes (why infinigru vanished from the sbank per-dex jar though it's in
+  classes15/9.dex). **Reliable paths (used/proven):** (1) **direct-dex presence scan** (raw grep — the G-8 matrix,
+  correct); (2) **jimple2cpg reads DEX/APK directly** (Soot dexpler, no 64 KB limit) — proven on `classes15.dex`
+  (also surfaced `com.inzisoft` eKYC). **Tooling TODO:** add an **anti-dex2jar detector** to `packer-detect.py`
+  (proto shorty length > ~1000, or `STLudc`/`a_stl_d2j_lock` markers) → distinct verdict + auto-fall-back to
+  jimple2cpg-direct; `carve.sh` must class-count-sanity-check any exit-0 dex2jar run vs the dex. **Lessons: (i) don't
+  trust an exception message's *implied* cause — measure it (the "too large string" was a 65530-param method); (ii)
+  exit 0 ≠ complete jar.**
 
 ---
 

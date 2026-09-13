@@ -255,19 +255,45 @@ local HTTPS server is confirmed **not started on-device**.
 - dex2jar failed on 슈퍼SOL은행 + 카드 → root-caused (see below). Their SDK matrix is from the **direct-dex presence
   scan** (reliable); behavior-sweep capability-shapes on them are limited (dex2jar output is unsafe here).
 
-### dex2jar failure root-cause + recovery (슈퍼SOL은행 / 카드)
-Both flagship apps fail dex2jar with `IllegalArgumentException: UTF8 string too large` (ASM `ByteVector.putUTF8`) —
-a class holds a **string constant > 64 KB**, over the JVM `CONSTANT_Utf8` limit (65535 B). Two failure modes:
-- **whole-apk mode** → propagates the exception → **hard 0-byte jar**.
-- **per-dex mode** → **exits 0 but silently drops** the offending class(es): the "recovered" sbank jar had 34154
-  classes yet **0 `com.infinigru`** even though infinigru is really in `classes15.dex` (312 refs) + `classes9.dex`.
-  ⇒ **per-dex here = silent data loss; its class list is not trustworthy.**
+### dex2jar failure root-cause + recovery (CORRECTED — it's an anti-dex2jar bomb, not a big string)
+The first explanation ("a > 64 KB string constant / embedded blob") was **WRONG** — dex string-table parsing shows
+**no string exceeds 65535 B** (max = 65531). The exception `UTF8 string too large` (ASM `putUTF8`) fires because
+dex2jar rebuilds a **JVM method descriptor** that overflows the class-file `CONSTANT_Utf8` limit — and the offending
+method is a **deliberate anti-dex2jar bomb**: class **`STLudc`**, method **`a_stl_d2j_lock`** ("d2j lock"), a proto
+with a **65,530-parameter `type_list`** (shorty `V`+65530×`L`, confirmed by parsing proto_ids/method_ids). DEX's
+`type_list` is unbounded; the reconstructed `(L…;×65530)V` descriptor is not → legal on ART, unrepresentable in a
+`.class`, so it breaks dex2jar (and jadx-to-jar/enjarify) but not Soot/ART.
+
+**Scope corrected:** the bomb is **only in 슈퍼SOL은행** (`a_stl_d2j_lock` in **11 of 19 dexes**). **신한카드 has NO bomb**
+— its whole-apk dex2jar merely hung on 118k classes; **per-dex fully recovered it (123,664 classes, verified complete:
+infinigru/AhnLab/WIZVERA/Raon all present)** and behavior-swept cleanly (see below).
+
+Two failure modes: **whole-apk** → propagates → **0-byte jar**; **per-dex on a bombed dex** → **exits 0 but silently
+drops** that dex's classes (why the sbank per-dex jar had 34154 classes yet **0 `com.infinigru`** though infinigru is
+in `classes15`/`classes9.dex`). ⇒ **per-dex is UNSAFE on the bombed app; its class list is not trustworthy.**
 
 **Reliable paths (used):** (1) **direct-dex presence scan** (raw grep on `classesN.dex`) — this is why the SDK matrix
 above correctly lists infinigru for sbank while dex2jar missed it; (2) **jimple2cpg reads DEX directly** (Soot
 dexpler, no 64 KB limit) — proven by wrapping `classes15.dex` as a minimal apk → `jimple2cpg` built a valid CPG with
 the real classes (also surfaced `com.inzisoft` eKYC in that dex) where dex2jar produced nothing. Lesson recorded in
 ROADMAP G-9: **a converter exiting 0 ≠ a complete jar — always cross-check the class count against the source dex.**
+
+### 신한카드 whole-app behavior-sweep (per-dex fully recovered, 118205 classes) — additional SDKs
+With card's complete jar, behavior-sweep surfaced data SDKs beyond the direct-dex matrix:
+| root | vendor / purpose | cats |
+|---|---|---|
+| `com/buzzvil/buzzad/benefit` | **Buzzvil BuzzAd** (lockscreen ad / offerwall) | 7 (applist·identity·dyn.load·evade·persist·network·webview) |
+| `com/infinigru/pelib` | **PhishingEyes** (confirms the matrix) | 6 |
+| `com/paypal/android/lib` | **PayPal** SDK | 6 (+netsurvey·location) |
+| `com/loplat/placeengine` | **loplat** (WiFi/place location analytics) | 5 (location·netsurvey·persist·network) |
+| `com/visa/cbp` | **Visa Cloud-Based Payments** (tokenization) | 4 |
+| `com/ahnlab/enginesdk`, `v3mobileplus` | AhnLab V3 (AV) | 4 |
+
+So 신한카드 adds **Buzzvil (offerwall)**, **loplat (location tracking)**, **PayPal**, **Visa CBP** to the fleet's SDK
+picture — none Coocon-related, but Buzzvil+loplat are notable data collectors (offerwall lockscreen + place analytics).
+
+**Remaining (honest):** 슈퍼SOL은행's bombed dexes still need jimple2cpg-direct (or STLudc-strip) for a full carved
+behavior-sweep — its SDK set is currently direct-dex presence-level only. 신한카드 is now fully covered.
 
 ## Carved artifacts (local only)
 `~/Downloads/coocon/carve_shinhansec_kr/` · `~/Downloads/coocon/carve_shinhanjeohuk_kr/` (kr/co/coocon class trees).
