@@ -210,7 +210,7 @@ propagation signal — obfuscation/DEX-ordering/host-build differ; normalized co
 | 삼성화재 라운지 | `sam.myanycar.samsungFire` | readable, no iSAS |
 | 카카오페이 | `com.kakaopay.app` | readable, no iSAS |
 | 토스 | `viva.republica.toss` | readable (860 class-desc/MB, this apk-pure build not string-enc), no iSAS |
-| KB Pay | `com.kbcard.cxh.appcard` | **APKSHIELD white-box packer — statically UNPACKED** (unidbg keys→offline AES-CBC→14 real dexes); real code has 0 iSAS |
+| KB Pay | `com.kbcard.cxh.appcard` | **APKSHIELD white-box packer — statically UNPACKED** (unidbg keys→offline AES-CBC→14 real dexes); real code has **0 Coocon (ANY component)** — payment & MyData are in-house `com.kbcard.*`; the CheckPay/MyData/isas hits are false-positives (`CheckPayment…`/KB MyData/`disassemble`) |
 
 ### AppIron finding — static "unpacking" resolved: nothing to unpack (2026-09-12)
 The 8 apps previously marked INDETERMINATE were **AppIron-shielded but their DEX is PLAINTEXT** — static-analysis
