@@ -189,6 +189,21 @@ Reframed from "Coocon customer" OSINT to **iSAS/smart-scraping supply history + 
   ACT, BNK캐피탈, 보맵플래너, 비씨카드 비즈플레이, 서울Pay+, 제주 탐나는전.
 - [ ] **G-4 L3→L4** on one representative app per build-family (javap b/sig/ClassShutter) → then **G-5 vendor
   disclosure** scoped by build-family representative. (Growing 37→50 < proving how few builds they collapse into.)
+  **⚠ dependency (2026-09-13):** the **EverSafe-bombed carriers (부산은행/NH올원·스마트·콕·기업/우리WON)** can't be
+  dex2jar'd → their L4 (javap) is **blocked** until the **Track H bypass** (jimple2cpg-direct or dexlib2 bomb-strip).
+  L3 fingerprint + build-family map are unaffected (coocon-fingerprint/dexdump read DEX directly, bomb-immune); only
+  the javap/decompile-level deep-confirm needs the bypass. Pick a non-bombed representative per family where possible.
+- [ ] **G-10 non-Coocon collector triage (from G-8 whole-app carve)** — the Shinhan whole-app pass surfaced data
+  SDKs worth their own triage, priority by privacy impact: **infinigru PhishingEyes** (installed-app inventory +
+  **APK-file upload** → pelib.phishingeyes.com; in 4/5 Shinhan apps) > **interezen IPInside** (MAC/IP/applist
+  fingerprint) > **com.inzisoft** eKYC > **drfn/dooriworld** chart data over **plain-HTTP to bare IP 218.38.18.171**
+  (cross-app hygiene: M-STOCK + 신한증권). Adtech/martech (Buzzvil/loplat/Insider/Hackle/Airbridge/AppsFlyer/PayPal/
+  Visa CBP) = lower priority, mostly known. Same one-carve-per-root full-Method flow as sdk-carve triage step 4.
+  **⭑ cross-confirmed by H-7 (2026-09-18):** the AppSuit **momo hidden DEX of 모니모** integrates **interezen
+  `II3GService`** (`getMAC`/`getAndroidID`/`getWidevineID`/`runi3GGetEXData`, server injected via AIDL `setCollServerInfo`)
+  + **dreamsecurity `magicmrs`** — i.e. IPInside device-fingerprinting is wired at the *hidden-DEX* level, not just the
+  base APK. So G-8's IPInside flag and the AppSuit deobf independently converge. Note: momo has **0 device-data source
+  in its own code** (collection lives in the interezen SDK/native lib via AIDL) — "0 source" ≠ "collects nothing".
 - [x] **G-6 신한 family full sdk-carve (2026-09-13, SHINHAN_SDK_CARVE.md)** — 5 apps: 2 carriers (신한저축 L5, 신한증권
   promoted L3→**L4 at source level** — ExFlattenNormalize defeated the `updateScript` CFO on both builds
   [819→39 / 1033→40], CFR clean, `grep Signature/verify=0`), 3 negatives (슈퍼SOL 은행/생명/카드[new]). Completed the
@@ -258,8 +273,24 @@ Spun out of G-9: the anti-analysis constructs are a study of their own. New skil
   **tool × technique compatibility matrix** (Deoptfuscator/ReDex/Simplify/jadx/Enjarify/dex2jar × flattening/bomb) —
   turns the notes into a benchmark result. Ref: Deoptfuscator (IEEE Access 2022, BH USA 2020 Arsenal; DexGuard CFF,
   not this exception-flattening), ReDex, Simplify, google/smali+dexlib2, Androguard(dex-bytecode), Enjarify, jimple2cpg.
-- [ ] **H-6 protector native-lib RE** — `libAppSuit.so` / `libeversafe.so`(+loader): RASP checks + how/where the
-  descriptor bomb is injected + AppSuit(65530) vs EverSafe(65534) param-count/scheme diff. (ghidra2cpg native track.)
+- [~] **H-6 protector native-lib RE** — **AppSuit side ✅ DONE (see H-7)**: `libAppSuit.so` unpacked (unicorn DT_INIT
+  emulation), full RASP spec extracted. **EverSafe side ⬜ pending**: `libeversafe.so`+loader not yet RE'd; the
+  AppSuit(65530) vs EverSafe(65534) param-count/scheme diff still open.
+- [x] **H-7 AppSuit full static/dynamic deobfuscation — COMPLETE (2026-09-15~18, `~/Downloads/AppSuit/analysis/
+  APPSUIT_STATIC_DEOBFUSCATION.md`; verified 2026-09-18).** 3 apps (모니모/하나원큐/신한슈퍼SOL). All 4 layers cracked:
+  (1) **DEX bomb** — `strip_d2j_bomb.py` patches proto (parameters_off:=0), 41 bombs removed, dex2jar recovers 8006
+  classes; (2) **goto-over-junk traps** — `strip_junk_traps.py`, 788K traps removed → jadx clean; (3) **STL rename** —
+  restored from Kotlin `@Metadata` (2,144 for hanaoneq; strings NOT encrypted at outer layer); (4) **libAppSuit.so** —
+  unicorn DT_INIT+init_array(42)+JNI_OnLoad emulation → code region decrypted; monimo build rodata plaintext →
+  **full RASP spec** (root/Magisk/KernelSU/zygisk, emu BlueStacks/Nox/Memu/Genymotion/QEMU, **active Frida detect via
+  127.0.0.1 WebSocket**, BLAKE3 resource-integrity, `/api/premium` license POST, custom ELF loader). **momo hidden
+  payload** decrypted all 3 apps: AES-128-CBC/PKCS#7, key=native `m(0)`/iv=`m(1)` → ZIP → DEX (1887/2069/2515 classes,
+  SHA-1+adler32 valid, evidence JSONs hash-match). momo string-vault fully decrypted (5196/4052/4221, err 0) via JVM
+  execution of the STL decryptors. **momo = DTO + string-vault + 3rd-party auth-SDK contracts, NOT an exec payload**
+  (0 network/shell sinks — verified 3 ways incl. positive control). **Live emulator run (verified 2026-09-18):**
+  `net.ib.android.smcard` on emulator-5554, **alive 3h34m**, RASP gates neutered (`patch_libappsuit_threads.py`:
+  pthread_create/detach→getpid), at `SelectAuthWayActivity`; FLAG_SECURE blocks screencap (= app healthy). All
+  independently re-verified (DEX validity, hash reproducibility, bomb-strip 11→0, unpack entropy drop, string counts).
 
 ---
 
